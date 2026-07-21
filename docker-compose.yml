@@ -1,0 +1,91 @@
+# Production-ready local stack: MySQL + Spring Boot backend + React/Nginx frontend.
+#
+# Usage:
+#   docker compose up --build           # build & start everything
+#   docker compose up -d --build        # detached
+#   docker compose logs -f backend      # tail a service
+#   docker compose down                 # stop (keeps DB data)
+#   docker compose down -v              # stop & wipe DB data
+#
+# URLs:
+#   Frontend  -> http://localhost:5173
+#   Backend   -> http://localhost:8081  (Swagger UI: /swagger-ui.html)
+#   MySQL     -> localhost:3306
+
+services:
+  # ---------------------------------------------------------------------------
+  # MySQL database
+  # ---------------------------------------------------------------------------
+  mysql:
+    image: mysql:8.0
+    container_name: inventory-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - inventory-net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # ---------------------------------------------------------------------------
+  # Spring Boot backend
+  # ---------------------------------------------------------------------------
+  backend:
+    build:
+      context: ./Inventory-System-New
+    container_name: inventory-backend
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      # These env vars override application.properties via Spring's relaxed
+      # binding — no source code changes required.
+      SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      INVENTORY_JWT_SECRET: ${JWT_SECRET}
+      INVENTORY_JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-3600000}
+      # Keep the in-container port at 8080 (matches the Dockerfile EXPOSE/HEALTHCHECK).
+      # The host publish port below is 8081 to match the frontend's hardcoded URL.
+      SERVER_PORT: 8080
+    ports:
+      - "${BACKEND_PORT:-8081}:8080"
+    volumes:
+      # Persist uploaded invoice files (backend writes to ./uploads/invoices).
+      - backend_uploads:/app/uploads
+    networks:
+      - inventory-net
+
+  # ---------------------------------------------------------------------------
+  # React frontend (built and served by Nginx)
+  # ---------------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./inventory-management-system-frontend
+    container_name: inventory-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+    networks:
+      - inventory-net
+
+networks:
+  inventory-net:
+    driver: bridge
+
+volumes:
+  mysql_data:
+  backend_uploads:

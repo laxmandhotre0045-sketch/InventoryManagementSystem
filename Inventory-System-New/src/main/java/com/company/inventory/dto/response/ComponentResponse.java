@@ -1,0 +1,49 @@
+package com.company.inventory.dto.response;
+
+import java.time.LocalDateTime;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+
+@Data
+@Setter
+@Getter
+@NoArgsConstructor
+@AllArgsConstructor
+public class ComponentResponse {
+
+    @Schema(description = "Component identifier", example = "1")
+    private Long id;
+
+    @Schema(description = "Unique component name", example = "ESP32")
+    private String componentName;
+
+    @Schema(description = "Category of the component", example = "Microcontroller")
+    private String category;
+
+    @Schema(description = "Quantity available in stock", example = "20")
+    private Integer quantity;
+
+    @Schema(description = "Minimum allowable stock level before low stock alert", example = "5")
+    private Integer minimumQuantity;
+
+    @Schema(description = "Unit of measurement", example = "pcs")
+    private String unit;
+
+    @Schema(description = "Component status", example = "ACTIVE")
+    private String status;
+
+    @Schema(description = "Component description", example = "32-bit microcontroller for IoT applications")
+    private String description;
+
+    @Schema(description = "Record created timestamp")
+    private LocalDateTime createdAt;
+
+    @Schema(description = "Record updated timestamp")
+    private LocalDateTime updatedAt;
+}

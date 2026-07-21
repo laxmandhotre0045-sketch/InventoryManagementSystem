@@ -1,0 +1,31 @@
+# Build output — rebuilt inside the image
+target/
+build/
+
+# Local uploads — persisted via a Docker volume instead
+uploads/
+
+# Maven wrapper internals (image builds use the maven base image)
+.mvn/wrapper/maven-wrapper.jar
+
+# IDE / editor metadata
+.idea/
+.vscode/
+.settings/
+.metadata/
+.classpath
+.project
+.factorypath
+*.iml
+*.iws
+*.ipr
+
+# VCS
+.git/
+.gitignore
+.gitattributes
+
+# Docs / misc
+HELP.md
+README.md
+*.log
