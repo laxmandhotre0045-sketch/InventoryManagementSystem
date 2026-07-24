@@ -38,6 +38,10 @@ public class Project {
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    /** Person accountable for the project. */
+    @Column(name = "project_manager", length = 120)
+    private String projectManager;
+
     private LocalDate startDate;
     private LocalDate endDate;
 

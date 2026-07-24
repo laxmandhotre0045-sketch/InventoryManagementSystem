@@ -31,6 +31,17 @@ public class ComponentItem {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /**
+     * Auto-generated business identifier (C0001, C0002, ... C10000).
+     * Assigned once on creation and never editable by users.
+     * Nullable at DDL level only so the column can be added to existing tables;
+     * it is always populated by ItemCodeGenerator on create and backfilled on startup.
+     * Immutability is enforced in the service layer: the request DTO carries no
+     * code and ComponentMapper.updateEntity never writes this field.
+     */
+    @Column(name = "item_code", unique = true, length = 20)
+    private String itemCode;
+
     @Column(name = "component_name", nullable = false, unique = true, length = 150)
     private String componentName;
 
@@ -45,6 +56,10 @@ public class ComponentItem {
 
     @Column(length = 50)
     private String unit;
+
+    /** Warehouse storage location, e.g. "Rack A-12 / Bin 04". */
+    @Column(length = 120)
+    private String location;
 
     @Column(columnDefinition = "TEXT")
     private String description;

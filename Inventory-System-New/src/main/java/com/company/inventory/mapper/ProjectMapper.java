@@ -17,6 +17,7 @@ public class ProjectMapper {
         return Project.builder()
                 .projectName(request.getProjectName())
                 .description(request.getDescription())
+                .projectManager(request.getProjectManager())
                 .startDate(request.getStartDate())
                 .endDate(request.getEndDate())
                 .status(request.getStatus() != null ? request.getStatus() : ProjectStatus.ACTIVE)
@@ -32,6 +33,7 @@ public class ProjectMapper {
         response.setId(project.getId());
         response.setProjectName(project.getProjectName());
         response.setDescription(project.getDescription());
+        response.setProjectManager(project.getProjectManager());
         response.setStartDate(project.getStartDate());
         response.setEndDate(project.getEndDate());
         response.setStatus(project.getStatus());
@@ -47,6 +49,7 @@ public class ProjectMapper {
 
         existing.setProjectName(request.getProjectName());
         existing.setDescription(request.getDescription());
+        existing.setProjectManager(request.getProjectManager());
         existing.setStartDate(request.getStartDate());
         existing.setEndDate(request.getEndDate());
         existing.setStatus(request.getStatus() != null ? request.getStatus() : ProjectStatus.ACTIVE);

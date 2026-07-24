@@ -1,14 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
-  IconButton, MenuItem, TextField, Typography, Snackbar, Alert, Grid, Paper, Table,
-  TableBody, TableCell, TableContainer, TableHead, TableRow,
+  Box, Button, Card, Dialog, DialogActions, DialogContent, DialogTitle,
+  IconButton, MenuItem, TextField, Snackbar, Alert, Grid, Tooltip,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
 } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
-import SearchIcon from '@mui/icons-material/Search';
-import AssignmentIcon from '@mui/icons-material/Assignment';
+import { Plus, Pencil, Trash2, FileBarChart, PackagePlus, FolderKanban } from 'lucide-react';
 import {
   getProjects, searchProjects, createProject, updateProject, deleteProject,
   getProjectUsageSummary, recordProjectUsage,
@@ -18,10 +14,21 @@ import { useAuth } from '../auth/AuthContext';
 import { canWrite } from '../utils/roleUtils';
 import DataTable from '../components/common/DataTable';
 import ConfirmDialog from '../components/common/ConfirmDialog';
+import { PageHeader, StatusBadge, SearchBar } from '../components/ui';
+import { colors } from '../theme/tokens';
 
 const STATUSES = ['ACTIVE', 'COMPLETED', 'ON_HOLD'];
-const emptyForm = { projectName: '', description: '', startDate: '', endDate: '', status: 'ACTIVE' };
+const emptyForm = { projectName: '', description: '', projectManager: '', startDate: '', endDate: '', status: 'ACTIVE' };
 const emptyUsage = { projectId: '', componentId: '', quantityUsed: 1, usageDate: '', remarks: '' };
+
+const projectStatus = (s) => {
+  switch (s) {
+    case 'ACTIVE': return 'active';
+    case 'COMPLETED': return 'completed';
+    case 'ON_HOLD': return 'pending';
+    default: return 'default';
+  }
+};
 
 const ProjectsPage = () => {
   const { role } = useAuth();
@@ -69,6 +76,7 @@ const ProjectsPage = () => {
     setEditId(row.id);
     setForm({
       projectName: row.projectName || '', description: row.description || '',
+      projectManager: row.projectManager || '',
       startDate: row.startDate || '', endDate: row.endDate || '', status: row.status || 'ACTIVE',
     });
     setDialogOpen(true);
@@ -134,38 +142,52 @@ const ProjectsPage = () => {
 
   const columns = [
     { field: 'projectName', headerName: 'Project' },
-    { field: 'status', headerName: 'Status', render: (row) => <Chip label={row.status} size="small" /> },
+    { field: 'status', headerName: 'Status', render: (row) => <StatusBadge status={projectStatus(row.status)} label={row.status} /> },
     { field: 'startDate', headerName: 'Start' },
     { field: 'endDate', headerName: 'End' },
   ];
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
-        <Typography variant="h5">Projects</Typography>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <TextField size="small" placeholder="Search..." value={keyword}
-            onChange={(e) => setKeyword(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && fetchData()} />
-          <Button variant="outlined" startIcon={<SearchIcon />} onClick={fetchData}>Search</Button>
-          {writeAccess && (
-            <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>Add Project</Button>
-          )}
-        </Box>
-      </Box>
+      <PageHeader
+        title="Projects"
+        subtitle="Plan projects and track component consumption across each one."
+        icon={FolderKanban}
+        breadcrumbs={[{ label: 'Manage' }, { label: 'Projects' }]}
+        actions={
+          <>
+            <SearchBar
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+              placeholder="Search projects…"
+              width={220}
+              sx={{ display: { xs: 'none', sm: 'flex' } }}
+            />
+            {writeAccess && (
+              <Button variant="contained" startIcon={<Plus size={18} />} onClick={openCreate}>Add Project</Button>
+            )}
+          </>
+        }
+      />
 
       <DataTable
         columns={columns} rows={rows} loading={loading} page={page} rowsPerPage={size}
         totalElements={total} onPageChange={setPage} onRowsPerPageChange={(s) => { setSize(s); setPage(0); }}
+        emptyState={{
+          icon: FolderKanban,
+          title: 'No projects yet',
+          description: 'Create your first project to start tracking component usage.',
+          actionLabel: writeAccess ? 'Add Project' : undefined,
+          onAction: writeAccess ? openCreate : undefined,
+        }}
         renderActions={(row) => (
-          <Box>
-            <IconButton size="small" onClick={() => viewSummary(row.id)} title="Usage summary">
-              <AssignmentIcon fontSize="small" />
-            </IconButton>
+          <Box sx={{ display: 'inline-flex', gap: 0.5 }}>
+            <Tooltip title="Usage summary"><IconButton size="small" onClick={() => viewSummary(row.id)}><FileBarChart size={17} /></IconButton></Tooltip>
             {writeAccess && (
               <>
-                <IconButton size="small" onClick={() => openUsage(row.id)} title="Assign component">+</IconButton>
-                <IconButton size="small" onClick={() => openEdit(row)}><EditIcon fontSize="small" /></IconButton>
-                <IconButton size="small" color="error" onClick={() => setDeleteId(row.id)}><DeleteIcon fontSize="small" /></IconButton>
+                <Tooltip title="Assign component"><IconButton size="small" sx={{ color: colors.primary }} onClick={() => openUsage(row.id)}><PackagePlus size={17} /></IconButton></Tooltip>
+                <Tooltip title="Edit"><IconButton size="small" onClick={() => openEdit(row)}><Pencil size={17} /></IconButton></Tooltip>
+                <Tooltip title="Delete"><IconButton size="small" sx={{ color: colors.danger }} onClick={() => setDeleteId(row.id)}><Trash2 size={17} /></IconButton></Tooltip>
               </>
             )}
           </Box>
@@ -180,18 +202,20 @@ const ProjectsPage = () => {
               onChange={(e) => setForm({ ...form, projectName: e.target.value })} /></Grid>
             <Grid item xs={12}><TextField label="Description" fullWidth multiline rows={2} value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })} /></Grid>
+            <Grid item xs={12}><TextField label="Project Manager" fullWidth placeholder="e.g. R. Deshmukh"
+              value={form.projectManager} onChange={(e) => setForm({ ...form, projectManager: e.target.value })} /></Grid>
             <Grid item xs={12} sm={6}><TextField label="Start Date" type="date" fullWidth InputLabelProps={{ shrink: true }}
               value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} /></Grid>
             <Grid item xs={12} sm={6}><TextField label="End Date" type="date" fullWidth InputLabelProps={{ shrink: true }}
               value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} /></Grid>
             <Grid item xs={12}><TextField select label="Status" fullWidth value={form.status}
               onChange={(e) => setForm({ ...form, status: e.target.value })}>
-              {STATUSES.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+              {STATUSES.map((s) => <MenuItem key={s} value={s}>{s.replace('_', ' ')}</MenuItem>)}
             </TextField></Grid>
           </Grid>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
+          <Button variant="text" onClick={() => setDialogOpen(false)}>Cancel</Button>
           <Button variant="contained" onClick={handleSave}>Save</Button>
         </DialogActions>
       </Dialog>
@@ -221,7 +245,7 @@ const ProjectsPage = () => {
           </Grid>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setUsageOpen(false)}>Cancel</Button>
+          <Button variant="text" onClick={() => setUsageOpen(false)}>Cancel</Button>
           <Button variant="contained" onClick={handleUsage}>Record Usage</Button>
         </DialogActions>
       </Dialog>
@@ -240,15 +264,15 @@ const ProjectsPage = () => {
             </Table>
           </TableContainer>
         </DialogContent>
-        <DialogActions><Button onClick={() => setSummaryOpen(false)}>Close</Button></DialogActions>
+        <DialogActions><Button variant="text" onClick={() => setSummaryOpen(false)}>Close</Button></DialogActions>
       </Dialog>
 
       <ConfirmDialog open={!!deleteId} title="Delete Project"
         message="Are you sure you want to delete this project?"
         onConfirm={handleDelete} onCancel={() => setDeleteId(null)} />
 
-      <Snackbar open={snack.open} autoHideDuration={4000} onClose={() => setSnack({ ...snack, open: false })}>
-        <Alert severity={snack.severity}>{snack.message}</Alert>
+      <Snackbar open={snack.open} autoHideDuration={4000} onClose={() => setSnack({ ...snack, open: false })} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}>
+        <Alert severity={snack.severity} variant="filled" onClose={() => setSnack({ ...snack, open: false })}>{snack.message}</Alert>
       </Snackbar>
     </Box>
   );

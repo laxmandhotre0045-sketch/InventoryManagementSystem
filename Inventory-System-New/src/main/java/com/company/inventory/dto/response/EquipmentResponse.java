@@ -12,6 +12,9 @@ public class EquipmentResponse {
     @Schema(description = "Equipment record identifier", example = "1")
     private Long id;
 
+    @Schema(description = "Auto-generated item code", example = "E0001")
+    private String itemCode;
+
     @Schema(description = "Equipment name", example = "Laptop Dell XPS 15")
     private String name;
 

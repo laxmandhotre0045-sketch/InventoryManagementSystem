@@ -33,6 +33,18 @@ public class ComponentRequest {
     @Size(max = 50, message = "Unit must be at most 50 characters")
     private String unit;
 
+    @Schema(description = "Warehouse storage location", example = "Rack A-12 / Bin 04")
+    @Size(max = 120, message = "Location must be at most 120 characters")
+    private String location;
+
+    /**
+     * Optional. When omitted on create the entity defaults to ACTIVE; when omitted
+     * on update the existing status is preserved — keeping older clients working.
+     */
+    @Schema(description = "Component status", example = "ACTIVE",
+            allowableValues = { "ACTIVE", "INACTIVE", "DISCONTINUED", "ARCHIVED" })
+    private com.company.inventory.entity.ComponentStatus status;
+
     @Schema(description = "Component description", example = "32-bit microcontroller for IoT applications")
     @Size(max = 500, message = "Description must be at most 500 characters")
     private String description;

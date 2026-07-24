@@ -19,6 +19,9 @@ public class ProjectResponse {
     @Schema(description = "Project description", example = "Monitoring vibration levels for industrial equipment")
     private String description;
 
+    @Schema(description = "Project manager", example = "R. Deshmukh")
+    private String projectManager;
+
     @Schema(description = "Project start date")
     private LocalDate startDate;
 

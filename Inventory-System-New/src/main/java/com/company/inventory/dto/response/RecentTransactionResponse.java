@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Data
 public class RecentTransactionResponse {
@@ -22,4 +23,13 @@ public class RecentTransactionResponse {
 
     @Schema(description = "Component name", example = "Resistor 10k")
     private String componentName;
+
+    @Schema(description = "User who recorded the movement", example = "admin")
+    private String createdBy;
+
+    @Schema(description = "Exact time the movement was recorded")
+    private LocalDateTime createdAt;
+
+    @Schema(description = "Remarks captured with the movement", example = "Issued to SMT line")
+    private String remarks;
 }

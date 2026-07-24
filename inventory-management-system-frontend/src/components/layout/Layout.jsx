@@ -1,26 +1,42 @@
 import { useState } from 'react';
-import { Box, Toolbar } from '@mui/material';
+import { Box } from '@mui/material';
 import { Outlet } from 'react-router-dom';
 import Navbar from './Navbar';
-import Sidebar, { DRAWER_WIDTH } from './Sidebar';
+import Sidebar, { DRAWER_WIDTH, COLLAPSED_WIDTH } from './Sidebar';
+import { colors, layout } from '../../theme/tokens';
 
 const Layout = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  const sidebarWidth = collapsed ? COLLAPSED_WIDTH : DRAWER_WIDTH;
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
-      <Navbar onMenuClick={() => setMobileOpen(true)} />
-      <Sidebar mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
+    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: colors.canvas }}>
+      <Navbar
+        onMenuClick={() => setMobileOpen(true)}
+        onToggleCollapse={() => setCollapsed((c) => !c)}
+        collapsed={collapsed}
+        sidebarWidth={sidebarWidth}
+      />
+      <Sidebar
+        mobileOpen={mobileOpen}
+        onClose={() => setMobileOpen(false)}
+        collapsed={collapsed}
+      />
       <Box
         component="main"
         sx={{
           flexGrow: 1,
-          width: { md: `calc(100% - ${DRAWER_WIDTH}px)` },
-          p: { xs: 2, md: 3 },
+          width: { md: `calc(100% - ${sidebarWidth}px)` },
+          minWidth: 0,
+          transition: 'width .2s ease',
         }}
       >
-        <Toolbar />
-        <Outlet />
+        {/* Spacer for the fixed navbar */}
+        <Box sx={{ height: layout.navbarHeight }} />
+        <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1440, mx: 'auto' }}>
+          <Outlet />
+        </Box>
       </Box>
     </Box>
   );

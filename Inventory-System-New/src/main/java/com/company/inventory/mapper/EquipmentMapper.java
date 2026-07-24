@@ -15,6 +15,7 @@ public class EquipmentMapper {
 
         EquipmentResponse response = new EquipmentResponse();
         response.setId(equipment.getId());
+        response.setItemCode(equipment.getItemCode());
         response.setName(equipment.getName());
         response.setSerialNumber(equipment.getSerialNumber());
         response.setCategory(equipment.getCategory());

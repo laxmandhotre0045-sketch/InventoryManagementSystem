@@ -20,4 +20,16 @@ public class LowStockResponse {
 
     @Schema(description = "Minimum required quantity", example = "20")
     private int minimumQuantity;
+
+    @Schema(description = "Warehouse storage location", example = "Rack A-12 / Bin 04")
+    private String location;
+
+    @Schema(description = "Unit of measurement", example = "pcs")
+    private String unit;
+
+    @Schema(description = "Most recent supplier for this component", example = "Würth Elektronik")
+    private String supplier;
+
+    @Schema(description = "Most recent purchased unit price", example = "0.15")
+    private Double lastUnitPrice;
 }

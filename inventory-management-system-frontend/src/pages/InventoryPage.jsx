@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  Box, Button, Chip, Dialog, DialogActions, DialogContent,
-  DialogTitle, Grid, MenuItem, TextField, Typography, Snackbar, Alert,
+  Box, Button, Dialog, DialogActions, DialogContent, DialogTitle,
+  Grid, MenuItem, TextField, Snackbar, Alert,
 } from '@mui/material';
+import { ArrowDownToLine, ArrowUpFromLine, Boxes } from 'lucide-react';
 import { stockIn, stockOut, getTransactionHistory } from '../api/inventoryApi';
 import { getComponents } from '../api/componentApi';
 import DataTable from '../components/common/DataTable';
+import { PageHeader, StatusBadge } from '../components/ui';
 
 const InventoryPage = () => {
   const [components, setComponents] = useState([]);
@@ -71,31 +73,33 @@ const InventoryPage = () => {
   const columns = [
     { field: 'transactionDate', headerName: 'Date' },
     {
-      field: 'transactionType',
-      headerName: 'Type',
-      render: (row) => (
-        <Chip
-          label={row.transactionType}
-          size="small"
-          color={row.transactionType === 'STOCK_IN' ? 'success' : 'warning'}
-        />
-      ),
+      field: 'transactionType', headerName: 'Type',
+      render: (row) => <StatusBadge status={row.transactionType === 'STOCK_IN' ? 'stock_in' : 'stock_out'} />,
     },
     { field: 'componentName', headerName: 'Component' },
-    { field: 'quantity', headerName: 'Quantity' },
+    { field: 'quantity', headerName: 'Quantity', align: 'right', render: (row) => <Box component="span" sx={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{Number(row.quantity).toLocaleString()}</Box> },
     { field: 'createdBy', headerName: 'By' },
     { field: 'remarks', headerName: 'Remarks' },
   ];
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h5">Inventory Transactions</Typography>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button variant="contained" color="success" onClick={() => openDialog('IN')}>Stock IN</Button>
-          <Button variant="contained" color="warning" onClick={() => openDialog('OUT')}>Stock OUT</Button>
-        </Box>
-      </Box>
+      <PageHeader
+        title="Inventory Transactions"
+        subtitle="Record stock movements and review the full transaction history."
+        icon={Boxes}
+        breadcrumbs={[{ label: 'Manage' }, { label: 'Inventory' }]}
+        actions={
+          <>
+            <Button variant="contained" color="success" startIcon={<ArrowDownToLine size={18} />} onClick={() => openDialog('IN')}>
+              Stock In
+            </Button>
+            <Button variant="contained" color="warning" startIcon={<ArrowUpFromLine size={18} />} onClick={() => openDialog('OUT')}>
+              Stock Out
+            </Button>
+          </>
+        }
+      />
 
       <DataTable
         columns={columns}
@@ -106,59 +110,45 @@ const InventoryPage = () => {
         totalElements={total}
         onPageChange={setPage}
         onRowsPerPageChange={(s) => { setSize(s); setPage(0); }}
+        emptyState={{
+          icon: Boxes,
+          title: 'No transactions yet',
+          description: 'Record a stock-in or stock-out movement to get started.',
+          actionLabel: 'Stock In',
+          onAction: () => openDialog('IN'),
+        }}
       />
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>{dialogType === 'IN' ? 'Stock IN' : 'Stock OUT'}</DialogTitle>
+        <DialogTitle>{dialogType === 'IN' ? 'Stock In' : 'Stock Out'}</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 0.5 }}>
             <Grid item xs={12}>
-              <TextField
-                select
-                label="Component"
-                fullWidth
-                required
-                value={form.componentId}
-                onChange={(e) => setForm({ ...form, componentId: e.target.value })}
-              >
+              <TextField select label="Component" fullWidth required value={form.componentId}
+                onChange={(e) => setForm({ ...form, componentId: e.target.value })}>
                 {components.map((c) => (
-                  <MenuItem key={c.id} value={c.id}>
-                    {c.componentName} (qty: {c.quantity})
-                  </MenuItem>
+                  <MenuItem key={c.id} value={c.id}>{c.componentName} (qty: {c.quantity})</MenuItem>
                 ))}
               </TextField>
             </Grid>
             <Grid item xs={12}>
-              <TextField
-                label="Quantity"
-                type="number"
-                fullWidth
-                required
-                inputProps={{ min: 1 }}
-                value={form.quantity}
-                onChange={(e) => setForm({ ...form, quantity: e.target.value })}
-              />
+              <TextField label="Quantity" type="number" fullWidth required inputProps={{ min: 1 }}
+                value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} />
             </Grid>
             <Grid item xs={12}>
-              <TextField
-                label="Remarks"
-                fullWidth
-                multiline
-                rows={2}
-                value={form.remarks}
-                onChange={(e) => setForm({ ...form, remarks: e.target.value })}
-              />
+              <TextField label="Remarks" fullWidth multiline rows={2}
+                value={form.remarks} onChange={(e) => setForm({ ...form, remarks: e.target.value })} />
             </Grid>
           </Grid>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleSubmit}>Submit</Button>
+          <Button variant="text" onClick={() => setDialogOpen(false)}>Cancel</Button>
+          <Button variant="contained" color={dialogType === 'IN' ? 'success' : 'warning'} onClick={handleSubmit}>Submit</Button>
         </DialogActions>
       </Dialog>
 
-      <Snackbar open={snack.open} autoHideDuration={4000} onClose={() => setSnack({ ...snack, open: false })}>
-        <Alert severity={snack.severity}>{snack.message}</Alert>
+      <Snackbar open={snack.open} autoHideDuration={4000} onClose={() => setSnack({ ...snack, open: false })} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}>
+        <Alert severity={snack.severity} variant="filled" onClose={() => setSnack({ ...snack, open: false })}>{snack.message}</Alert>
       </Snackbar>
     </Box>
   );

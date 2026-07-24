@@ -33,6 +33,9 @@ public class DashboardSummaryResponse {
     @Schema(description = "Total inventory value", example = "125000.50")
     private double totalInventoryValue;
 
+    @Schema(description = "ISO currency code all monetary values are expressed in", example = "INR")
+    private String currencyCode;
+
     @Schema(description = "Purchases this month", example = "12")
     private long purchasesThisMonth;
 }

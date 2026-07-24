@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 16 352 68" role="img" aria-label="SensoVibe">
+  <!--
+    Compact wordmark matching the SensoVibe reference.
+    - font-weight 700 (true Arial/Helvetica Bold). 800 would trigger *synthetic*
+      bolding, which renders wider than metrics predict and clipped the final "e".
+    - Canvas carries ~10 units of left padding and ~21 units of right padding so
+      every glyph stays fully visible even if the fallback font is slightly wider.
+    - Circle is a touch smaller than cap height and tucks tight between s | V.
+  -->
+  <text x="10" y="72" font-family="Arial, Helvetica, sans-serif" font-size="62" font-weight="700" letter-spacing="-1" fill="#16305C">Sens</text>
+  <g transform="translate(179,50)">
+    <circle cx="0" cy="0" r="18" fill="#FFFFFF" stroke="#16305C" stroke-width="3.6"/>
+    <path d="M -15 0 C -12.4 -4.5 -10.2 -4.5 -7.6 0 C -4.9 10 -2.7 10 0 0 C 2.7 -10 4.9 -10 7.6 0 C 10.2 4.5 12.4 4.5 15 0"
+          fill="none" stroke="#F5A623" stroke-width="3.1" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <text x="203" y="72" font-family="Arial, Helvetica, sans-serif" font-size="62" font-weight="700" letter-spacing="-1" fill="#16305C">Vibe</text>
+</svg>

@@ -26,16 +26,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
+    private final com.company.inventory.config.ApiProperties apiProperties;
 
-    public JwtAuthenticationFilter(JwtService jwtService, UserDetailsService userDetailsService) {
+    public JwtAuthenticationFilter(JwtService jwtService,
+                                   UserDetailsService userDetailsService,
+                                   com.company.inventory.config.ApiProperties apiProperties) {
         this.jwtService = jwtService;
         this.userDetailsService = userDetailsService;
+        this.apiProperties = apiProperties;
     }
 
     @Override
     protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
         String path = request.getServletPath();
-        return path.equals("/api/v1/auth/login")
+        return path.equals(apiProperties.getPrefix() + "/auth/login")
                 || path.startsWith("/swagger-ui")
                 || path.equals("/swagger-ui.html")
                 || path.startsWith("/v3/api-docs")

@@ -27,7 +27,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
 @RestController
-@RequestMapping("/api/v1/components")
+@RequestMapping("/components")
 @Validated
 @Tag(name = "Component Management", description = "Manage inventory components used in embedded projects")
 public class ComponentController {

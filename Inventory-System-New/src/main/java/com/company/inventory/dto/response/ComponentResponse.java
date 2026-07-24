@@ -20,6 +20,9 @@ public class ComponentResponse {
     @Schema(description = "Component identifier", example = "1")
     private Long id;
 
+    @Schema(description = "Auto-generated item code", example = "C0001")
+    private String itemCode;
+
     @Schema(description = "Unique component name", example = "ESP32")
     private String componentName;
 
@@ -34,6 +37,9 @@ public class ComponentResponse {
 
     @Schema(description = "Unit of measurement", example = "pcs")
     private String unit;
+
+    @Schema(description = "Warehouse storage location", example = "Rack A-12 / Bin 04")
+    private String location;
 
     @Schema(description = "Component status", example = "ACTIVE")
     private String status;

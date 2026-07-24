@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 @RestController
-@RequestMapping("/api/v1/purchases")
+@RequestMapping("/purchases")
 @Validated
 @Tag(name = "Purchase Management", description = "Track component purchases and upload invoices")
 public class PurchaseController {

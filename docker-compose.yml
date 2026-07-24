@@ -20,6 +20,9 @@ services:
     image: mysql:8.0
     container_name: inventory-mysql
     restart: unless-stopped
+    # Keep MySQL's footprint small for a low-RAM host.
+    command: ["--innodb-buffer-pool-size=128M", "--performance-schema=OFF"]
+    mem_limit: 640m
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ${MYSQL_DATABASE}
@@ -44,20 +47,31 @@ services:
       context: ./Inventory-System-New
     container_name: inventory-backend
     restart: unless-stopped
+    # Fixed, modest JVM heap so the backend can't balloon on a low-RAM host.
+    mem_limit: 900m
     depends_on:
       mysql:
         condition: service_healthy
     environment:
-      # These env vars override application.properties via Spring's relaxed
-      # binding — no source code changes required.
-      SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      SPRING_JPA_HIBERNATE_DDL_AUTO: update
-      INVENTORY_JWT_SECRET: ${JWT_SECRET}
-      INVENTORY_JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-3600000}
-      # Keep the in-container port at 8080 (matches the Dockerfile EXPOSE/HEALTHCHECK).
-      # The host publish port below is 8081 to match the frontend's hardcoded URL.
+      JAVA_OPTS: "-Xms256m -Xmx512m -XX:+UseContainerSupport"
+      # ---- Environment-based configuration --------------------------------
+      # Everything below is read by application.properties via ${VAR:default}.
+      # Moving to a VPS means changing .env only — never Java or properties files.
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      DB_HOST: ${DB_HOST:-mysql}
+      DB_PORT: ${DB_PORT:-3306}
+      DB_NAME: ${MYSQL_DATABASE}
+      DB_USERNAME: ${DB_USERNAME:-root}
+      DB_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      DDL_AUTO: ${DDL_AUTO:-update}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-3600000}
+      # Not needed while the SPA is served same-origin behind nginx, but set it
+      # if you ever call the API from a different domain.
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-*}
+      # API version prefix — single source of truth (see ApiVersionConfig).
+      API_VERSION: ${API_VERSION:-v1}
+      # In-container port (matches the Dockerfile EXPOSE/HEALTHCHECK).
       SERVER_PORT: 8080
     ports:
       - "${BACKEND_PORT:-8081}:8080"
@@ -75,6 +89,7 @@ services:
       context: ./inventory-management-system-frontend
     container_name: inventory-frontend
     restart: unless-stopped
+    mem_limit: 128m
     depends_on:
       - backend
     ports:

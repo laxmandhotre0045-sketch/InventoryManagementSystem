@@ -16,7 +16,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/v1/project-usage")
+@RequestMapping("/project-usage")
 @Validated
 @Tag(name = "Project Component Usage", description = "Record component consumption for projects")
 public class ProjectUsageController {

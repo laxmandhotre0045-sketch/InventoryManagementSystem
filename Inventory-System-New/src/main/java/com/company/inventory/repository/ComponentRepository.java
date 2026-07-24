@@ -34,4 +34,24 @@ public interface ComponentRepository extends JpaRepository<ComponentItem, Long>,
 
     @Query("select count(c) from ComponentItem c where c.status <> com.company.inventory.entity.ComponentStatus.ARCHIVED")
     long countNonArchived();
+
+    Optional<ComponentItem> findByItemCode(String itemCode);
+
+    List<ComponentItem> findByItemCodeIsNullOrderByIdAsc();
+
+    /**
+     * Highest numeric suffix across existing item codes (e.g. "C10000" -> 10000).
+     * Compared numerically, so numbering continues correctly past C9999.
+     */
+    @Query(value = "SELECT COALESCE(MAX(CAST(SUBSTRING(item_code, 2) AS UNSIGNED)), 0) "
+            + "FROM components WHERE item_code REGEXP '^C[0-9]+$'", nativeQuery = true)
+    long findMaxItemCodeNumber();
+
+    // Current stock value = sum of (on-hand quantity x average purchased unit price) per component.
+    @Query(value = "SELECT COALESCE(SUM(c.quantity * p.avg_price), 0) "
+            + "FROM components c "
+            + "JOIN (SELECT component_id, AVG(unit_price) AS avg_price FROM purchase_items GROUP BY component_id) p "
+            + "ON p.component_id = c.id "
+            + "WHERE c.status <> 'ARCHIVED'", nativeQuery = true)
+    double sumInventoryValue();
 }

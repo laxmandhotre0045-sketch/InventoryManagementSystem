@@ -41,6 +41,11 @@ public class DashboardServiceImpl implements DashboardService {
     private final PurchaseRepository purchaseRepository;
     private final InventoryTransactionRepository transactionRepository;
     private final ProjectComponentUsageRepository projectComponentUsageRepository;
+    private final com.company.inventory.repository.PurchaseItemRepository purchaseItemRepository;
+
+    /** ISO code that all monetary values in this system are expressed in. */
+    @org.springframework.beans.factory.annotation.Value("${app.currency.code:INR}")
+    private String currencyCode;
 
     @Override
     public DashboardSummaryResponse getDashboardSummary() {
@@ -54,10 +59,10 @@ public class DashboardServiceImpl implements DashboardService {
         response.setOutOfStockComponents(componentRepository.countOutOfStock());
         response.setTotalAvailableStock(componentRepository.sumTotalAvailableStock());
         response.setPurchasesThisMonth(purchaseRepository.countPurchasesThisMonth());
-        // For total inventory value, it would require multiplying quantity by price if price existed, 
-        // since it doesn't currently, we will default to 0 or leave it for future implementation.
-        response.setTotalInventoryValue(0.0);
-        
+        // Current stock value: on-hand quantity x average purchased unit price per component.
+        response.setTotalInventoryValue(componentRepository.sumInventoryValue());
+        response.setCurrencyCode(currencyCode);
+
         return response;
     }
 
@@ -111,6 +116,11 @@ public class DashboardServiceImpl implements DashboardService {
         response.setCategory(item.getCategory());
         response.setQuantity(item.getQuantity());
         response.setMinimumQuantity(item.getMinimumQuantity());
+        response.setLocation(item.getLocation());
+        response.setUnit(item.getUnit());
+        response.setSupplier(purchaseItemRepository.findLatestSupplierByComponentId(item.getId()));
+        java.math.BigDecimal price = purchaseItemRepository.findLatestUnitPriceByComponentId(item.getId());
+        response.setLastUnitPrice(price != null ? price.doubleValue() : null);
         return response;
     }
 
@@ -130,6 +140,9 @@ public class DashboardServiceImpl implements DashboardService {
         response.setTransactionDate(transaction.getTransactionDate());
         response.setQuantity(transaction.getQuantity());
         response.setComponentName(transaction.getComponent() != null ? transaction.getComponent().getComponentName() : null);
+        response.setCreatedBy(transaction.getCreatedBy());
+        response.setCreatedAt(transaction.getCreatedAt());
+        response.setRemarks(transaction.getRemarks());
         return response;
     }
 

@@ -35,15 +35,19 @@ public class ComponentServiceImpl implements ComponentService {
     private final PurchaseItemRepository purchaseItemRepository;
     private final ProjectComponentUsageRepository projectComponentUsageRepository;
 
+    private final com.company.inventory.service.ItemCodeGenerator itemCodeGenerator;
+
     public ComponentServiceImpl(ComponentRepository componentRepository, ComponentMapper componentMapper,
                                 InventoryTransactionRepository transactionRepository,
                                 PurchaseItemRepository purchaseItemRepository,
-                                ProjectComponentUsageRepository projectComponentUsageRepository) {
+                                ProjectComponentUsageRepository projectComponentUsageRepository,
+                                com.company.inventory.service.ItemCodeGenerator itemCodeGenerator) {
         this.componentRepository = componentRepository;
         this.componentMapper = componentMapper;
         this.transactionRepository = transactionRepository;
         this.purchaseItemRepository = purchaseItemRepository;
         this.projectComponentUsageRepository = projectComponentUsageRepository;
+        this.itemCodeGenerator = itemCodeGenerator;
     }
 
     @Override
@@ -54,6 +58,8 @@ public class ComponentServiceImpl implements ComponentService {
                 });
 
         ComponentItem entity = componentMapper.toEntity(request);
+        // Item code is system-assigned on creation and never taken from the request.
+        entity.setItemCode(itemCodeGenerator.nextComponentCode());
         ComponentItem saved = componentRepository.save(entity);
         return componentMapper.toResponse(saved);
     }
@@ -150,7 +156,9 @@ public class ComponentServiceImpl implements ComponentService {
 
             if (keyword != null && !keyword.isBlank()) {
                 String pattern = "%" + keyword.toLowerCase().trim() + "%";
+                // One search box matches item code, name, or category.
                 predicates.add(cb.or(
+                        cb.like(cb.lower(root.get("itemCode")), pattern),
                         cb.like(cb.lower(root.get("componentName")), pattern),
                         cb.like(cb.lower(root.get("category")), pattern)
                 ));

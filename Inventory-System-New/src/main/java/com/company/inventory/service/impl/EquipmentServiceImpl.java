@@ -27,14 +27,20 @@ public class EquipmentServiceImpl implements EquipmentService {
     private final EquipmentRepository equipmentRepository;
     private final EquipmentMapper equipmentMapper;
 
-    public EquipmentServiceImpl(EquipmentRepository equipmentRepository, EquipmentMapper equipmentMapper) {
+    private final com.company.inventory.service.ItemCodeGenerator itemCodeGenerator;
+
+    public EquipmentServiceImpl(EquipmentRepository equipmentRepository, EquipmentMapper equipmentMapper,
+                                com.company.inventory.service.ItemCodeGenerator itemCodeGenerator) {
         this.equipmentRepository = equipmentRepository;
         this.equipmentMapper = equipmentMapper;
+        this.itemCodeGenerator = itemCodeGenerator;
     }
 
     @Override
     public EquipmentResponse createEquipment(EquipmentRequest request) {
         Equipment equipment = equipmentMapper.toEntity(request);
+        // Item code is system-assigned on creation and never taken from the request.
+        equipment.setItemCode(itemCodeGenerator.nextEquipmentCode());
         Equipment saved = equipmentRepository.save(equipment);
         return equipmentMapper.toResponse(saved);
     }
@@ -87,6 +93,7 @@ public class EquipmentServiceImpl implements EquipmentService {
             if (keyword != null && !keyword.isBlank()) {
                 String pattern = "%" + keyword.toLowerCase().trim() + "%";
                 predicates.add(criteriaBuilder.or(
+                        criteriaBuilder.like(criteriaBuilder.lower(root.get("itemCode")), pattern),
                         criteriaBuilder.like(criteriaBuilder.lower(root.get("name")), pattern),
                         criteriaBuilder.like(criteriaBuilder.lower(root.get("serialNumber")), pattern)
                 ));

@@ -30,6 +30,14 @@ public class Equipment {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /**
+     * Auto-generated business identifier (E0001, E0002, ... E10000).
+     * Assigned once on creation and never editable by users (the request DTO
+     * carries no code and EquipmentMapper.updateEntity never writes this field).
+     */
+    @Column(name = "item_code", unique = true, length = 20)
+    private String itemCode;
+
     @Column(nullable = false, length = 150)
     private String name;
 

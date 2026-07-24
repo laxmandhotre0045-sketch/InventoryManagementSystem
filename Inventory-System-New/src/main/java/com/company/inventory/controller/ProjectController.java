@@ -17,7 +17,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/v1/projects")
+@RequestMapping("/projects")
 @Validated
 @Tag(name = "Project Management", description = "Manage projects and track project metadata")
 public class ProjectController {

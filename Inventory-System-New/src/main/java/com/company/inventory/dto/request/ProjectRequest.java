@@ -21,6 +21,10 @@ public class ProjectRequest {
     @Size(max = 1000, message = "Description must be at most 1000 characters")
     private String description;
 
+    @Schema(description = "Project manager", example = "R. Deshmukh")
+    @Size(max = 120, message = "Project manager must be at most 120 characters")
+    private String projectManager;
+
     @Schema(description = "Project start date")
     private LocalDate startDate;
 

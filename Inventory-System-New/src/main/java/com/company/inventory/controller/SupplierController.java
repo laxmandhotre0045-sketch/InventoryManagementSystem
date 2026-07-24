@@ -20,7 +20,7 @@ import com.company.inventory.service.SupplierService;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/api/suppliers")
+@RequestMapping("/suppliers")
 @RequiredArgsConstructor
 public class SupplierController {
 
