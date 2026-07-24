@@ -1,0 +1,46 @@
+# =============================================================================
+# Secrets — never commit real credentials
+# =============================================================================
+.env
+.env.*
+!.env.example
+
+# =============================================================================
+# Backend (Maven / Java)
+# =============================================================================
+Inventory-System-New/target/
+*.jar
+*.war
+*.class
+Inventory-System-New/.mvn/wrapper/maven-wrapper.jar
+
+# Uploaded invoice files (runtime data, kept in a Docker volume)
+Inventory-System-New/uploads/
+
+# =============================================================================
+# Frontend (Node / Vite)
+# =============================================================================
+inventory-management-system-frontend/node_modules/
+inventory-management-system-frontend/dist/
+npm-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# =============================================================================
+# IDE / editor / OS
+# =============================================================================
+.idea/
+.vscode/
+.settings/
+.metadata/
+.classpath
+.project
+.factorypath
+*.iml
+.DS_Store
+Thumbs.db
+
+# =============================================================================
+# Logs
+# =============================================================================
+*.log
