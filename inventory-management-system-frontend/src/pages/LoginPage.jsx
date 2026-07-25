@@ -63,16 +63,17 @@ const LoginPage = () => {
   };
 
   return (
-    <Box sx={{ minHeight: '100vh', display: 'flex', bgcolor: colors.canvas }}>
+    <Box sx={{ minHeight: '100dvh', display: 'flex', bgcolor: colors.canvas, overflowX: 'hidden' }}>
       {/* Left — portal identity + module index */}
       <Box
         sx={{
           display: { xs: 'none', md: 'flex' },
           flexDirection: 'column',
-          justifyContent: 'space-between',
+          justifyContent: 'center',
+          gap: 'clamp(1.5rem, 4vh, 3.5rem)',
           width: { md: '52%' },
-          px: { md: 8, lg: 11, xl: 13 },
-          py: { md: 8, lg: 9 },
+          px: 'clamp(2rem, 5vw, 6.5rem)',
+          py: 'clamp(1.75rem, 4vh, 4.5rem)',
           color: colors.textPrimary,
           position: 'relative',
           overflow: 'hidden',
@@ -152,24 +153,24 @@ const LoginPage = () => {
         </Box>
 
         <Box sx={{ position: 'relative', zIndex: 1 }}>
-          <Box component="img" src="/sensovibe-logo.svg" alt="SensoVibe" sx={{ width: '100%', maxWidth: 515, height: 'auto', display: 'block' }} />
+          <Box component="img" src="/sensovibe-logo.svg" alt="SensoVibe" sx={{ width: '100%', maxWidth: 'clamp(300px, 30vw, 515px)', height: 'auto', display: 'block' }} />
         </Box>
 
         <Box sx={{ position: 'relative', zIndex: 1 }}>
-          <Typography sx={{ fontSize: '0.8125rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: colors.textMuted, mb: 2 }}>
+          <Typography sx={{ fontSize: 'clamp(0.72rem, 0.9vw, 0.8125rem)', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: colors.textMuted, mb: 'clamp(0.75rem, 1.5vh, 1rem)' }}>
             Enterprise Inventory System
           </Typography>
-          <Typography sx={{ fontSize: { md: '2.75rem', lg: '3rem' }, fontWeight: 700, lineHeight: 1.08, letterSpacing: '-0.032em', mb: 2.5, maxWidth: 560 }}>
+          <Typography sx={{ fontSize: 'clamp(1.9rem, 3.2vw, 3rem)', fontWeight: 700, lineHeight: 1.08, letterSpacing: '-0.032em', mb: 'clamp(0.875rem, 2vh, 1.5rem)', maxWidth: 560 }}>
             Inventory Management Portal
           </Typography>
-          <Typography sx={{ fontSize: '1.1875rem', color: colors.textSecondary, mb: 7, maxWidth: 500, lineHeight: 1.7 }}>
+          <Typography sx={{ fontSize: 'clamp(1rem, 1.35vw, 1.1875rem)', color: colors.textSecondary, mb: 'clamp(1.5rem, 4vh, 3.5rem)', maxWidth: 500, lineHeight: 1.65 }}>
             Central platform for stock control, equipment records, and procurement across SensoVibe operations.
           </Typography>
 
-          <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: colors.textMuted, mb: 2.5 }}>
+          <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: colors.textMuted, mb: 'clamp(1rem, 2vh, 1.5rem)' }}>
             Core Modules
           </Typography>
-          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: 3, rowGap: 1.5, maxWidth: 580, ml: -1.75 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: 'clamp(1rem, 2vw, 3rem)', rowGap: 'clamp(0.5rem, 1.5vh, 1.5rem)', maxWidth: 580, ml: -1.75 }}>
             {modules.map((m) => (
               <Box
                 key={m.label}
@@ -198,10 +199,10 @@ const LoginPage = () => {
                   <m.icon size={19} strokeWidth={1.9} />
                 </Box>
                 <Box sx={{ minWidth: 0 }}>
-                  <Typography sx={{ fontSize: '1rem', fontWeight: 600, letterSpacing: '-0.01em', mb: 0.5 }}>
+                  <Typography sx={{ fontSize: 'clamp(0.9rem, 1.1vw, 1rem)', fontWeight: 600, letterSpacing: '-0.01em', mb: 0.5 }}>
                     {m.label}
                   </Typography>
-                  <Typography sx={{ fontSize: '0.9375rem', color: colors.textSecondary, lineHeight: 1.5 }}>
+                  <Typography sx={{ fontSize: 'clamp(0.82rem, 1vw, 0.9375rem)', color: colors.textSecondary, lineHeight: 1.45 }}>
                     {m.desc}
                   </Typography>
                 </Box>
@@ -216,16 +217,16 @@ const LoginPage = () => {
       </Box>
 
       {/* Right — sign-in card */}
-      <Box sx={{ width: { xs: '100%', md: '48%' }, flexGrow: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', p: { xs: 3, sm: 6 } }}>
-        <Box sx={{ width: '100%', maxWidth: 508 }}>
+      <Box sx={{ width: { xs: '100%', md: '48%' }, flexGrow: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', p: 'clamp(1.25rem, 3vw, 3.5rem)' }}>
+        <Box sx={{ width: '100%', maxWidth: 'clamp(340px, 40vw, 508px)' }}>
           {/* Mobile logo */}
           <Box sx={{ display: { xs: 'flex', md: 'none' }, justifyContent: 'center', mb: 4.5 }}>
-            <Box component="img" src="/sensovibe-logo.svg" alt="SensoVibe" sx={{ width: '100%', maxWidth: 260, height: 'auto' }} />
+            <Box component="img" src="/sensovibe-logo.svg" alt="SensoVibe" sx={{ width: '100%', maxWidth: 'clamp(200px, 55vw, 260px)', height: 'auto' }} />
           </Box>
 
           <Card
             sx={{
-              p: { xs: 3.5, sm: 5.5 },
+              p: 'clamp(1.5rem, 3.2vw, 3.25rem)',
               borderRadius: '24px',
               border: '1px solid rgba(34,73,127,0.09)',
               // Layered shadow: contact + mid + ambient — a refined float, not a drop
@@ -233,10 +234,10 @@ const LoginPage = () => {
                 '0 1px 2px rgba(16,24,40,0.04), 0 8px 20px rgba(16,24,40,0.04), 0 28px 56px rgba(16,24,40,0.05)',
             }}
           >
-            <Typography sx={{ fontSize: '1.75rem', fontWeight: 700, letterSpacing: '-0.025em', mb: 0.75 }}>
+            <Typography sx={{ fontSize: 'clamp(1.5rem, 2vw, 1.75rem)', fontWeight: 700, letterSpacing: '-0.025em', mb: 0.75 }}>
               Sign in
             </Typography>
-            <Typography sx={{ fontSize: '1.0625rem', color: colors.textSecondary, mb: 4, lineHeight: 1.6 }}>
+            <Typography sx={{ fontSize: 'clamp(0.95rem, 1.2vw, 1.0625rem)', color: colors.textSecondary, mb: 'clamp(1.5rem, 3vh, 2rem)', lineHeight: 1.6 }}>
               Use your SensoVibe account to continue.
             </Typography>
 
@@ -248,7 +249,7 @@ const LoginPage = () => {
                 type="email" fullWidth required placeholder="name@sensovibe.com" value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 InputProps={{ startAdornment: <InputAdornment position="start"><Mail size={18} color={colors.textMuted} /></InputAdornment> }}
-                sx={{ mb: 3.25, ...fieldSx }}
+                sx={{ mb: 'clamp(1.25rem, 2.5vh, 1.75rem)', ...fieldSx }}
               />
 
               <Typography sx={{ fontSize: '0.9375rem', fontWeight: 600, mb: 1.125 }}>Password</Typography>
@@ -265,7 +266,7 @@ const LoginPage = () => {
                     </InputAdornment>
                   ),
                 }}
-                sx={{ mb: 4.25, ...fieldSx }}
+                sx={{ mb: 'clamp(1.75rem, 3vh, 2.25rem)', ...fieldSx }}
               />
 
               <Button

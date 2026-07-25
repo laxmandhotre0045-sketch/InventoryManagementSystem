@@ -48,10 +48,20 @@ const theme = createTheme({
   components: {
     MuiCssBaseline: {
       styleOverrides: {
+        html: {
+          // Prevents mobile/embedded browsers (iOS Safari, some Android WebViews)
+          // from auto-inflating font sizes — the usual cause of "fonts look much
+          // bigger in the deployed build than in dev".
+          WebkitTextSizeAdjust: '100%',
+          textSizeAdjust: '100%',
+          // rem base stays a predictable 16px regardless of the platform.
+          fontSize: '16px',
+        },
         body: {
           backgroundColor: colors.canvas,
           color: colors.textPrimary,
           scrollBehavior: 'smooth',
+          overflowX: 'hidden',
         },
         '*::-webkit-scrollbar': { width: 10, height: 10 },
         '*::-webkit-scrollbar-track': { background: 'transparent' },
