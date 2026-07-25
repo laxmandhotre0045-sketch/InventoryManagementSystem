@@ -4,6 +4,9 @@
 .env
 .env.*
 !.env.example
+# Frontend build-time config is non-secret (Vite exposes VITE_* to the client),
+# so the committed default is allowed; local/tunnel overrides go in .env.local.
+!inventory-management-system-frontend/.env
 
 # =============================================================================
 # Backend (Maven / Java)
