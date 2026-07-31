@@ -37,4 +37,14 @@ public class PurchaseRequest {
     @NotEmpty(message = "At least one purchase item is required")
     @Valid
     private List<PurchaseItemRequest> items;
+
+    // ---- Optional: link an invoice already stored by /extract-invoice ----
+
+    @Schema(description = "Stored invoice path from /extract-invoice, to attach to this purchase",
+            example = "uploads/invoices/ab12.pdf")
+    @Size(max = 255)
+    private String invoiceFilePath;
+
+    @Schema(description = "Extraction record id from /extract-invoice, marked CONFIRMED on save", example = "42")
+    private Long extractionId;
 }

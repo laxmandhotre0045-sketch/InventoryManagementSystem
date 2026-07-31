@@ -16,3 +16,18 @@ export const uploadInvoice = (id, file) => {
     headers: { 'Content-Type': 'multipart/form-data' },
   }).then((r) => r.data);
 };
+
+// Upload an invoice and get back structured, editable data from the OCR provider
+// (mock today). The stored file is returned so it can be linked on confirmation.
+export const extractInvoice = (file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  return axiosClient.post('/purchases/extract-invoice', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }).then((r) => r.data);
+};
+
+// Confirm a reviewed invoice: creates approved new items, the purchase, stock-in
+// and transactions, and links the invoice — atomically on the backend.
+export const confirmInvoice = (payload) =>
+  axiosClient.post('/purchases/confirm-invoice', payload).then((r) => r.data);

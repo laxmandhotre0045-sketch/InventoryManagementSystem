@@ -17,6 +17,21 @@ const PurchasesPage = lazy(() => import('../pages/PurchasesPage'));
 const SuppliersPage = lazy(() => import('../pages/SuppliersPage'));
 const ReportsPage = lazy(() => import('../pages/ReportsPage'));
 
+// Module selection (post-login landing).
+const ModuleSelectionPage = lazy(() => import('../pages/ModuleSelectionPage'));
+
+// Book Management module — its own layout + pages, fully separate from Inventory.
+const LibraryLayout = lazy(() => import('../components/library/LibraryLayout'));
+const LibraryDashboardPage = lazy(() => import('../pages/library/LibraryDashboardPage'));
+const BooksPage = lazy(() => import('../pages/library/BooksPage'));
+const IssueBookPage = lazy(() => import('../pages/library/IssueBookPage'));
+const ReturnBookPage = lazy(() => import('../pages/library/ReturnBookPage'));
+const IssuedBooksPage = lazy(() => import('../pages/library/IssuedBooksPage'));
+const BookHistoryPage = lazy(() => import('../pages/library/BookHistoryPage'));
+const MembersPage = lazy(() => import('../pages/library/MembersPage'));
+const LibraryReportsPage = lazy(() => import('../pages/library/LibraryReportsPage'));
+const LibrarySettingsPage = lazy(() => import('../pages/library/LibrarySettingsPage'));
+
 const PageFallback = () => (
   <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 12 }}>
     <CircularProgress />
@@ -30,8 +45,20 @@ const AppRoutes = () => {
     <Routes>
       <Route
         path="/login"
-        element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginPage />}
+        element={isAuthenticated ? <Navigate to="/modules" replace /> : <LoginPage />}
       />
+
+      {/* Post-login module selection — standalone, outside any module layout */}
+      <Route
+        path="/modules"
+        element={
+          <ProtectedRoute>
+            <Suspense fallback={<PageFallback />}><ModuleSelectionPage /></Suspense>
+          </ProtectedRoute>
+        }
+      />
+
+      {/* ===== Inventory Management (existing — unchanged) ===== */}
       <Route
         element={
           <ProtectedRoute>
@@ -39,7 +66,7 @@ const AppRoutes = () => {
           </ProtectedRoute>
         }
       >
-        <Route index element={<Navigate to="/dashboard" replace />} />
+        <Route index element={<Navigate to="/modules" replace />} />
         <Route
           path="dashboard"
           element={<Suspense fallback={<PageFallback />}><DashboardPage /></Suspense>}
@@ -73,7 +100,29 @@ const AppRoutes = () => {
           element={<RoleRoute><Suspense fallback={<PageFallback />}><ReportsPage /></Suspense></RoleRoute>}
         />
       </Route>
-      <Route path="*" element={<Navigate to={isAuthenticated ? '/dashboard' : '/login'} replace />} />
+
+      {/* ===== Book Management (new — separate layout) ===== */}
+      <Route
+        path="/library"
+        element={
+          <ProtectedRoute>
+            <Suspense fallback={<PageFallback />}><LibraryLayout /></Suspense>
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<Navigate to="/library/dashboard" replace />} />
+        <Route path="dashboard" element={<Suspense fallback={<PageFallback />}><LibraryDashboardPage /></Suspense>} />
+        <Route path="books" element={<Suspense fallback={<PageFallback />}><BooksPage /></Suspense>} />
+        <Route path="issue" element={<Suspense fallback={<PageFallback />}><IssueBookPage /></Suspense>} />
+        <Route path="return" element={<Suspense fallback={<PageFallback />}><ReturnBookPage /></Suspense>} />
+        <Route path="issued" element={<Suspense fallback={<PageFallback />}><IssuedBooksPage /></Suspense>} />
+        <Route path="history" element={<Suspense fallback={<PageFallback />}><BookHistoryPage /></Suspense>} />
+        <Route path="members" element={<Suspense fallback={<PageFallback />}><MembersPage /></Suspense>} />
+        <Route path="reports" element={<Suspense fallback={<PageFallback />}><LibraryReportsPage /></Suspense>} />
+        <Route path="settings" element={<Suspense fallback={<PageFallback />}><LibrarySettingsPage /></Suspense>} />
+      </Route>
+
+      <Route path="*" element={<Navigate to={isAuthenticated ? '/modules' : '/login'} replace />} />
     </Routes>
   );
 };

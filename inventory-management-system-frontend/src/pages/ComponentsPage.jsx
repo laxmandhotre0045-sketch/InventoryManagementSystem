@@ -90,8 +90,9 @@ const ComponentsPage = () => {
   const handleSave = async () => {
     try {
       // itemCode is system-generated — never sent to the API.
-      const { itemCode, ...rest } = form;
-      const payload = { ...rest, quantity: Number(form.quantity), minimumQuantity: Number(form.minimumQuantity) };
+      // itemCode is system-generated — never sent to the API.
+      const payload = { ...form, quantity: Number(form.quantity), minimumQuantity: Number(form.minimumQuantity) };
+      delete payload.itemCode;
       if (editId) {
         await updateComponent(editId, payload);
         setSnack({ open: true, message: 'Component updated', severity: 'success' });

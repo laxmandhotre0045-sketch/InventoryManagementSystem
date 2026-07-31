@@ -82,7 +82,8 @@ const EquipmentPage = () => {
   const handleSave = async () => {
     try {
       // itemCode is system-generated — never sent to the API.
-      const { itemCode, ...payload } = form;
+      const payload = { ...form };
+      delete payload.itemCode;
       if (editId) {
         await updateEquipment(editId, payload);
         setSnack({ open: true, message: 'Equipment updated', severity: 'success' });

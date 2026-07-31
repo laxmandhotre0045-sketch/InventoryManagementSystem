@@ -1,11 +1,14 @@
 package com.company.inventory.controller;
 
 import com.company.inventory.dto.request.PurchaseRequest;
+import com.company.inventory.dto.request.ConfirmInvoiceRequest;
 import com.company.inventory.dto.response.ApiResponse;
 import com.company.inventory.dto.response.PagedResponse;
 import com.company.inventory.dto.response.PurchaseResponse;
 import com.company.inventory.dto.response.PurchaseSummaryResponse;
+import com.company.inventory.dto.response.ExtractInvoiceResponse;
 import com.company.inventory.service.PurchaseService;
+import com.company.inventory.service.InvoiceExtractionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -24,9 +27,37 @@ import org.springframework.web.multipart.MultipartFile;
 public class PurchaseController {
 
     private final PurchaseService purchaseService;
+    private final InvoiceExtractionService invoiceExtractionService;
 
-    public PurchaseController(PurchaseService purchaseService) {
+    public PurchaseController(PurchaseService purchaseService,
+                             InvoiceExtractionService invoiceExtractionService) {
         this.purchaseService = purchaseService;
+        this.invoiceExtractionService = invoiceExtractionService;
+    }
+
+    @Operation(summary = "Upload an invoice and get structured (mock) extracted data",
+            description = "Stores the invoice and returns editable structured data from the active OCR provider. "
+                    + "The provider is pluggable — the mock is replaced later without changing this endpoint.")
+    @PostMapping(value = "/extract-invoice", consumes = "multipart/form-data")
+    public ResponseEntity<ApiResponse<ExtractInvoiceResponse>> extractInvoice(
+            @RequestParam("file") MultipartFile file,
+            Authentication authentication) {
+        String username = authentication != null ? authentication.getName() : "SYSTEM";
+        ExtractInvoiceResponse response = invoiceExtractionService.extractInvoice(file, username);
+        return ResponseEntity.ok(ApiResponse.success("Invoice extracted successfully", response));
+    }
+
+    @Operation(summary = "Confirm a reviewed invoice and create the purchase atomically",
+            description = "Creates any approved new components/equipment, the purchase, stock-in and "
+                    + "transactions, and links the invoice — all in one transaction (all-or-nothing).")
+    @PostMapping("/confirm-invoice")
+    public ResponseEntity<ApiResponse<PurchaseResponse>> confirmInvoice(
+            @Valid @RequestBody ConfirmInvoiceRequest request,
+            Authentication authentication) {
+        String username = authentication != null ? authentication.getName() : "SYSTEM";
+        PurchaseResponse response = purchaseService.confirmInvoicePurchase(request, username);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Purchase created from invoice", response));
     }
 
     @Operation(summary = "Create a purchase record")

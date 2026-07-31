@@ -4,7 +4,7 @@ import {
   MenuItem, Divider, ListItemIcon, Tooltip, useTheme, useMediaQuery,
 } from '@mui/material';
 import { Menu as MenuIcon, PanelLeftClose, PanelLeft, Bell, Search, LogOut, User, Settings, CalendarDays } from 'lucide-react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
 import SearchBar from '../ui/SearchBar';
 import { colors, layout } from '../../theme/tokens';
@@ -23,7 +23,6 @@ const ROUTE_TITLES = {
 const Navbar = ({ onMenuClick, onToggleCollapse, collapsed, sidebarWidth }) => {
   const { email, role, logout } = useAuth();
   const location = useLocation();
-  const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [anchorEl, setAnchorEl] = useState(null);

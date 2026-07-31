@@ -3,13 +3,14 @@ import {
   Box, Button, Dialog, DialogActions, DialogContent, DialogTitle,
   IconButton, MenuItem, TextField, Typography, Snackbar, Alert, Grid, Divider, Tooltip,
 } from '@mui/material';
-import { Plus, Trash2, Upload, FileCheck2, ShoppingCart } from 'lucide-react';
+import { Plus, Trash2, Upload, FileCheck2, ShoppingCart, Sparkles } from 'lucide-react';
 import {
   getPurchases, searchPurchases, createPurchase, deletePurchase, uploadInvoice,
 } from '../api/purchaseApi';
 import { getComponents } from '../api/componentApi';
 import DataTable from '../components/common/DataTable';
 import ConfirmDialog from '../components/common/ConfirmDialog';
+import InvoiceUploadDialog from '../components/purchases/InvoiceUploadDialog';
 import { PageHeader, StatusBadge, SearchBar } from '../components/ui';
 import { colors } from '../theme/tokens';
 
@@ -30,6 +31,7 @@ const PurchasesPage = () => {
   const [total, setTotal] = useState(0);
   const [keyword, setKeyword] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [ocrOpen, setOcrOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [deleteId, setDeleteId] = useState(null);
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
@@ -139,11 +141,25 @@ const PurchasesPage = () => {
               width={220}
               sx={{ display: { xs: 'none', sm: 'flex' } }}
             />
+            <Button variant="outlined" startIcon={<Sparkles size={18} />} onClick={() => setOcrOpen(true)}>
+              Upload Invoice
+            </Button>
             <Button variant="contained" startIcon={<Plus size={18} />} onClick={() => { setForm(emptyForm); setDialogOpen(true); }}>
               New Purchase
             </Button>
           </>
         }
+      />
+
+      <InvoiceUploadDialog
+        open={ocrOpen}
+        onClose={() => setOcrOpen(false)}
+        components={components}
+        onCreated={(message) => {
+          setSnack({ open: true, message, severity: 'success' });
+          fetchData();
+          getComponents({ page: 0, size: 500 }).then((r) => setComponents(r.data?.content || []));
+        }}
       />
 
       <DataTable

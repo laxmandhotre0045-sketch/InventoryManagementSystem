@@ -44,6 +44,9 @@ public class PurchaseServiceImpl implements PurchaseService {
     private final SupplierRepository supplierRepository;
     private final FileStorageService fileStorageService;
     private final PurchaseMapper purchaseMapper;
+    private final com.company.inventory.service.InvoiceExtractionService invoiceExtractionService;
+    private final com.company.inventory.repository.EquipmentRepository equipmentRepository;
+    private final com.company.inventory.service.ItemCodeGenerator itemCodeGenerator;
 
     public PurchaseServiceImpl(PurchaseRepository purchaseRepository,
                                PurchaseItemRepository purchaseItemRepository,
@@ -51,7 +54,10 @@ public class PurchaseServiceImpl implements PurchaseService {
                                InventoryTransactionRepository transactionRepository,
                                SupplierRepository supplierRepository,
                                FileStorageService fileStorageService,
-                               PurchaseMapper purchaseMapper) {
+                               PurchaseMapper purchaseMapper,
+                               com.company.inventory.service.InvoiceExtractionService invoiceExtractionService,
+                               com.company.inventory.repository.EquipmentRepository equipmentRepository,
+                               com.company.inventory.service.ItemCodeGenerator itemCodeGenerator) {
         this.purchaseRepository = purchaseRepository;
         this.purchaseItemRepository = purchaseItemRepository;
         this.componentRepository = componentRepository;
@@ -59,6 +65,141 @@ public class PurchaseServiceImpl implements PurchaseService {
         this.supplierRepository = supplierRepository;
         this.fileStorageService = fileStorageService;
         this.purchaseMapper = purchaseMapper;
+        this.invoiceExtractionService = invoiceExtractionService;
+        this.equipmentRepository = equipmentRepository;
+        this.itemCodeGenerator = itemCodeGenerator;
+    }
+
+    /**
+     * Finalise a reviewed invoice as one atomic unit. The class-level
+     * {@code @Transactional} guarantees that if any step fails (e.g. a duplicate
+     * name, a bad quantity), every change — new components/equipment, the
+     * purchase, stock increments and transactions — rolls back together, leaving
+     * inventory consistent.
+     */
+    @Override
+    public PurchaseResponse confirmInvoicePurchase(
+            com.company.inventory.dto.request.ConfirmInvoiceRequest request, String username) {
+
+        Purchase purchase = new Purchase();
+        purchase.setSupplierName(request.getSupplierName());
+        purchase.setInvoiceNumber(request.getInvoiceNumber());
+        purchase.setPurchaseDate(request.getPurchaseDate() != null ? request.getPurchaseDate() : LocalDate.now());
+        purchase.setRemarks(request.getRemarks());
+        purchase.setCreatedBy(username);
+        purchase.setInvoiceProcessingStatus(com.company.inventory.entity.InvoiceProcessingStatus.UPLOADED);
+        if (request.getInvoiceFilePath() != null && !request.getInvoiceFilePath().isBlank()) {
+            purchase.setInvoiceFilePath(request.getInvoiceFilePath());
+        }
+
+        BigDecimal totalAmount = BigDecimal.ZERO;
+        List<PurchaseItem> items = new java.util.ArrayList<>();
+
+        // Seed running item-code counters from the current maxima and increment
+        // locally per newly created item. This assigns C####/E#### codes to items
+        // created here (previously they were saved code-less) and cannot collide
+        // even when several new items are created in the same invoice.
+        long compCodeNum = itemCodeGenerator.currentComponentNumber();
+        long equipCodeNum = itemCodeGenerator.currentEquipmentNumber();
+
+        for (com.company.inventory.dto.request.ConfirmInvoiceItemRequest line : request.getItems()) {
+            com.company.inventory.dto.request.ItemResolution res = line.getResolution();
+            if (res == null || res == com.company.inventory.dto.request.ItemResolution.SKIP) {
+                continue;
+            }
+
+            // Equipment lines register an asset but never affect stock or the purchase items.
+            if (res == com.company.inventory.dto.request.ItemResolution.NEW_EQUIPMENT) {
+                String eqName = requireName(line, "register new equipment");
+                equipmentRepository.save(com.company.inventory.entity.Equipment.builder()
+                        .itemCode(itemCodeGenerator.buildCode(
+                                com.company.inventory.service.ItemCodeGenerator.EQUIPMENT_PREFIX, ++equipCodeNum))
+                        .name(eqName)
+                        .serialNumber(line.getSerialNumber())
+                        .category(line.getCategory())
+                        .manufacturer(line.getManufacturer())
+                        .status("ACTIVE")
+                        .build());
+                continue;
+            }
+            if (res == com.company.inventory.dto.request.ItemResolution.EXISTING_EQUIPMENT) {
+                if (line.getEquipmentId() == null || !equipmentRepository.existsById(line.getEquipmentId())) {
+                    throw new ResourceNotFoundException("Equipment not found with id: " + line.getEquipmentId());
+                }
+                continue;
+            }
+
+            // Component lines: resolve an existing component or create a new one (with an item code), then stock-in.
+            ComponentItem component;
+            if (res == com.company.inventory.dto.request.ItemResolution.EXISTING_COMPONENT) {
+                component = componentRepository.findById(line.getComponentId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Component not found with id: " + line.getComponentId()));
+            } else {
+                String name = requireName(line, "create a new component");
+                ComponentItem existing = componentRepository.findByComponentName(name).orElse(null);
+                if (existing != null) {
+                    component = existing; // reuse — don't consume a code number
+                } else {
+                    component = componentRepository.save(ComponentItem.builder()
+                            .itemCode(itemCodeGenerator.buildCode(
+                                    com.company.inventory.service.ItemCodeGenerator.COMPONENT_PREFIX, ++compCodeNum))
+                            .componentName(name)
+                            .category(line.getCategory())
+                            .quantity(0)
+                            .minimumQuantity(0)
+                            .unit(line.getUnit() != null ? line.getUnit() : "pcs")
+                            .status(com.company.inventory.entity.ComponentStatus.ACTIVE)
+                            .build());
+                }
+            }
+
+            if (line.getQuantity() == null || line.getQuantity() <= 0) {
+                throw new IllegalArgumentException("Quantity must be greater than 0 for " + component.getComponentName());
+            }
+            if (line.getUnitPrice() == null || line.getUnitPrice().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException("Unit price must be greater than 0 for " + component.getComponentName());
+            }
+
+            BigDecimal totalPrice = line.getUnitPrice().multiply(BigDecimal.valueOf(line.getQuantity()));
+            totalAmount = totalAmount.add(totalPrice);
+
+            component.setQuantity(component.getQuantity() + line.getQuantity());
+            componentRepository.save(component);
+
+            transactionRepository.save(InventoryTransaction.builder()
+                    .component(component)
+                    .transactionType(TransactionType.STOCK_IN)
+                    .quantity(line.getQuantity())
+                    .remarks("Invoice stock in: " + request.getInvoiceNumber())
+                    .createdBy(username)
+                    .build());
+
+            items.add(PurchaseItem.builder()
+                    .purchase(purchase)
+                    .component(component)
+                    .quantity(line.getQuantity())
+                    .unitPrice(line.getUnitPrice())
+                    .totalPrice(totalPrice)
+                    .build());
+        }
+
+        if (items.isEmpty()) {
+            throw new IllegalArgumentException("At least one component line is required to create a purchase");
+        }
+
+        purchase.setTotalAmount(totalAmount);
+        purchase.setItems(items);
+        Purchase saved = purchaseRepository.save(purchase);
+        invoiceExtractionService.markConfirmed(request.getExtractionId(), saved.getId());
+        return purchaseMapper.toResponse(saved);
+    }
+
+    private String requireName(com.company.inventory.dto.request.ConfirmInvoiceItemRequest line, String action) {
+        String name = line.getName() != null ? line.getName().trim() : null;
+        if (name == null || name.isEmpty()) {
+            throw new IllegalArgumentException("A name is required to " + action);
+        }
+        return name;
     }
 
     @Override
@@ -74,6 +215,10 @@ public class PurchaseServiceImpl implements PurchaseService {
         purchase.setRemarks(request.getRemarks());
         purchase.setCreatedBy(username);
         purchase.setInvoiceProcessingStatus(com.company.inventory.entity.InvoiceProcessingStatus.UPLOADED);
+        // Attach an invoice already stored by /extract-invoice, when provided.
+        if (request.getInvoiceFilePath() != null && !request.getInvoiceFilePath().isBlank()) {
+            purchase.setInvoiceFilePath(request.getInvoiceFilePath());
+        }
 
         BigDecimal totalAmount = BigDecimal.ZERO;
         List<PurchaseItem> items = new java.util.ArrayList<>();
@@ -116,6 +261,8 @@ public class PurchaseServiceImpl implements PurchaseService {
         purchase.setTotalAmount(totalAmount);
         purchase.setItems(items);
         Purchase savedPurchase = purchaseRepository.save(purchase);
+        // Link the extraction record (if this purchase came from an uploaded invoice).
+        invoiceExtractionService.markConfirmed(request.getExtractionId(), savedPurchase.getId());
         return purchaseMapper.toResponse(savedPurchase);
     }
 

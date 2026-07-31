@@ -54,7 +54,7 @@ const LoginPage = () => {
     setLoading(true);
     try {
       await login(email, password);
-      navigate('/dashboard', { replace: true });
+      navigate('/modules', { replace: true });
     } catch (err) {
       setError(err.response?.data?.message || 'Invalid email or password');
     } finally {
@@ -63,7 +63,7 @@ const LoginPage = () => {
   };
 
   return (
-    <Box sx={{ minHeight: '100dvh', display: 'flex', bgcolor: colors.canvas, overflowX: 'hidden' }}>
+    <Box sx={{ height: '100dvh', display: 'flex', bgcolor: colors.canvas, overflow: 'hidden' }}>
       {/* Left — portal identity + module index */}
       <Box
         sx={{
@@ -73,10 +73,12 @@ const LoginPage = () => {
           gap: 'clamp(1.5rem, 4vh, 3.5rem)',
           width: { md: '52%' },
           px: 'clamp(2rem, 5vw, 6.5rem)',
-          py: 'clamp(1.75rem, 4vh, 4.5rem)',
+          py: 'clamp(1.5rem, 3.5vh, 4rem)',
           color: colors.textPrimary,
           position: 'relative',
-          overflow: 'hidden',
+          minHeight: 0,
+          overflowX: 'hidden',
+          overflowY: 'auto',
           borderRight: `1px solid ${colors.border}`,
           bgcolor: '#FAF9F6',
           // Blueprint grid kept as faint texture so the illustration reads first
@@ -217,16 +219,16 @@ const LoginPage = () => {
       </Box>
 
       {/* Right — sign-in card */}
-      <Box sx={{ width: { xs: '100%', md: '48%' }, flexGrow: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', p: 'clamp(1.25rem, 3vw, 3.5rem)' }}>
+      <Box sx={{ width: { xs: '100%', md: '48%' }, flexGrow: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 0, overflowY: 'auto', p: 'clamp(1rem, 3vw, 3rem)' }}>
         <Box sx={{ width: '100%', maxWidth: 'clamp(340px, 40vw, 508px)' }}>
           {/* Mobile logo */}
-          <Box sx={{ display: { xs: 'flex', md: 'none' }, justifyContent: 'center', mb: 4.5 }}>
+          <Box sx={{ display: { xs: 'flex', md: 'none' }, justifyContent: 'center', mb: 'clamp(1rem, 3vh, 2.5rem)' }}>
             <Box component="img" src="/sensovibe-logo.svg" alt="SensoVibe" sx={{ width: '100%', maxWidth: 'clamp(200px, 55vw, 260px)', height: 'auto' }} />
           </Box>
 
           <Card
             sx={{
-              p: 'clamp(1.5rem, 3.2vw, 3.25rem)',
+              p: 'clamp(1.375rem, 2.6vw, 2.75rem)',
               borderRadius: '24px',
               border: '1px solid rgba(34,73,127,0.09)',
               // Layered shadow: contact + mid + ambient — a refined float, not a drop
@@ -237,11 +239,11 @@ const LoginPage = () => {
             <Typography sx={{ fontSize: 'clamp(1.5rem, 2vw, 1.75rem)', fontWeight: 700, letterSpacing: '-0.025em', mb: 0.75 }}>
               Sign in
             </Typography>
-            <Typography sx={{ fontSize: 'clamp(0.95rem, 1.2vw, 1.0625rem)', color: colors.textSecondary, mb: 'clamp(1.5rem, 3vh, 2rem)', lineHeight: 1.6 }}>
+            <Typography sx={{ fontSize: 'clamp(0.95rem, 1.2vw, 1.0625rem)', color: colors.textSecondary, mb: 'clamp(1rem, 2.2vh, 1.5rem)', lineHeight: 1.55 }}>
               Use your SensoVibe account to continue.
             </Typography>
 
-            {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
+            {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
             <Box component="form" onSubmit={handleSubmit}>
               <Typography sx={{ fontSize: '0.9375rem', fontWeight: 600, mb: 1.125 }}>Company Email</Typography>
@@ -249,7 +251,7 @@ const LoginPage = () => {
                 type="email" fullWidth required placeholder="name@sensovibe.com" value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 InputProps={{ startAdornment: <InputAdornment position="start"><Mail size={18} color={colors.textMuted} /></InputAdornment> }}
-                sx={{ mb: 'clamp(1.25rem, 2.5vh, 1.75rem)', ...fieldSx }}
+                sx={{ mb: 'clamp(0.875rem, 1.9vh, 1.375rem)', ...fieldSx }}
               />
 
               <Typography sx={{ fontSize: '0.9375rem', fontWeight: 600, mb: 1.125 }}>Password</Typography>
@@ -266,7 +268,7 @@ const LoginPage = () => {
                     </InputAdornment>
                   ),
                 }}
-                sx={{ mb: 'clamp(1.75rem, 3vh, 2.25rem)', ...fieldSx }}
+                sx={{ mb: 'clamp(1.25rem, 2.4vh, 1.875rem)', ...fieldSx }}
               />
 
               <Button
@@ -286,7 +288,7 @@ const LoginPage = () => {
               <Box
                 sx={{
                   display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center',
-                  columnGap: 2.25, rowGap: 1, mt: 3, color: colors.textMuted,
+                  columnGap: 2.25, rowGap: 1, mt: 'clamp(1rem, 2vh, 1.75rem)', color: colors.textMuted,
                 }}
               >
                 {trustPoints.map((t) => (
@@ -300,7 +302,7 @@ const LoginPage = () => {
           </Card>
 
           {/* Single-line internal-use footer */}
-          <Typography sx={{ mt: 3, textAlign: 'center', fontSize: '0.8125rem', color: colors.textMuted }}>
+          <Typography sx={{ mt: 'clamp(0.875rem, 1.6vh, 1.5rem)', textAlign: 'center', fontSize: '0.8125rem', color: colors.textMuted }}>
             © 2026 SensoVibe Reliability Pvt. Ltd. • Internal Use Only • {APP_VERSION}
           </Typography>
         </Box>
