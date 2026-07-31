@@ -156,11 +156,15 @@ public class ComponentServiceImpl implements ComponentService {
 
             if (keyword != null && !keyword.isBlank()) {
                 String pattern = "%" + keyword.toLowerCase().trim() + "%";
-                // One search box matches item code, name, or category.
+                // One search box matches every text field of a component:
+                // item code (part number), name, category, unit, location, description.
                 predicates.add(cb.or(
                         cb.like(cb.lower(root.get("itemCode")), pattern),
                         cb.like(cb.lower(root.get("componentName")), pattern),
-                        cb.like(cb.lower(root.get("category")), pattern)
+                        cb.like(cb.lower(root.get("category")), pattern),
+                        cb.like(cb.lower(root.get("unit")), pattern),
+                        cb.like(cb.lower(root.get("location")), pattern),
+                        cb.like(cb.lower(root.get("description")), pattern)
                 ));
             }
 

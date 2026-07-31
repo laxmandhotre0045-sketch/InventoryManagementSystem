@@ -12,6 +12,7 @@ import { canWrite } from '../utils/roleUtils';
 import DataTable from '../components/common/DataTable';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import { PageHeader, StatusBadge } from '../components/ui';
+import useDebouncedValue from '../hooks/useDebouncedValue';
 import { colors } from '../theme/tokens';
 
 const emptyForm = {
@@ -38,6 +39,7 @@ const EquipmentPage = () => {
   const [size, setSize] = useState(10);
   const [total, setTotal] = useState(0);
   const [keyword, setKeyword] = useState('');
+  const debouncedKeyword = useDebouncedValue(keyword, 300);
   const [category, setCategory] = useState('');
   const [status, setStatus] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -52,8 +54,8 @@ const EquipmentPage = () => {
       const params = { page, size, sortBy: 'name', sortDir: 'asc', category, status };
       // API responses are wrapped in an ApiResponse envelope: { success, message, data }.
       // The paged payload lives at res.data.{content,totalElements}.
-      const res = keyword.trim()
-        ? await searchEquipment({ ...params, keyword: keyword.trim() })
+      const res = debouncedKeyword.trim()
+        ? await searchEquipment({ ...params, keyword: debouncedKeyword.trim() })
         : await getEquipment(params);
       setRows(res.data?.content || []);
       setTotal(res.data?.totalElements || 0);
@@ -62,9 +64,11 @@ const EquipmentPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, size, keyword, category, status]);
+  }, [page, size, debouncedKeyword, category, status]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+  // Reset to the first page whenever the (debounced) search term changes.
+  useEffect(() => { setPage(0); }, [debouncedKeyword]);
 
   const openCreate = () => { setEditId(null); setForm(emptyForm); setDialogOpen(true); };
   const openEdit = (row) => {
@@ -144,8 +148,8 @@ const EquipmentPage = () => {
       <Card sx={{ p: 2.5, mb: 4 }}>
         <Grid container spacing={2.5} alignItems="center">
           <Grid item xs={12} sm={6} md={3}>
-            <TextField label="Search by code or name" size="small" fullWidth value={keyword}
-              placeholder="e.g. E0001 or Oscilloscope"
+            <TextField label="Search equipment" size="small" fullWidth value={keyword}
+              placeholder="Name, serial, category, location…"
               onChange={(e) => setKeyword(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && fetchData()}
               InputProps={{ startAdornment: <InputAdornment position="start"><Search size={17} color={colors.textMuted} /></InputAdornment> }} />
           </Grid>

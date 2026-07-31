@@ -64,8 +64,12 @@ public class SecurityConfig {
                                 api + "/equipment/**",
                                 api + "/components/**",
                                 api + "/projects/**",
-                                api + "/dashboard/**"
+                                api + "/dashboard/**",
+                                api + "/notifications/**",
+                                api + "/settings/**"
                         ).hasAnyRole("ADMIN", "USER")
+                        // Any authenticated user can mark their notifications read.
+                        .requestMatchers(HttpMethod.PUT, api + "/notifications/**").hasAnyRole("ADMIN", "USER")
                         .requestMatchers(api + "/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )

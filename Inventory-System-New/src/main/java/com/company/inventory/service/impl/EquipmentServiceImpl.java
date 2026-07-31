@@ -92,10 +92,16 @@ public class EquipmentServiceImpl implements EquipmentService {
 
             if (keyword != null && !keyword.isBlank()) {
                 String pattern = "%" + keyword.toLowerCase().trim() + "%";
+                // One search box matches every text field of an equipment item:
+                // item code, name, serial number, category, manufacturer, location, notes.
                 predicates.add(criteriaBuilder.or(
                         criteriaBuilder.like(criteriaBuilder.lower(root.get("itemCode")), pattern),
                         criteriaBuilder.like(criteriaBuilder.lower(root.get("name")), pattern),
-                        criteriaBuilder.like(criteriaBuilder.lower(root.get("serialNumber")), pattern)
+                        criteriaBuilder.like(criteriaBuilder.lower(root.get("serialNumber")), pattern),
+                        criteriaBuilder.like(criteriaBuilder.lower(root.get("category")), pattern),
+                        criteriaBuilder.like(criteriaBuilder.lower(root.get("manufacturer")), pattern),
+                        criteriaBuilder.like(criteriaBuilder.lower(root.get("location")), pattern),
+                        criteriaBuilder.like(criteriaBuilder.lower(root.get("notes")), pattern)
                 ));
             }
 

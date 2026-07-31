@@ -4,7 +4,7 @@ import {
 } from '@mui/material';
 import {
   LayoutDashboard, Cpu, CircuitBoard, Boxes, FolderKanban,
-  ShoppingCart, Store, BarChart3,
+  ShoppingCart, Store, BarChart3, Settings,
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
@@ -24,6 +24,7 @@ const menuItems = [
   { label: 'Purchases', path: '/purchases', icon: ShoppingCart, roles: ['ADMIN'] },
   { label: 'Suppliers', path: '/suppliers', icon: Store, roles: ['ADMIN'] },
   { label: 'Reports', path: '/reports', icon: BarChart3, roles: ['ADMIN'] },
+  { label: 'Settings', path: '/settings', icon: Settings, roles: ['ADMIN'] },
 ];
 
 const Sidebar = ({ mobileOpen, onClose, collapsed = false }) => {

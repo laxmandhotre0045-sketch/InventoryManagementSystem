@@ -7,10 +7,11 @@
 #   docker compose down                 # stop (keeps DB data)
 #   docker compose down -v              # stop & wipe DB data
 #
-# URLs:
-#   Frontend  -> http://localhost:5173
-#   Backend   -> http://localhost:8081  (Swagger UI: /swagger-ui.html)
-#   MySQL     -> localhost:3306
+# URLs (host ports chosen to avoid clashing with other stacks on the server):
+#   Frontend  -> http://localhost:8090
+#   Backend   -> http://localhost:8091  (Swagger UI: /swagger-ui.html) — bound to 127.0.0.1
+#   MySQL     -> 127.0.0.1:3310
+# All three are overridable via .env (FRONTEND_PORT / BACKEND_PORT / MYSQL_PORT).
 
 services:
   # ---------------------------------------------------------------------------
@@ -27,7 +28,8 @@ services:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ${MYSQL_DATABASE}
     ports:
-      - "${MYSQL_PORT:-3306}:3306"
+      # Bound to localhost only — for debugging/tools, not external access.
+      - "127.0.0.1:${MYSQL_PORT:-3310}:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     networks:
@@ -74,7 +76,8 @@ services:
       # In-container port (matches the Dockerfile EXPOSE/HEALTHCHECK).
       SERVER_PORT: 8080
     ports:
-      - "${BACKEND_PORT:-8081}:8080"
+      # Bound to localhost only — the SPA reaches the API through nginx internally.
+      - "127.0.0.1:${BACKEND_PORT:-8091}:8080"
     volumes:
       # Persist uploaded invoice files (backend writes to ./uploads/invoices).
       - backend_uploads:/app/uploads
@@ -93,7 +96,7 @@ services:
     depends_on:
       - backend
     ports:
-      - "${FRONTEND_PORT:-5173}:80"
+      - "${FRONTEND_PORT:-8090}:80"
     networks:
       - inventory-net
 

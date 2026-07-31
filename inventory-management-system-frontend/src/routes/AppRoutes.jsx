@@ -16,6 +16,8 @@ const ProjectsPage = lazy(() => import('../pages/ProjectsPage'));
 const PurchasesPage = lazy(() => import('../pages/PurchasesPage'));
 const SuppliersPage = lazy(() => import('../pages/SuppliersPage'));
 const ReportsPage = lazy(() => import('../pages/ReportsPage'));
+const SettingsPage = lazy(() => import('../pages/SettingsPage'));
+const NotificationsPage = lazy(() => import('../pages/NotificationsPage'));
 
 // Module selection (post-login landing).
 const ModuleSelectionPage = lazy(() => import('../pages/ModuleSelectionPage'));
@@ -98,6 +100,14 @@ const AppRoutes = () => {
         <Route
           path="reports"
           element={<RoleRoute><Suspense fallback={<PageFallback />}><ReportsPage /></Suspense></RoleRoute>}
+        />
+        <Route
+          path="notifications"
+          element={<Suspense fallback={<PageFallback />}><NotificationsPage /></Suspense>}
+        />
+        <Route
+          path="settings"
+          element={<RoleRoute><Suspense fallback={<PageFallback />}><SettingsPage /></Suspense></RoleRoute>}
         />
       </Route>
 

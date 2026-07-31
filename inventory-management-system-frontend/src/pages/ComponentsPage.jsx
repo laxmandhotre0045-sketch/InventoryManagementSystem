@@ -12,6 +12,7 @@ import { canWrite } from '../utils/roleUtils';
 import DataTable from '../components/common/DataTable';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import { PageHeader, StatusBadge } from '../components/ui';
+import useDebouncedValue from '../hooks/useDebouncedValue';
 import { colors } from '../theme/tokens';
 
 const emptyForm = {
@@ -42,6 +43,7 @@ const ComponentsPage = () => {
   const [size, setSize] = useState(10);
   const [total, setTotal] = useState(0);
   const [keyword, setKeyword] = useState('');
+  const debouncedKeyword = useDebouncedValue(keyword, 300);
   const [category, setCategory] = useState('');
   const [status, setStatus] = useState('');
   const [stockStatus, setStockStatus] = useState('');
@@ -56,7 +58,7 @@ const ComponentsPage = () => {
     try {
       const params = {
         page, size, sortBy: 'componentName', sortDir: 'asc',
-        keyword: keyword.trim(), category, status, stockStatus,
+        keyword: debouncedKeyword.trim(), category, status, stockStatus,
       };
       // API responses are wrapped in an ApiResponse envelope: { success, message, data }.
       // The paged payload lives at res.data.{content,totalElements}.
@@ -70,9 +72,11 @@ const ComponentsPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, size, keyword, category, status, stockStatus]);
+  }, [page, size, debouncedKeyword, category, status, stockStatus]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+  // Reset to the first page whenever the (debounced) search term changes.
+  useEffect(() => { setPage(0); }, [debouncedKeyword]);
 
   const openCreate = () => { setEditId(null); setForm(emptyForm); setDialogOpen(true); };
   const openEdit = (row) => {
@@ -195,8 +199,8 @@ const ComponentsPage = () => {
       <Card sx={{ p: 2.5, mb: 4 }}>
         <Grid container spacing={2.5} alignItems="center">
           <Grid item xs={12} sm={6} md={3}>
-            <TextField label="Search by code or name" size="small" fullWidth value={keyword}
-              placeholder="e.g. C0001 or Accelerometer"
+            <TextField label="Search components" size="small" fullWidth value={keyword}
+              placeholder="Code, name, category, location…"
               onChange={(e) => setKeyword(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && fetchData()}
               InputProps={{ startAdornment: <InputAdornment position="start"><Search size={17} color={colors.textMuted} /></InputAdornment> }} />
           </Grid>

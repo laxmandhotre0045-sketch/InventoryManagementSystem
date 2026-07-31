@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import {
-  AppBar, Toolbar, Box, IconButton, Typography, Badge, Avatar, Menu,
-  MenuItem, Divider, ListItemIcon, Tooltip, useTheme, useMediaQuery,
+  AppBar, Toolbar, Box, IconButton, Typography, Avatar, Menu,
+  MenuItem, Divider, ListItemIcon, useTheme, useMediaQuery,
 } from '@mui/material';
-import { Menu as MenuIcon, PanelLeftClose, PanelLeft, Bell, Search, LogOut, User, Settings, CalendarDays } from 'lucide-react';
-import { useLocation } from 'react-router-dom';
+import { Menu as MenuIcon, PanelLeftClose, PanelLeft, Search, LogOut, User, Settings, CalendarDays } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
 import SearchBar from '../ui/SearchBar';
+import NotificationBell from '../common/NotificationBell';
 import { colors, layout } from '../../theme/tokens';
 
 const ROUTE_TITLES = {
@@ -23,6 +24,7 @@ const ROUTE_TITLES = {
 const Navbar = ({ onMenuClick, onToggleCollapse, collapsed, sidebarWidth }) => {
   const { email, role, logout } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [anchorEl, setAnchorEl] = useState(null);
@@ -76,17 +78,8 @@ const Navbar = ({ onMenuClick, onToggleCollapse, collapsed, sidebarWidth }) => {
           </IconButton>
         )}
 
-        {/* Notifications */}
-        <Tooltip title="3 new alerts">
-          <IconButton sx={{ color: colors.textSecondary }}>
-            <Badge
-              badgeContent={3}
-              sx={{ '& .MuiBadge-badge': { bgcolor: colors.accent, color: '#fff', fontSize: '0.6875rem', fontWeight: 700, minWidth: 18, height: 18, boxShadow: '0 0 0 2px #fff' } }}
-            >
-              <Bell size={21} />
-            </Badge>
-          </IconButton>
-        </Tooltip>
+        {/* Notifications — dynamic bell */}
+        <NotificationBell />
 
         {/* Profile */}
         <Box
@@ -133,7 +126,7 @@ const Navbar = ({ onMenuClick, onToggleCollapse, collapsed, sidebarWidth }) => {
             <ListItemIcon><User size={18} /></ListItemIcon>
             My Profile
           </MenuItem>
-          <MenuItem onClick={() => setAnchorEl(null)}>
+          <MenuItem onClick={() => { setAnchorEl(null); navigate('/settings'); }}>
             <ListItemIcon><Settings size={18} /></ListItemIcon>
             Settings
           </MenuItem>

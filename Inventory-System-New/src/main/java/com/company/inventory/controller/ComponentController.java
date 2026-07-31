@@ -20,6 +20,7 @@ import com.company.inventory.dto.response.ApiResponse;
 import com.company.inventory.dto.response.ComponentResponse;
 import com.company.inventory.dto.response.PagedResponse;
 import com.company.inventory.service.ComponentService;
+import com.company.inventory.service.NotificationService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -33,9 +34,12 @@ import jakarta.validation.Valid;
 public class ComponentController {
 
     private final ComponentService componentService;
+    private final NotificationService notificationService;
 
-    public ComponentController(ComponentService componentService) {
+    public ComponentController(ComponentService componentService,
+                               NotificationService notificationService) {
         this.componentService = componentService;
+        this.notificationService = notificationService;
     }
 
     @Operation(summary = "Create a component")
@@ -43,6 +47,7 @@ public class ComponentController {
     public ResponseEntity<ApiResponse<ComponentResponse>> createComponent(
             @Valid @RequestBody ComponentRequest request) {
         ComponentResponse response = componentService.createComponent(request);
+        notificationService.notifyComponentAdded(response.getId(), response.getItemCode(), response.getComponentName());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Component created successfully", response));
     }

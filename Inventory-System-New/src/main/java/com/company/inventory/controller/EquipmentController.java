@@ -17,6 +17,7 @@ import com.company.inventory.dto.response.ApiResponse;
 import com.company.inventory.dto.response.EquipmentResponse;
 import com.company.inventory.dto.response.PagedResponse;
 import com.company.inventory.service.EquipmentService;
+import com.company.inventory.service.NotificationService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -29,9 +30,12 @@ import jakarta.validation.Valid;
 public class EquipmentController {
 
     private final EquipmentService equipmentService;
+    private final NotificationService notificationService;
 
-    public EquipmentController(EquipmentService equipmentService) {
+    public EquipmentController(EquipmentService equipmentService,
+                               NotificationService notificationService) {
         this.equipmentService = equipmentService;
+        this.notificationService = notificationService;
     }
 
     @Operation(summary = "Create new equipment record")
@@ -39,6 +43,7 @@ public class EquipmentController {
     public ResponseEntity<ApiResponse<EquipmentResponse>> createEquipment(
             @Valid @RequestBody EquipmentRequest request) {
         EquipmentResponse response = equipmentService.createEquipment(request);
+        notificationService.notifyEquipmentAdded(response.getId(), response.getItemCode(), response.getName());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Equipment created successfully", response));
     }

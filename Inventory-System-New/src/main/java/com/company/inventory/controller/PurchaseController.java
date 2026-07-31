@@ -9,6 +9,7 @@ import com.company.inventory.dto.response.PurchaseSummaryResponse;
 import com.company.inventory.dto.response.ExtractInvoiceResponse;
 import com.company.inventory.service.PurchaseService;
 import com.company.inventory.service.InvoiceExtractionService;
+import com.company.inventory.service.NotificationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -28,11 +29,14 @@ public class PurchaseController {
 
     private final PurchaseService purchaseService;
     private final InvoiceExtractionService invoiceExtractionService;
+    private final NotificationService notificationService;
 
     public PurchaseController(PurchaseService purchaseService,
-                             InvoiceExtractionService invoiceExtractionService) {
+                             InvoiceExtractionService invoiceExtractionService,
+                             NotificationService notificationService) {
         this.purchaseService = purchaseService;
         this.invoiceExtractionService = invoiceExtractionService;
+        this.notificationService = notificationService;
     }
 
     @Operation(summary = "Upload an invoice and get structured (mock) extracted data",
@@ -56,6 +60,7 @@ public class PurchaseController {
             Authentication authentication) {
         String username = authentication != null ? authentication.getName() : "SYSTEM";
         PurchaseResponse response = purchaseService.confirmInvoicePurchase(request, username);
+        notificationService.notifyPurchaseCreated(response.getId(), response.getInvoiceNumber(), response.getSupplierName());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Purchase created from invoice", response));
     }
@@ -67,6 +72,7 @@ public class PurchaseController {
             Authentication authentication) {
         String username = authentication != null ? authentication.getName() : "SYSTEM";
         PurchaseResponse response = purchaseService.createPurchase(request, username);
+        notificationService.notifyPurchaseCreated(response.getId(), response.getInvoiceNumber(), response.getSupplierName());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Purchase created successfully", response));
     }
