@@ -3,7 +3,7 @@ import {
   AppBar, Toolbar, Box, IconButton, Typography, Avatar, Menu,
   MenuItem, Divider, ListItemIcon, useTheme, useMediaQuery,
 } from '@mui/material';
-import { Menu as MenuIcon, PanelLeftClose, PanelLeft, LogOut, User, LayoutGrid, CalendarDays } from 'lucide-react';
+import { Menu as MenuIcon, PanelLeftClose, PanelLeft, LogOut, LayoutGrid, CalendarDays } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
 import { colors, layout } from '../../theme/tokens';
@@ -107,10 +107,6 @@ const LibraryNavbar = ({ onMenuClick, onToggleCollapse, collapsed, sidebarWidth 
           <MenuItem onClick={() => { setAnchorEl(null); navigate('/modules'); }}>
             <ListItemIcon><LayoutGrid size={18} /></ListItemIcon>
             Switch Module
-          </MenuItem>
-          <MenuItem onClick={() => setAnchorEl(null)}>
-            <ListItemIcon><User size={18} /></ListItemIcon>
-            My Profile
           </MenuItem>
           <Divider />
           <MenuItem

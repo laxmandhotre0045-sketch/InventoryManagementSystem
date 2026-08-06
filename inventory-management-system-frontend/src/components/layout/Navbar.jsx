@@ -3,7 +3,7 @@ import {
   AppBar, Toolbar, Box, IconButton, Typography, Avatar, Menu,
   MenuItem, Divider, ListItemIcon, useTheme, useMediaQuery,
 } from '@mui/material';
-import { Menu as MenuIcon, PanelLeftClose, PanelLeft, Search, LogOut, User, Settings, CalendarDays } from 'lucide-react';
+import { Menu as MenuIcon, PanelLeftClose, PanelLeft, LogOut, LayoutGrid, Settings, CalendarDays } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
 import SearchBar from '../ui/SearchBar';
@@ -19,6 +19,8 @@ const ROUTE_TITLES = {
   '/purchases': 'Purchases',
   '/suppliers': 'Suppliers',
   '/reports': 'Reports',
+  '/notifications': 'Notifications',
+  '/settings': 'Settings',
 };
 
 const Navbar = ({ onMenuClick, onToggleCollapse, collapsed, sidebarWidth }) => {
@@ -28,11 +30,22 @@ const Navbar = ({ onMenuClick, onToggleCollapse, collapsed, sidebarWidth }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [anchorEl, setAnchorEl] = useState(null);
+  const [query, setQuery] = useState('');
 
   const pageKey = Object.keys(ROUTE_TITLES).find((k) => location.pathname.startsWith(k));
   const pageTitle = ROUTE_TITLES[pageKey] || 'Overview';
   const initial = (email || 'U').charAt(0).toUpperCase();
   const todayLabel = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+  // Global search hands the term to the Components page, which owns the real
+  // catalogue filter (code, name, category, location).
+  const submitSearch = (e) => {
+    if (e.key !== 'Enter') return;
+    const term = query.trim();
+    if (!term) return;
+    navigate(`/components?q=${encodeURIComponent(term)}`);
+    setQuery('');
+  };
 
   return (
     <AppBar
@@ -68,14 +81,17 @@ const Navbar = ({ onMenuClick, onToggleCollapse, collapsed, sidebarWidth }) => {
           <Typography sx={{ fontSize: '0.9375rem', fontWeight: 500 }}>{todayLabel}</Typography>
         </Box>
 
-        {/* Search (desktop) */}
+        {/* Search (desktop only — every page carries its own filter bar on mobile) */}
         {!isMobile && (
-          <SearchBar placeholder="Search components, equipment…" width={280} sx={{ bgcolor: colors.canvas }} />
-        )}
-        {isMobile && (
-          <IconButton sx={{ color: colors.textSecondary }}>
-            <Search size={20} />
-          </IconButton>
+          <SearchBar
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={submitSearch}
+            placeholder="Search components…"
+            width={280}
+            sx={{ bgcolor: colors.canvas }}
+            inputProps={{ 'aria-label': 'Search components' }}
+          />
         )}
 
         {/* Notifications — dynamic bell */}
@@ -122,14 +138,16 @@ const Navbar = ({ onMenuClick, onToggleCollapse, collapsed, sidebarWidth }) => {
             </Typography>
           </Box>
           <Divider />
-          <MenuItem onClick={() => setAnchorEl(null)}>
-            <ListItemIcon><User size={18} /></ListItemIcon>
-            My Profile
+          <MenuItem onClick={() => { setAnchorEl(null); navigate('/modules'); }}>
+            <ListItemIcon><LayoutGrid size={18} /></ListItemIcon>
+            Switch Module
           </MenuItem>
-          <MenuItem onClick={() => { setAnchorEl(null); navigate('/settings'); }}>
-            <ListItemIcon><Settings size={18} /></ListItemIcon>
-            Settings
-          </MenuItem>
+          {role === 'ADMIN' && (
+            <MenuItem onClick={() => { setAnchorEl(null); navigate('/settings'); }}>
+              <ListItemIcon><Settings size={18} /></ListItemIcon>
+              Settings
+            </MenuItem>
+          )}
           <Divider />
           <MenuItem
             onClick={() => { setAnchorEl(null); logout(); }}

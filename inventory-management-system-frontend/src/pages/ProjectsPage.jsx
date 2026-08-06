@@ -15,6 +15,7 @@ import { canWrite } from '../utils/roleUtils';
 import DataTable from '../components/common/DataTable';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import { PageHeader, StatusBadge, SearchBar } from '../components/ui';
+import useDebouncedValue from '../hooks/useDebouncedValue';
 import { colors } from '../theme/tokens';
 
 const STATUSES = ['ACTIVE', 'COMPLETED', 'ON_HOLD'];
@@ -40,6 +41,7 @@ const ProjectsPage = () => {
   const [size, setSize] = useState(10);
   const [total, setTotal] = useState(0);
   const [keyword, setKeyword] = useState('');
+  const debouncedKeyword = useDebouncedValue(keyword, 300);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [usageOpen, setUsageOpen] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(false);
@@ -54,8 +56,8 @@ const ProjectsPage = () => {
     setLoading(true);
     try {
       const params = { page, size, sortBy: 'projectName', sortDir: 'asc' };
-      const res = keyword.trim()
-        ? await searchProjects({ ...params, keyword: keyword.trim() })
+      const res = debouncedKeyword.trim()
+        ? await searchProjects({ ...params, keyword: debouncedKeyword.trim() })
         : await getProjects(params);
       setRows(res.data?.content || []);
       setTotal(res.data?.totalElements || 0);
@@ -64,11 +66,14 @@ const ProjectsPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, size, keyword]);
+  }, [page, size, debouncedKeyword]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+  // A new search has to start from page 1, or an existing page offset can land
+  // past the end of the filtered result set and show an empty table.
+  useEffect(() => { setPage(0); }, [debouncedKeyword]);
   useEffect(() => {
-    getComponents({ page: 0, size: 500 }).then((r) => setComponents(r.data?.content || []));
+    getComponents({ page: 0, size: 500 }).then((r) => setComponents(r.data?.content || [])).catch(() => {});
   }, []);
 
   const openCreate = () => { setEditId(null); setForm(emptyForm); setDialogOpen(true); };

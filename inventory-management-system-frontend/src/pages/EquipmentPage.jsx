@@ -20,6 +20,23 @@ const emptyForm = {
   purchaseDate: '', warrantyExpiry: '', status: 'ACTIVE', location: '', notes: '',
 };
 
+// Free-text fields in the add/edit dialog. `status` is deliberately NOT here — it
+// maps to a backend enum, so it gets its own Select below.
+const TEXT_FIELDS = [
+  { key: 'name', label: 'Name', required: true },
+  { key: 'serialNumber', label: 'Serial Number' },
+  { key: 'category', label: 'Category' },
+  { key: 'manufacturer', label: 'Manufacturer' },
+  { key: 'location', label: 'Location', placeholder: 'e.g. Lab 2 / Bench 4' },
+];
+
+const STATUS_OPTIONS = [
+  { value: 'ACTIVE', label: 'Active' },
+  { value: 'INACTIVE', label: 'Inactive' },
+  { value: 'MAINTENANCE', label: 'Maintenance' },
+  { value: 'RETIRED', label: 'Retired' },
+];
+
 const equipmentStatus = (s) => {
   switch (s) {
     case 'ACTIVE': return 'active';
@@ -161,10 +178,7 @@ const EquipmentPage = () => {
             <TextField label="Status" size="small" fullWidth select value={status}
               onChange={(e) => setStatus(e.target.value)}>
               <MenuItem value="">All</MenuItem>
-              <MenuItem value="ACTIVE">Active</MenuItem>
-              <MenuItem value="INACTIVE">Inactive</MenuItem>
-              <MenuItem value="MAINTENANCE">Maintenance</MenuItem>
-              <MenuItem value="RETIRED">Retired</MenuItem>
+              {STATUS_OPTIONS.map((s) => <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>)}
             </TextField>
           </Grid>
           <Grid item xs={12} md={3} sx={{ display: 'flex', justifyContent: { xs: 'flex-start', md: 'flex-end' }, gap: 1.25 }}>
@@ -203,15 +217,22 @@ const EquipmentPage = () => {
                 helperText="System-generated and cannot be edited."
               />
             </Grid>
-            {['name', 'serialNumber', 'category', 'manufacturer', 'status', 'location'].map((field) => (
-              <Grid item xs={12} sm={6} key={field}>
+            {TEXT_FIELDS.map((field) => (
+              <Grid item xs={12} sm={6} key={field.key}>
                 <TextField
-                  label={field.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase())}
-                  fullWidth required={field === 'name'}
-                  value={form[field]} onChange={(e) => setForm({ ...form, [field]: e.target.value })}
+                  label={field.label}
+                  placeholder={field.placeholder}
+                  fullWidth required={field.required}
+                  value={form[field.key]} onChange={(e) => setForm({ ...form, [field.key]: e.target.value })}
                 />
               </Grid>
             ))}
+            <Grid item xs={12} sm={6}>
+              <TextField select label="Status" fullWidth value={form.status}
+                onChange={(e) => setForm({ ...form, status: e.target.value })}>
+                {STATUS_OPTIONS.map((s) => <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>)}
+              </TextField>
+            </Grid>
             <Grid item xs={12} sm={6}>
               <TextField label="Purchase Date" type="date" fullWidth InputLabelProps={{ shrink: true }}
                 value={form.purchaseDate} onChange={(e) => setForm({ ...form, purchaseDate: e.target.value })} />

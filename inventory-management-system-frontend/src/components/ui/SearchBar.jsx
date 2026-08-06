@@ -3,7 +3,7 @@ import { Search } from 'lucide-react';
 import { colors } from '../../theme/tokens';
 
 // Reusable rounded search input with a leading icon.
-const SearchBar = ({ value, onChange, placeholder = 'Search…', width = 280, sx }) => (
+const SearchBar = ({ value, onChange, onKeyDown, placeholder = 'Search…', width = 280, sx, inputProps }) => (
   <Box
     sx={{
       display: 'flex',
@@ -27,7 +27,9 @@ const SearchBar = ({ value, onChange, placeholder = 'Search…', width = 280, sx
     <InputBase
       value={value}
       onChange={onChange}
+      onKeyDown={onKeyDown}
       placeholder={placeholder}
+      inputProps={inputProps}
       sx={{ flex: 1, fontSize: '1rem', '& input::placeholder': { color: colors.textSecondary, opacity: 0.75 } }}
     />
   </Box>

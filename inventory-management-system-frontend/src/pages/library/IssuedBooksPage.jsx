@@ -6,6 +6,7 @@ import { BookMarked, Search } from 'lucide-react';
 import { getIssueHistory } from '../../api/library/issueApi';
 import DataTable from '../../components/common/DataTable';
 import { PageHeader, StatusBadge } from '../../components/ui';
+import useDebouncedValue from '../../hooks/useDebouncedValue';
 import { issueBadge, formatDate } from '../../utils/libraryStatus';
 import { colors } from '../../theme/tokens';
 
@@ -22,13 +23,14 @@ const IssuedBooksPage = () => {
   const [size, setSize] = useState(10);
   const [total, setTotal] = useState(0);
   const [keyword, setKeyword] = useState('');
+  const debouncedKeyword = useDebouncedValue(keyword, 300);
   const [filter, setFilter] = useState('ISSUED');
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'error' });
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await getIssueHistory({ page, size, keyword: keyword.trim(), status: filter, sortBy: 'dueDate', sortDir: 'asc' });
+      const res = await getIssueHistory({ page, size, keyword: debouncedKeyword.trim(), status: filter, sortBy: 'dueDate', sortDir: 'asc' });
       setRows(res.data?.content || []);
       setTotal(res.data?.totalElements || 0);
     } catch (err) {
@@ -36,9 +38,10 @@ const IssuedBooksPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, size, keyword, filter]);
+  }, [page, size, debouncedKeyword, filter]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { setPage(0); }, [debouncedKeyword]);
 
   const columns = [
     { field: 'bookCode', headerName: 'Code', render: (r) => <Box component="span" sx={{ color: colors.primary, fontWeight: 600 }}>{r.bookCode}</Box> },
@@ -86,7 +89,8 @@ const IssuedBooksPage = () => {
         <Grid container spacing={2.5} alignItems="center">
           <Grid item xs={12} sm={6} md={4}>
             <TextField label="Search by book or member" size="small" fullWidth value={keyword}
-              onChange={(e) => setKeyword(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (setPage(0), fetchData())}
+              placeholder="Results filter as you type"
+              onChange={(e) => setKeyword(e.target.value)}
               InputProps={{ startAdornment: <InputAdornment position="start"><Search size={17} color={colors.textMuted} /></InputAdornment> }} />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>

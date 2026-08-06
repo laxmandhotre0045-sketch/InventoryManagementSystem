@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, Grid, Alert, Button, Typography, LinearProgress, Tooltip, Avatar } from '@mui/material';
+import { Box, Grid, Alert, Button, Typography, LinearProgress, Tooltip, Avatar, CircularProgress } from '@mui/material';
 import {
   CircuitBoard, DollarSign, AlertTriangle, FolderKanban,
   ArrowDownLeft, ArrowUpRight, Download, Boxes, RotateCcw, MapPin, Truck, CalendarDays, UserRound,
@@ -9,6 +9,7 @@ import { PieChart, Pie, Cell, Sector, Tooltip as RTooltip, ResponsiveContainer }
 import useCountUp from '../hooks/useCountUp';
 import { getDashboardSummary, getLowStock, getRecentTransactions } from '../api/dashboardApi';
 import { getProjects } from '../api/projectApi';
+import { getComponents } from '../api/componentApi';
 import { useAuth } from '../auth/AuthContext';
 import { isAdmin } from '../utils/roleUtils';
 import { MetricCard, ChartCard, StatusBadge, EmptyState } from '../components/ui';
@@ -60,6 +61,27 @@ const renderActiveSlice = (props) => {
   );
 };
 
+// RFC 4180 quoting so names containing commas, quotes or newlines survive Excel.
+const csvCell = (value) => {
+  const s = value === null || value === undefined ? '' : String(value);
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
+
+const downloadCsv = (filename, rows) => {
+  // BOM so Excel reads the file as UTF-8 (₹ and accented names stay intact).
+  const blob = new Blob(['﻿' + rows.map((r) => r.map(csvCell).join(',')).join('\r\n')], {
+    type: 'text/csv;charset=utf-8;',
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+};
+
 // Timeline completion from status + date range (never fabricated).
 const completionOf = (p) => {
   if (p.status === 'COMPLETED') return 100;
@@ -84,6 +106,7 @@ const DashboardPage = () => {
   const [recentTransactions, setRecentTransactions] = useState([]);
   const [projects, setProjects] = useState([]);
   const [activeSlice, setActiveSlice] = useState(null);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -108,6 +131,35 @@ const DashboardPage = () => {
     };
     load();
   }, []);
+
+  // Snapshot of current stock levels, straight from the components catalogue.
+  const handleExport = async () => {
+    setExporting(true);
+    setError('');
+    try {
+      const res = await getComponents({ page: 0, size: 1000, sortBy: 'componentName', sortDir: 'asc' });
+      const items = res.data?.content || [];
+      const rows = [
+        ['Item Code', 'Component', 'Category', 'Quantity', 'Minimum Qty', 'Unit', 'Location', 'Stock Status', 'Status'],
+        ...items.map((c) => [
+          c.itemCode || '',
+          c.componentName || '',
+          c.category || '',
+          c.quantity ?? 0,
+          c.minimumQuantity ?? 0,
+          c.unit || '',
+          c.location || '',
+          c.quantity === 0 ? 'Out of stock' : c.quantity <= c.minimumQuantity ? 'Low stock' : 'In stock',
+          c.status || '',
+        ]),
+      ];
+      downloadCsv(`stock-levels-${new Date().toISOString().slice(0, 10)}.csv`, rows);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Could not export stock levels');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const totalComponents = summary?.totalComponents || 0;
   const low = summary?.lowStockComponents || 0;
@@ -160,8 +212,17 @@ const DashboardPage = () => {
         </Box>
         {admin && (
           <Box sx={{ display: 'flex', gap: 1.75 }}>
-            <Tooltip title="Download a snapshot of current stock levels">
-              <Button variant="outlined" startIcon={<Download size={19} />}>Export</Button>
+            <Tooltip title="Download a CSV snapshot of current stock levels">
+              <span>
+                <Button
+                  variant="outlined"
+                  startIcon={exporting ? <CircularProgress size={17} color="inherit" /> : <Download size={19} />}
+                  onClick={handleExport}
+                  disabled={exporting}
+                >
+                  {exporting ? 'Exporting…' : 'Export'}
+                </Button>
+              </span>
             </Tooltip>
             <Tooltip title="Record a stock in or stock out movement">
               <Button variant="contained" startIcon={<Boxes size={19} />} onClick={() => navigate('/inventory')}>Record Movement</Button>

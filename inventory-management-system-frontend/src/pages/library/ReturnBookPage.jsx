@@ -3,10 +3,11 @@ import {
   Box, Button, Card, Dialog, DialogActions, DialogContent, DialogTitle,
   TextField, Snackbar, Alert, Grid, InputAdornment, Typography,
 } from '@mui/material';
-import { BookDown, Search, Undo2 } from 'lucide-react';
+import { BookDown, Search, Undo2, X } from 'lucide-react';
 import { getIssueHistory, returnBook } from '../../api/library/issueApi';
 import DataTable from '../../components/common/DataTable';
 import { PageHeader, StatusBadge } from '../../components/ui';
+import useDebouncedValue from '../../hooks/useDebouncedValue';
 import { issueBadge, formatDate } from '../../utils/libraryStatus';
 import { colors } from '../../theme/tokens';
 
@@ -19,6 +20,7 @@ const ReturnBookPage = () => {
   const [size, setSize] = useState(10);
   const [total, setTotal] = useState(0);
   const [keyword, setKeyword] = useState('');
+  const debouncedKeyword = useDebouncedValue(keyword, 300);
   const [target, setTarget] = useState(null);
   const [returnDate, setReturnDate] = useState(today());
   const [remarks, setRemarks] = useState('');
@@ -31,7 +33,7 @@ const ReturnBookPage = () => {
     setLoading(true);
     try {
       // Outstanding loans: stored status ISSUED (overdue ones are a derived subset).
-      const res = await getIssueHistory({ page, size, keyword: keyword.trim(), status: 'ISSUED', sortBy: 'dueDate', sortDir: 'asc' });
+      const res = await getIssueHistory({ page, size, keyword: debouncedKeyword.trim(), status: 'ISSUED', sortBy: 'dueDate', sortDir: 'asc' });
       setRows(res.data?.content || []);
       setTotal(res.data?.totalElements || 0);
     } catch (err) {
@@ -39,9 +41,10 @@ const ReturnBookPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, size, keyword]);
+  }, [page, size, debouncedKeyword]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { setPage(0); }, [debouncedKeyword]);
 
   const openReturn = (row) => { setTarget(row); setReturnDate(today()); setRemarks(row.remarks || ''); };
 
@@ -96,12 +99,15 @@ const ReturnBookPage = () => {
         <Grid container spacing={2.5} alignItems="center">
           <Grid item xs={12} sm={8} md={5}>
             <TextField label="Search by book or member" size="small" fullWidth value={keyword}
-              onChange={(e) => setKeyword(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (setPage(0), fetchData())}
+              placeholder="Results filter as you type"
+              onChange={(e) => setKeyword(e.target.value)}
               InputProps={{ startAdornment: <InputAdornment position="start"><Search size={17} color={colors.textMuted} /></InputAdornment> }} />
           </Grid>
-          <Grid item xs={12} sm={4} md={3}>
-            <Button variant="contained" onClick={() => { setPage(0); fetchData(); }}>Search</Button>
-          </Grid>
+          {keyword && (
+            <Grid item xs={12} sm={4} md={3}>
+              <Button variant="text" startIcon={<X size={17} />} onClick={() => setKeyword('')}>Clear</Button>
+            </Grid>
+          )}
         </Grid>
       </Card>
 

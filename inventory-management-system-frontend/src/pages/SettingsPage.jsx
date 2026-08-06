@@ -35,6 +35,13 @@ const SELECT_OPTIONS = {
   'preferences.language': ['English', 'Hindi'],
 };
 
+// Categories whose values are stored but not yet read by the interface. Saying so
+// beats letting someone pick "dark" and wonder why nothing changed.
+const NOT_APPLIED_NOTE = {
+  APPEARANCE: 'Saved for future use — the interface currently renders in the light theme at comfortable density regardless of these values.',
+  PREFERENCES: 'Date format, timezone and language are stored here for upcoming releases; the interface currently uses the system defaults.',
+};
+
 // ---- Users & Roles manager -------------------------------------------------
 const UsersManager = ({ notify }) => {
   const { email: myEmail } = useAuth();
@@ -284,6 +291,9 @@ const SettingsPage = () => {
               <Box>
                 <Typography sx={{ fontSize: '1.125rem', fontWeight: 700, mb: 0.5 }}>{CATEGORY_META[activeKey]?.label}</Typography>
                 <Typography sx={{ color: colors.textMuted, fontSize: '0.875rem', mb: 2.5 }}>{CATEGORY_META[activeKey]?.desc}</Typography>
+                {NOT_APPLIED_NOTE[activeKey] && (
+                  <Alert severity="info" sx={{ mb: 2.5 }}>{NOT_APPLIED_NOTE[activeKey]}</Alert>
+                )}
                 <Grid container spacing={2.5}>
                   {(grouped[activeKey] || []).map((s) => (
                     <Grid item xs={12} sm={6} md={s.valueType === 'boolean' ? 6 : 4} key={s.key} sx={{ display: 'flex', alignItems: 'center' }}>

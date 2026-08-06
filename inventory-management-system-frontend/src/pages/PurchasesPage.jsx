@@ -12,6 +12,7 @@ import DataTable from '../components/common/DataTable';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import InvoiceUploadDialog from '../components/purchases/InvoiceUploadDialog';
 import { PageHeader, StatusBadge, SearchBar } from '../components/ui';
+import useDebouncedValue from '../hooks/useDebouncedValue';
 import { colors } from '../theme/tokens';
 
 const emptyItem = { componentId: '', quantity: 1, unitPrice: 0 };
@@ -30,6 +31,7 @@ const PurchasesPage = () => {
   const [size, setSize] = useState(10);
   const [total, setTotal] = useState(0);
   const [keyword, setKeyword] = useState('');
+  const debouncedKeyword = useDebouncedValue(keyword, 300);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [ocrOpen, setOcrOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
@@ -40,8 +42,8 @@ const PurchasesPage = () => {
     setLoading(true);
     try {
       const params = { page, size, sortBy: 'purchaseDate', sortDir: 'desc' };
-      const res = keyword.trim()
-        ? await searchPurchases({ ...params, keyword: keyword.trim() })
+      const res = debouncedKeyword.trim()
+        ? await searchPurchases({ ...params, keyword: debouncedKeyword.trim() })
         : await getPurchases(params);
       setRows(res.data?.content || []);
       setTotal(res.data?.totalElements || 0);
@@ -50,11 +52,13 @@ const PurchasesPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, size, keyword]);
+  }, [page, size, debouncedKeyword]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+  // A new search has to start from page 1 (see ProjectsPage).
+  useEffect(() => { setPage(0); }, [debouncedKeyword]);
   useEffect(() => {
-    getComponents({ page: 0, size: 500 }).then((r) => setComponents(r.data?.content || []));
+    getComponents({ page: 0, size: 500 }).then((r) => setComponents(r.data?.content || [])).catch(() => {});
   }, []);
 
   const updateItem = (index, field, value) => {

@@ -1,11 +1,14 @@
-import { Box, Typography, Button, Card } from '@mui/material';
-import { Boxes, Library, ArrowRight, LogOut } from 'lucide-react';
+import { Box, Typography, Button, Card, Chip } from '@mui/material';
+import { Boxes, Library, ArrowRight, LogOut, Lock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import { isAdmin } from '../utils/roleUtils';
 import { colors, shadows } from '../theme/tokens';
 
 // Post-login landing: pick which module to work in. Inventory Management is the
 // existing, unchanged app; Book Management is the separate library module.
+// `adminOnly` mirrors the backend rule — every /library endpoint requires ADMIN,
+// so the card is shown locked rather than opening a UI that would only 403.
 const modules = [
   {
     key: 'inventory',
@@ -24,12 +27,14 @@ const modules = [
     path: '/library/dashboard',
     accent: '#3C8C6A',
     soft: '#EDF5F0',
+    adminOnly: true,
   },
 ];
 
 const ModuleSelectionPage = () => {
   const navigate = useNavigate();
-  const { email, logout } = useAuth();
+  const { email, role, logout } = useAuth();
+  const admin = isAdmin(role);
   const name = email?.split('@')[0] || 'there';
 
   return (
@@ -67,37 +72,59 @@ const ModuleSelectionPage = () => {
         >
           {modules.map((m) => {
             const Icon = m.icon;
+            const locked = m.adminOnly && !admin;
             return (
               <Card
                 key={m.key}
-                onClick={() => navigate(m.path)}
+                onClick={locked ? undefined : () => navigate(m.path)}
+                aria-disabled={locked || undefined}
                 sx={{
                   p: { xs: 3, md: 4 },
-                  cursor: 'pointer',
+                  cursor: locked ? 'not-allowed' : 'pointer',
                   border: `1px solid ${colors.border}`,
                   boxShadow: shadows.card,
                   transition: 'transform .22s cubic-bezier(.4,0,.2,1), box-shadow .22s ease, border-color .22s ease',
-                  '&:hover': { transform: 'translateY(-4px)', boxShadow: shadows.cardHover, borderColor: m.accent },
-                  '&:hover .go': { gap: 1.25, color: m.accent },
+                  ...(locked
+                    ? { bgcolor: '#FBFAF8' }
+                    : {
+                        '&:hover': { transform: 'translateY(-4px)', boxShadow: shadows.cardHover, borderColor: m.accent },
+                        '&:hover .go': { gap: 1.25, color: m.accent },
+                      }),
                 }}
               >
                 <Box
                   sx={{
                     width: 64, height: 64, borderRadius: '18px', display: 'grid', placeItems: 'center',
-                    bgcolor: m.soft, color: m.accent, mb: 3,
+                    bgcolor: locked ? '#F2F1EE' : m.soft, color: locked ? colors.textMuted : m.accent, mb: 3,
                   }}
                 >
                   <Icon size={32} strokeWidth={1.9} />
                 </Box>
-                <Typography sx={{ fontSize: '1.375rem', fontWeight: 700, letterSpacing: '-0.015em', mb: 1 }}>
-                  {m.title}
-                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, mb: 1, flexWrap: 'wrap' }}>
+                  <Typography sx={{ fontSize: '1.375rem', fontWeight: 700, letterSpacing: '-0.015em', color: locked ? colors.textSecondary : colors.textPrimary }}>
+                    {m.title}
+                  </Typography>
+                  {locked && (
+                    <Chip
+                      size="small"
+                      icon={<Lock size={13} />}
+                      label="Admins only"
+                      sx={{ bgcolor: '#F2F1EE', color: colors.textSecondary, fontWeight: 600, '& .MuiChip-icon': { color: colors.textSecondary } }}
+                    />
+                  )}
+                </Box>
                 <Typography sx={{ fontSize: '1rem', color: colors.textSecondary, mb: 3, minHeight: 48 }}>
                   {m.description}
                 </Typography>
-                <Box className="go" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, color: colors.textPrimary, fontWeight: 600, transition: 'gap .2s ease, color .2s ease' }}>
-                  Open module <ArrowRight size={18} />
-                </Box>
+                {locked ? (
+                  <Typography sx={{ fontSize: '0.9375rem', color: colors.textMuted, fontWeight: 500 }}>
+                    Ask an administrator for access.
+                  </Typography>
+                ) : (
+                  <Box className="go" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, color: colors.textPrimary, fontWeight: 600, transition: 'gap .2s ease, color .2s ease' }}>
+                    Open module <ArrowRight size={18} />
+                  </Box>
+                )}
               </Card>
             );
           })}

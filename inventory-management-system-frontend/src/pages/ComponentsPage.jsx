@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Box, Button, Card, Dialog, DialogActions, DialogContent, DialogTitle,
   IconButton, TextField, MenuItem, Snackbar, Alert, Grid, Tooltip, Chip, InputAdornment,
@@ -36,13 +37,15 @@ const stockStatusOf = (row) => {
 const ComponentsPage = () => {
   const { role } = useAuth();
   const writeAccess = canWrite(role);
+  // The navbar's global search lands here as ?q=… — seed the filter from it.
+  const [searchParams, setSearchParams] = useSearchParams();
   const [rows, setRows] = useState([]);
   const [lowStock, setLowStock] = useState([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(0);
   const [size, setSize] = useState(10);
   const [total, setTotal] = useState(0);
-  const [keyword, setKeyword] = useState('');
+  const [keyword, setKeyword] = useState(() => searchParams.get('q') || '');
   const debouncedKeyword = useDebouncedValue(keyword, 300);
   const [category, setCategory] = useState('');
   const [status, setStatus] = useState('');
@@ -78,6 +81,16 @@ const ComponentsPage = () => {
   // Reset to the first page whenever the (debounced) search term changes.
   useEffect(() => { setPage(0); }, [debouncedKeyword]);
 
+  // Pick up a term handed over by the navbar's global search, including when this
+  // page is already mounted. The param is consumed so a later manual edit to the
+  // field isn't overwritten and the URL stays clean.
+  const queryParam = searchParams.get('q');
+  useEffect(() => {
+    if (queryParam === null) return;
+    setKeyword(queryParam);
+    setSearchParams({}, { replace: true });
+  }, [queryParam, setSearchParams]);
+
   const openCreate = () => { setEditId(null); setForm(emptyForm); setDialogOpen(true); };
   const openEdit = (row) => {
     setEditId(row.id);
@@ -93,7 +106,6 @@ const ComponentsPage = () => {
 
   const handleSave = async () => {
     try {
-      // itemCode is system-generated — never sent to the API.
       // itemCode is system-generated — never sent to the API.
       const payload = { ...form, quantity: Number(form.quantity), minimumQuantity: Number(form.minimumQuantity) };
       delete payload.itemCode;

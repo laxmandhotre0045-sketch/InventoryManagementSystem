@@ -111,12 +111,17 @@ const AppRoutes = () => {
         />
       </Route>
 
-      {/* ===== Book Management (new — separate layout) ===== */}
+      {/* ===== Book Management (separate layout) =====
+          Every /api/v1/library endpoint is ADMIN-only server-side, so the whole
+          module is gated here too — otherwise a USER would land on a full UI in
+          which every request comes back 403. */}
       <Route
         path="/library"
         element={
           <ProtectedRoute>
-            <Suspense fallback={<PageFallback />}><LibraryLayout /></Suspense>
+            <RoleRoute redirectTo="/modules">
+              <Suspense fallback={<PageFallback />}><LibraryLayout /></Suspense>
+            </RoleRoute>
           </ProtectedRoute>
         }
       >

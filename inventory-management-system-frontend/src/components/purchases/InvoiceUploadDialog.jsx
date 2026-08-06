@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button, Box, Typography,
-  TextField, MenuItem, ListSubheader, IconButton, CircularProgress, Chip, Divider, Grid, Alert, Tooltip,
+  TextField, MenuItem, ListSubheader, IconButton, CircularProgress, Chip, Divider, Grid, Alert,
 } from '@mui/material';
 import { UploadCloud, FileText, X, Sparkles, RefreshCw, Check } from 'lucide-react';
 import { extractInvoice, confirmInvoice } from '../../api/purchaseApi';

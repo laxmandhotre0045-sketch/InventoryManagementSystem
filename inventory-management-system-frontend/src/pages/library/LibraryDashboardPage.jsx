@@ -105,7 +105,8 @@ const LibraryDashboardPage = () => {
           </ChartCard>
         </Grid>
 
-        <Grid item xs={12} lg={7}>
+        {/* Full width: paired with a 7-column card it left a dead 5-column gap. */}
+        <Grid item xs={12}>
           <ChartCard title="Recently Returned" subtitle="Latest returns">
             <ActivityList items={data?.recentlyReturned} emptyLabel="No books have been returned yet." />
           </ChartCard>

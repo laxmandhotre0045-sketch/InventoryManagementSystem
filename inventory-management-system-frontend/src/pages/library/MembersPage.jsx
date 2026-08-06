@@ -3,13 +3,14 @@ import {
   Box, Button, Card, Dialog, DialogActions, DialogContent, DialogTitle,
   IconButton, TextField, Snackbar, Alert, Grid, Tooltip, InputAdornment, Typography, Chip,
 } from '@mui/material';
-import { Plus, Pencil, Trash2, Users, Search, History } from 'lucide-react';
+import { Plus, Pencil, Trash2, Users, Search, History, X } from 'lucide-react';
 import {
   getMembers, createMember, updateMember, deleteMember, getMemberHistory,
 } from '../../api/library/memberApi';
 import DataTable from '../../components/common/DataTable';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import { PageHeader, StatusBadge } from '../../components/ui';
+import useDebouncedValue from '../../hooks/useDebouncedValue';
 import { issueBadge, formatDate } from '../../utils/libraryStatus';
 import { colors } from '../../theme/tokens';
 
@@ -22,6 +23,7 @@ const MembersPage = () => {
   const [size, setSize] = useState(10);
   const [total, setTotal] = useState(0);
   const [keyword, setKeyword] = useState('');
+  const debouncedKeyword = useDebouncedValue(keyword, 300);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [editRow, setEditRow] = useState(null);
@@ -37,7 +39,7 @@ const MembersPage = () => {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await getMembers({ page, size, sortBy: 'name', sortDir: 'asc', keyword: keyword.trim() });
+      const res = await getMembers({ page, size, sortBy: 'name', sortDir: 'asc', keyword: debouncedKeyword.trim() });
       setRows(res.data?.content || []);
       setTotal(res.data?.totalElements || 0);
     } catch (err) {
@@ -45,9 +47,10 @@ const MembersPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, size, keyword]);
+  }, [page, size, debouncedKeyword]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { setPage(0); }, [debouncedKeyword]);
 
   const openCreate = () => { setEditRow(null); setForm(emptyForm); setDialogOpen(true); };
   const openEdit = (row) => {
@@ -130,12 +133,15 @@ const MembersPage = () => {
         <Grid container spacing={2.5} alignItems="center">
           <Grid item xs={12} sm={8} md={5}>
             <TextField label="Search by name, ID, email, department" size="small" fullWidth value={keyword}
-              onChange={(e) => setKeyword(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (setPage(0), fetchData())}
+              placeholder="Results filter as you type"
+              onChange={(e) => setKeyword(e.target.value)}
               InputProps={{ startAdornment: <InputAdornment position="start"><Search size={17} color={colors.textMuted} /></InputAdornment> }} />
           </Grid>
-          <Grid item xs={12} sm={4} md={3}>
-            <Button variant="contained" onClick={() => { setPage(0); fetchData(); }}>Search</Button>
-          </Grid>
+          {keyword && (
+            <Grid item xs={12} sm={4} md={3}>
+              <Button variant="text" startIcon={<X size={17} />} onClick={() => setKeyword('')}>Clear</Button>
+            </Grid>
+          )}
         </Grid>
       </Card>
 

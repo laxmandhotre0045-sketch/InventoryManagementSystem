@@ -11,6 +11,7 @@ import {
 import DataTable from '../../components/common/DataTable';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import { PageHeader, StatusBadge } from '../../components/ui';
+import useDebouncedValue from '../../hooks/useDebouncedValue';
 import { bookStatusBadge, availabilityBadge, formatDate } from '../../utils/libraryStatus';
 import { colors } from '../../theme/tokens';
 
@@ -33,6 +34,7 @@ const BooksPage = () => {
   const [size, setSize] = useState(10);
   const [total, setTotal] = useState(0);
   const [keyword, setKeyword] = useState('');
+  const debouncedKeyword = useDebouncedValue(keyword, 300);
   const [category, setCategory] = useState('');
   const [status, setStatus] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -48,7 +50,7 @@ const BooksPage = () => {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await getBooks({ page, size, sortBy: 'createdAt', sortDir: 'desc', keyword: keyword.trim(), category, status });
+      const res = await getBooks({ page, size, sortBy: 'createdAt', sortDir: 'desc', keyword: debouncedKeyword.trim(), category, status });
       setRows(res.data?.content || []);
       setTotal(res.data?.totalElements || 0);
     } catch (err) {
@@ -56,9 +58,12 @@ const BooksPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, size, keyword, category, status]);
+  }, [page, size, debouncedKeyword, category, status]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+  // A new search has to start from page 1, or the current offset can land past
+  // the end of the filtered results and show an empty table.
+  useEffect(() => { setPage(0); }, [debouncedKeyword]);
   useEffect(() => {
     getBookCategories().then((res) => setCategories(res.data || [])).catch(() => {});
   }, []);

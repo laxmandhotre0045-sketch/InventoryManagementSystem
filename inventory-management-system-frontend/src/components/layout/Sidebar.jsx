@@ -4,7 +4,7 @@ import {
 } from '@mui/material';
 import {
   LayoutDashboard, Cpu, CircuitBoard, Boxes, FolderKanban,
-  ShoppingCart, Store, BarChart3, Settings,
+  ShoppingCart, Store, BarChart3, Settings, ArrowLeftRight,
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
@@ -114,6 +114,36 @@ const Sidebar = ({ mobileOpen, onClose, collapsed = false }) => {
             ) : button;
           })}
         </List>
+      </Box>
+
+      {/* Back to the module picker — mirrors the Book Management sidebar */}
+      <Box sx={{ px: isCollapsed ? 1.5 : 2.25, pb: 2.5, pt: 1, borderTop: `1px solid ${colors.border}` }}>
+        <Tooltip title={isCollapsed ? 'Switch Module' : ''} placement="right">
+          <ListItemButton
+            onClick={() => handleNav('/modules')}
+            disableRipple
+            sx={{
+              borderRadius: '11px',
+              minHeight: 52,
+              py: 1,
+              px: isCollapsed ? 0 : 2.5,
+              justifyContent: isCollapsed ? 'center' : 'flex-start',
+              color: colors.textSecondary,
+              transition: 'background-color .18s ease, color .18s ease',
+              '&:hover': { bgcolor: colors.hover, color: colors.textPrimary },
+            }}
+          >
+            <ListItemIcon sx={{ minWidth: isCollapsed ? 0 : 50, color: 'inherit', justifyContent: 'center' }}>
+              <ArrowLeftRight size={26} strokeWidth={1.9} />
+            </ListItemIcon>
+            {!isCollapsed && (
+              <ListItemText
+                primary="Switch Module"
+                primaryTypographyProps={{ fontSize: '1.15rem', fontWeight: 600, letterSpacing: '-0.01em' }}
+              />
+            )}
+          </ListItemButton>
+        </Tooltip>
       </Box>
     </Box>
   );
