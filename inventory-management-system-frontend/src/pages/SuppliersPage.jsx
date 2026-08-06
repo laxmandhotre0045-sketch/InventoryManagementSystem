@@ -73,7 +73,7 @@ const SuppliersPage = () => {
         breadcrumbs={[{ label: 'Procurement' }, { label: 'Suppliers' }]}
       />
 
-      <Grid container spacing={3} sx={{ mb: 3 }}>
+      <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={4}>
           <MetricCard loading={loading} icon={Users} title="Total Suppliers" value={suppliers.length} tone="primary" caption="Distinct vendors" />
         </Grid>

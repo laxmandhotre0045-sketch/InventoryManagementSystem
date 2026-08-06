@@ -69,8 +69,8 @@ const ReturnBookPage = () => {
       field: 'bookTitle', headerName: 'Book',
       render: (r) => (
         <Box>
-          <Typography sx={{ fontSize: '0.9375rem', fontWeight: 600 }}>{r.bookTitle}</Typography>
-          <Typography sx={{ fontSize: '0.8125rem', color: colors.textMuted }}>{r.memberName} · {r.memberEmployeeId}</Typography>
+          <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600 }}>{r.bookTitle}</Typography>
+          <Typography sx={{ fontSize: '0.75rem', color: colors.textMuted }}>{r.memberName} · {r.memberEmployeeId}</Typography>
         </Box>
       ),
     },
@@ -95,8 +95,8 @@ const ReturnBookPage = () => {
         breadcrumbs={[{ label: 'Library' }, { label: 'Return Book' }]}
       />
 
-      <Card sx={{ p: 2.5, mb: 4 }}>
-        <Grid container spacing={2.5} alignItems="center">
+      <Card sx={{ p: 2, mb: 2.5 }}>
+        <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} sm={8} md={5}>
             <TextField label="Search by book or member" size="small" fullWidth value={keyword}
               placeholder="Results filter as you type"
@@ -125,7 +125,7 @@ const ReturnBookPage = () => {
         <DialogContent>
           {target && (
             <Box sx={{ pt: 0.5 }}>
-              <Typography sx={{ fontSize: '1.0625rem', fontWeight: 700 }}>{target.bookTitle}</Typography>
+              <Typography sx={{ fontSize: '0.9375rem', fontWeight: 650 }}>{target.bookTitle}</Typography>
               <Typography sx={{ color: colors.textMuted, mb: 2 }}>
                 {target.memberName} · issued {formatDate(target.issueDate)} · due {formatDate(target.dueDate)}
               </Typography>

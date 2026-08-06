@@ -16,6 +16,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.company.inventory.dto.request.CreateUserRequest;
+import com.company.inventory.dto.request.ResetPasswordRequest;
+import com.company.inventory.dto.request.SetActiveRequest;
+import com.company.inventory.dto.request.UpdateUserRequest;
 import com.company.inventory.dto.request.UpdateUserRoleRequest;
 import com.company.inventory.dto.response.ApiResponse;
 import com.company.inventory.dto.response.UserResponse;
@@ -25,11 +28,18 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
-/** Admin-only user & role management (part of the Settings module). */
+/**
+ * Account &amp; role management — reserved for the master admin.
+ *
+ * <p>The class-level {@code @PreAuthorize} is the authoritative check: a plain ADMIN
+ * receives 403 on every endpoint here, so admins cannot create, edit, suspend, delete
+ * or re-role each other, nor promote themselves. Hiding the screen in the UI is only a
+ * convenience layered on top of this.</p>
+ */
 @RestController
 @RequestMapping("/users")
-@PreAuthorize("hasRole('ADMIN')")
-@Tag(name = "User Management", description = "Manage user accounts and roles")
+@PreAuthorize("hasRole('MASTER_ADMIN')")
+@Tag(name = "User Management", description = "Master-admin only: manage user accounts and roles")
 public class UserController {
 
     private final UserService userService;
@@ -44,26 +54,57 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.success("Users retrieved successfully", userService.list()));
     }
 
-    @Operation(summary = "Create a user")
+    @Operation(summary = "Create a user (ADMIN or USER — the master admin role cannot be assigned)")
     @PostMapping
     public ResponseEntity<ApiResponse<UserResponse>> create(@Valid @RequestBody CreateUserRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("User created successfully", userService.create(request)));
     }
 
+    @Operation(summary = "Edit a user's name, email and role")
+    @PutMapping("/{id}")
+    public ResponseEntity<ApiResponse<UserResponse>> update(@PathVariable Long id,
+                                                            @Valid @RequestBody UpdateUserRequest request,
+                                                            Authentication authentication) {
+        return ResponseEntity.ok(ApiResponse.success("User updated successfully",
+                userService.update(id, request, nameOf(authentication))));
+    }
+
     @Operation(summary = "Update a user's role")
     @PutMapping("/{id}/role")
     public ResponseEntity<ApiResponse<UserResponse>> updateRole(@PathVariable Long id,
-                                                                @Valid @RequestBody UpdateUserRoleRequest request) {
+                                                                @Valid @RequestBody UpdateUserRoleRequest request,
+                                                                Authentication authentication) {
         return ResponseEntity.ok(ApiResponse.success("User role updated successfully",
-                userService.updateRole(id, request.getRole())));
+                userService.updateRole(id, request.getRole(), nameOf(authentication))));
+    }
+
+    @Operation(summary = "Activate or deactivate a user")
+    @PutMapping("/{id}/active")
+    public ResponseEntity<ApiResponse<UserResponse>> setActive(@PathVariable Long id,
+                                                               @Valid @RequestBody SetActiveRequest request,
+                                                               Authentication authentication) {
+        UserResponse updated = userService.setActive(id, request.getActive(), nameOf(authentication));
+        return ResponseEntity.ok(ApiResponse.success(
+                Boolean.TRUE.equals(request.getActive()) ? "User activated" : "User deactivated", updated));
+    }
+
+    @Operation(summary = "Reset a user's password")
+    @PutMapping("/{id}/password")
+    public ResponseEntity<ApiResponse<Void>> resetPassword(@PathVariable Long id,
+                                                           @Valid @RequestBody ResetPasswordRequest request) {
+        userService.resetPassword(id, request.getPassword());
+        return ResponseEntity.ok(ApiResponse.success("Password reset successfully", null));
     }
 
     @Operation(summary = "Delete a user")
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long id, Authentication authentication) {
-        String current = authentication != null ? authentication.getName() : null;
-        userService.delete(id, current);
+        userService.delete(id, nameOf(authentication));
         return ResponseEntity.ok(ApiResponse.success("User deleted successfully", null));
+    }
+
+    private String nameOf(Authentication authentication) {
+        return authentication != null ? authentication.getName() : null;
     }
 }

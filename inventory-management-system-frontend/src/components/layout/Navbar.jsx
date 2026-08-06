@@ -6,6 +6,7 @@ import {
 import { Menu as MenuIcon, PanelLeftClose, PanelLeft, LogOut, LayoutGrid, Settings, CalendarDays } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
+import { roleLabel } from '../../utils/roleUtils';
 import SearchBar from '../ui/SearchBar';
 import NotificationBell from '../common/NotificationBell';
 import { colors, layout } from '../../theme/tokens';
@@ -62,23 +63,23 @@ const Navbar = ({ onMenuClick, onToggleCollapse, collapsed, sidebarWidth }) => {
         transition: 'width .2s ease, margin .2s ease',
       }}
     >
-      <Toolbar sx={{ height: layout.navbarHeight, minHeight: layout.navbarHeight, px: { xs: 2, md: 3 }, gap: 2 }}>
+      <Toolbar sx={{ height: layout.navbarHeight, minHeight: layout.navbarHeight, px: { xs: 1.5, md: 2.5 }, gap: 1.5 }}>
         {/* Mobile menu / desktop collapse */}
-        <IconButton onClick={isMobile ? onMenuClick : onToggleCollapse} sx={{ color: colors.textSecondary }}>
-          {isMobile ? <MenuIcon size={22} /> : collapsed ? <PanelLeft size={20} /> : <PanelLeftClose size={20} />}
+        <IconButton size="small" onClick={isMobile ? onMenuClick : onToggleCollapse} sx={{ color: colors.textSecondary }}>
+          {isMobile ? <MenuIcon size={19} /> : collapsed ? <PanelLeft size={17} /> : <PanelLeftClose size={17} />}
         </IconButton>
 
         {/* Page title */}
-        <Typography sx={{ fontSize: '1.375rem', fontWeight: 600, letterSpacing: '-0.015em', minWidth: 0 }} noWrap>
+        <Typography sx={{ fontSize: '0.9375rem', fontWeight: 600, letterSpacing: '-0.008em', minWidth: 0 }} noWrap>
           {pageTitle}
         </Typography>
 
         <Box sx={{ flexGrow: 1 }} />
 
         {/* Current date */}
-        <Box sx={{ display: { xs: 'none', lg: 'flex' }, alignItems: 'center', gap: 1, mr: 0.5, color: colors.textSecondary }}>
-          <CalendarDays size={18} />
-          <Typography sx={{ fontSize: '0.9375rem', fontWeight: 500 }}>{todayLabel}</Typography>
+        <Box sx={{ display: { xs: 'none', lg: 'flex' }, alignItems: 'center', gap: 0.75, mr: 0.5, color: colors.textMuted }}>
+          <CalendarDays size={15} />
+          <Typography sx={{ fontSize: '0.75rem', fontWeight: 500 }}>{todayLabel}</Typography>
         </Box>
 
         {/* Search (desktop only — every page carries its own filter bar on mobile) */}
@@ -88,7 +89,7 @@ const Navbar = ({ onMenuClick, onToggleCollapse, collapsed, sidebarWidth }) => {
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={submitSearch}
             placeholder="Search components…"
-            width={280}
+            width={240}
             sx={{ bgcolor: colors.canvas }}
             inputProps={{ 'aria-label': 'Search components' }}
           />
@@ -107,18 +108,18 @@ const Navbar = ({ onMenuClick, onToggleCollapse, collapsed, sidebarWidth }) => {
         >
           <Avatar
             sx={{
-              width: 38, height: 38, fontSize: '0.9375rem', fontWeight: 600,
+              width: 30, height: 30, fontSize: '0.75rem', fontWeight: 600,
               bgcolor: colors.primary,
             }}
           >
             {initial}
           </Avatar>
           <Box sx={{ display: { xs: 'none', sm: 'block' }, textAlign: 'left', minWidth: 0 }}>
-            <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, lineHeight: 1.2 }} noWrap>
+            <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600, lineHeight: 1.25 }} noWrap>
               {email?.split('@')[0] || 'User'}
             </Typography>
-            <Typography sx={{ fontSize: '0.75rem', color: colors.textMuted, lineHeight: 1.2 }}>
-              {role === 'ADMIN' ? 'Administrator' : 'Member'}
+            <Typography sx={{ fontSize: '0.6875rem', color: colors.textMuted, lineHeight: 1.25 }}>
+              {roleLabel(role)}
             </Typography>
           </Box>
         </Box>
@@ -134,7 +135,7 @@ const Navbar = ({ onMenuClick, onToggleCollapse, collapsed, sidebarWidth }) => {
           <Box sx={{ px: 2, py: 1.5 }}>
             <Typography sx={{ fontSize: '0.875rem', fontWeight: 600 }} noWrap>{email}</Typography>
             <Typography sx={{ fontSize: '0.75rem', color: colors.textMuted }}>
-              {role === 'ADMIN' ? 'Administrator' : 'Member'}
+              {roleLabel(role)}
             </Typography>
           </Box>
           <Divider />

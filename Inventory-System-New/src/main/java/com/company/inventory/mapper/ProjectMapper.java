@@ -18,9 +18,12 @@ public class ProjectMapper {
                 .projectName(request.getProjectName())
                 .description(request.getDescription())
                 .projectManager(request.getProjectManager())
+                .teamMembers(request.getTeamMembers())
                 .startDate(request.getStartDate())
                 .endDate(request.getEndDate())
                 .status(request.getStatus() != null ? request.getStatus() : ProjectStatus.ACTIVE)
+                .priority(request.getPriority())
+                .budget(request.getBudget())
                 .build();
     }
 
@@ -34,9 +37,12 @@ public class ProjectMapper {
         response.setProjectName(project.getProjectName());
         response.setDescription(project.getDescription());
         response.setProjectManager(project.getProjectManager());
+        response.setTeamMembers(project.getTeamMembers());
         response.setStartDate(project.getStartDate());
         response.setEndDate(project.getEndDate());
         response.setStatus(project.getStatus());
+        response.setPriority(project.getPriority());
+        response.setBudget(project.getBudget());
         response.setCreatedAt(project.getCreatedAt());
         response.setUpdatedAt(project.getUpdatedAt());
         return response;
@@ -50,8 +56,11 @@ public class ProjectMapper {
         existing.setProjectName(request.getProjectName());
         existing.setDescription(request.getDescription());
         existing.setProjectManager(request.getProjectManager());
+        existing.setTeamMembers(request.getTeamMembers());
         existing.setStartDate(request.getStartDate());
         existing.setEndDate(request.getEndDate());
         existing.setStatus(request.getStatus() != null ? request.getStatus() : ProjectStatus.ACTIVE);
+        existing.setPriority(request.getPriority());
+        existing.setBudget(request.getBudget());
     }
 }

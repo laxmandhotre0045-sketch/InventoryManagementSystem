@@ -17,7 +17,13 @@ public interface PurchaseService {
      */
     PurchaseResponse confirmInvoicePurchase(com.company.inventory.dto.request.ConfirmInvoiceRequest request, String username);
 
-    PurchaseResponse uploadInvoice(Long purchaseId, MultipartFile file);
+    PurchaseResponse uploadInvoice(Long purchaseId, MultipartFile file, String username);
+
+    /** The stored invoice document for a purchase, for inline viewing or download. */
+    org.springframework.core.io.Resource loadInvoiceFile(Long purchaseId);
+
+    /** MIME type of the stored invoice, so the browser renders it instead of downloading blindly. */
+    String invoiceContentType(Long purchaseId);
 
     PurchaseResponse getPurchaseById(Long id);
 

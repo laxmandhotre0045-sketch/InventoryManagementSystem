@@ -17,8 +17,8 @@ const titleCol = {
   field: 'bookTitle', headerName: 'Book',
   render: (r) => (
     <Box>
-      <Typography sx={{ fontSize: '0.9375rem', fontWeight: 600 }}>{r.bookTitle}</Typography>
-      <Typography sx={{ fontSize: '0.8125rem', color: colors.textMuted }}>{r.memberName} · {r.memberEmployeeId}</Typography>
+      <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600 }}>{r.bookTitle}</Typography>
+      <Typography sx={{ fontSize: '0.75rem', color: colors.textMuted }}>{r.memberName} · {r.memberEmployeeId}</Typography>
     </Box>
   ),
 };
@@ -101,7 +101,7 @@ const MostBorrowedReport = () => {
       columns={[
         { field: 'rank', headerName: '#', render: (r) => <Box component="span" sx={{ color: colors.textMuted }}>{rows.indexOf(r) + 1}</Box> },
         { field: 'bookCode', headerName: 'Code', render: (r) => <Box component="span" sx={{ color: colors.primary, fontWeight: 600 }}>{r.bookCode}</Box> },
-        { field: 'title', headerName: 'Title', render: (r) => <Typography sx={{ fontSize: '0.9375rem', fontWeight: 600 }}>{r.title}</Typography> },
+        { field: 'title', headerName: 'Title', render: (r) => <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600 }}>{r.title}</Typography> },
         { field: 'author', headerName: 'Author', render: (r) => r.author || '—' },
         { field: 'borrowCount', headerName: 'Times Borrowed', align: 'right', render: (r) => <Chip size="small" icon={<TrendingUp size={14} />} label={r.borrowCount} sx={{ bgcolor: colors.primarySoft, color: colors.primary, fontWeight: 700, '& .MuiChip-icon': { color: colors.primary } }} /> },
       ]}

@@ -3,6 +3,7 @@ import { Boxes, Library, ArrowRight, LogOut, Lock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { isAdmin } from '../utils/roleUtils';
+import BrandLogo from '../components/ui/BrandLogo';
 import { colors, shadows } from '../theme/tokens';
 
 // Post-login landing: pick which module to work in. Inventory Management is the
@@ -41,7 +42,7 @@ const ModuleSelectionPage = () => {
     <Box sx={{ minHeight: '100vh', bgcolor: colors.canvas, display: 'flex', flexDirection: 'column' }}>
       {/* Top bar */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: { xs: 3, md: 6 }, py: 3 }}>
-        <Box component="img" src="/sensovibe-logo.svg" alt="SensoVibe" sx={{ height: 34 }} />
+        <BrandLogo height={28} />
         <Button variant="text" startIcon={<LogOut size={18} />} onClick={logout} sx={{ color: colors.textSecondary }}>
           Log out
         </Button>
@@ -56,7 +57,7 @@ const ModuleSelectionPage = () => {
           <Typography variant="h1" sx={{ fontSize: { xs: '2rem', md: '2.75rem' }, fontWeight: 700, letterSpacing: '-0.02em', mb: 1.5 }}>
             Choose a module
           </Typography>
-          <Typography sx={{ fontSize: '1.125rem', color: colors.textSecondary }}>
+          <Typography sx={{ fontSize: '0.875rem', color: colors.textSecondary }}>
             Select the workspace you want to open. You can switch anytime.
           </Typography>
         </Box>
@@ -101,7 +102,7 @@ const ModuleSelectionPage = () => {
                   <Icon size={32} strokeWidth={1.9} />
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, mb: 1, flexWrap: 'wrap' }}>
-                  <Typography sx={{ fontSize: '1.375rem', fontWeight: 700, letterSpacing: '-0.015em', color: locked ? colors.textSecondary : colors.textPrimary }}>
+                  <Typography sx={{ fontSize: '1rem', fontWeight: 650, letterSpacing: '-0.01em', color: locked ? colors.textSecondary : colors.textPrimary }}>
                     {m.title}
                   </Typography>
                   {locked && (
@@ -113,7 +114,7 @@ const ModuleSelectionPage = () => {
                     />
                   )}
                 </Box>
-                <Typography sx={{ fontSize: '1rem', color: colors.textSecondary, mb: 3, minHeight: 48 }}>
+                <Typography sx={{ fontSize: '0.8125rem', color: colors.textSecondary, mb: 2, minHeight: 36 }}>
                   {m.description}
                 </Typography>
                 {locked ? (

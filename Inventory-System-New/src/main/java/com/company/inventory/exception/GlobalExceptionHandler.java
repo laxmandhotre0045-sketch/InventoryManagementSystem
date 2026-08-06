@@ -5,10 +5,13 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.AccountStatusException;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import lombok.extern.slf4j.Slf4j;
@@ -50,6 +53,17 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * A path variable or query parameter that cannot be converted — {@code /purchases/abc}
+     * when a numeric id is expected. That is a malformed request, not a server fault, so it
+     * must not surface as a 500.
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiResponse<Object>> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        return new ResponseEntity<>(ApiResponse.failure(
+                "'" + ex.getName() + "' is not valid for this request.", null), HttpStatus.BAD_REQUEST);
+    }
+
+    /**
      * Unique-constraint and foreign-key violations (duplicate ISBN, duplicate employee id,
      * deleting a row another table still references). The driver's message names tables and
      * constraints, so it is logged rather than returned.
@@ -71,6 +85,19 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<ApiResponse<Object>> handleBadCredentials(BadCredentialsException ex) {
         return new ResponseEntity<>(ApiResponse.failure("Invalid email or password", null), HttpStatus.UNAUTHORIZED);
+    }
+
+    /**
+     * A deactivated (or locked) account failing to sign in. Without this the
+     * AccountStatusException falls through to the catch-all and the person is told
+     * "something went wrong" instead of why they cannot get in.
+     */
+    @ExceptionHandler(AccountStatusException.class)
+    public ResponseEntity<ApiResponse<Object>> handleAccountStatus(AccountStatusException ex) {
+        String message = ex instanceof DisabledException
+                ? "This account has been deactivated. Contact your administrator."
+                : "This account is not currently able to sign in. Contact your administrator.";
+        return new ResponseEntity<>(ApiResponse.failure(message, null), HttpStatus.UNAUTHORIZED);
     }
 
     @ExceptionHandler(AccessDeniedException.class)

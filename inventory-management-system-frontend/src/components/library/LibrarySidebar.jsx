@@ -7,6 +7,7 @@ import {
   History, Users, BarChart3, Settings, ArrowLeftRight,
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import BrandLogo from '../ui/BrandLogo';
 import { colors, layout } from '../../theme/tokens';
 
 // The Library module has its own dedicated navigation, independent of Inventory.
@@ -49,10 +50,10 @@ const LibrarySidebar = ({ mobileOpen, onClose, collapsed = false }) => {
         disableRipple
         sx={{
           position: 'relative',
-          borderRadius: '11px',
-          minHeight: isSwitch ? 52 : 56,
-          py: 1,
-          px: isCollapsed ? 0 : 2.25,
+          borderRadius: '8px',
+          minHeight: isSwitch ? 40 : 42,
+          py: 0.5,
+          px: isCollapsed ? 0 : 1.5,
           justifyContent: isCollapsed ? 'center' : 'flex-start',
           color: selected ? colors.primary : (isSwitch ? colors.textSecondary : '#565C68'),
           bgcolor: selected ? colors.sidebarActive : 'transparent',
@@ -61,17 +62,17 @@ const LibrarySidebar = ({ mobileOpen, onClose, collapsed = false }) => {
           '&.Mui-selected': { bgcolor: colors.sidebarActive },
           '&.Mui-selected:hover': { bgcolor: colors.sidebarActive },
           ...(selected && !isCollapsed
-            ? { '&::before': { content: '""', position: 'absolute', left: 0, top: 12, bottom: 12, width: 4, borderRadius: '0 4px 4px 0', bgcolor: colors.primary } }
+            ? { '&::before': { content: '""', position: 'absolute', left: -6, top: 9, bottom: 9, width: 3, borderRadius: '0 3px 3px 0', bgcolor: colors.primary } }
             : {}),
         }}
       >
-        <ListItemIcon sx={{ minWidth: isCollapsed ? 0 : 46, color: 'inherit', justifyContent: 'center' }}>
-          <Icon size={26} strokeWidth={selected ? 2.3 : 1.9} />
+        <ListItemIcon sx={{ minWidth: isCollapsed ? 0 : 32, color: 'inherit', justifyContent: 'center' }}>
+          <Icon size={18} strokeWidth={selected ? 2.2 : 1.8} />
         </ListItemIcon>
         {!isCollapsed && (
           <ListItemText
             primary={item.label}
-            primaryTypographyProps={{ fontSize: '1.15rem', fontWeight: selected ? 700 : 600, letterSpacing: '-0.01em' }}
+            primaryTypographyProps={{ fontSize: '0.875rem', fontWeight: selected ? 600 : 500, letterSpacing: 0 }}
           />
         )}
       </ListItemButton>
@@ -86,35 +87,39 @@ const LibrarySidebar = ({ mobileOpen, onClose, collapsed = false }) => {
       {/* Logo + module label */}
       <Box
         sx={{
-          minHeight: layout.navbarHeight, display: 'flex', alignItems: 'center',
-          px: isCollapsed ? 0 : 3, py: 2, justifyContent: isCollapsed ? 'center' : 'flex-start', flexShrink: 0,
+          height: layout.navbarHeight, display: 'flex', alignItems: 'center',
+          px: isCollapsed ? 0 : 2, justifyContent: isCollapsed ? 'center' : 'flex-start', flexShrink: 0,
+          borderBottom: `1px solid ${colors.border}`,
         }}
       >
-        <Box
-          component="img"
-          src={isCollapsed ? '/sensovibe-mark.svg' : '/sensovibe-logo.svg'}
-          alt="SensoVibe"
-          sx={{ height: isCollapsed ? 40 : 34, width: 'auto', display: 'block' }}
-        />
+        {isCollapsed ? (
+          <Box
+            component="img"
+            src="/sensovibe-mark.svg"
+            alt="SensoVibe"
+            sx={{ height: 30, width: 'auto', display: 'block' }}
+          />
+        ) : (
+          <BrandLogo height={28} />
+        )}
       </Box>
       {!isCollapsed && (
-        <Box sx={{ px: 3, pb: 1.5 }}>
-          <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: colors.primary }}>
+        <Box sx={{ px: 2, pt: 1.75, pb: 0.5 }}>
+          <Typography sx={{ fontSize: '0.6875rem', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: colors.textMuted }}>
             Book Management
           </Typography>
-          <Typography sx={{ fontSize: '0.8125rem', color: colors.textMuted }}>Library System</Typography>
         </Box>
       )}
 
       {/* Navigation */}
-      <Box sx={{ flexGrow: 1, overflowY: 'auto', px: isCollapsed ? 1.5 : 2.25, pt: 1 }}>
-        <List disablePadding sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+      <Box sx={{ flexGrow: 1, overflowY: 'auto', px: isCollapsed ? 1.25 : 1.5, pt: 0.5 }}>
+        <List disablePadding sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
           {menuItems.map((item) => navButton(item))}
         </List>
       </Box>
 
       {/* Switch module */}
-      <Box sx={{ px: isCollapsed ? 1.5 : 2.25, pb: 2.5, pt: 1, borderTop: `1px solid ${colors.border}` }}>
+      <Box sx={{ px: isCollapsed ? 1.25 : 1.5, pb: 1.5, pt: 1, borderTop: `1px solid ${colors.border}` }}>
         <List disablePadding>
           {navButton({ label: 'Switch Module', path: '/modules', icon: ArrowLeftRight }, true)}
         </List>

@@ -2,7 +2,7 @@ import { Card, Box, Typography } from '@mui/material';
 import { colors } from '../../theme/tokens';
 
 // Container for charts and rich panels: title, optional subtitle/action, body.
-const ChartCard = ({ title, subtitle, action, children, padding = 3, sx }) => (
+const ChartCard = ({ title, subtitle, action, children, padding = 2.5, sx }) => (
   <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', ...sx }}>
     {(title || action) && (
       <Box
@@ -18,10 +18,10 @@ const ChartCard = ({ title, subtitle, action, children, padding = 3, sx }) => (
       >
         <Box>
           {title && (
-            <Typography sx={{ fontSize: '1.375rem', fontWeight: 600, color: colors.textPrimary, letterSpacing: '-0.015em' }}>{title}</Typography>
+            <Typography sx={{ fontSize: '1rem', fontWeight: 600, color: colors.textPrimary, letterSpacing: '-0.008em' }}>{title}</Typography>
           )}
           {subtitle && (
-            <Typography sx={{ fontSize: '1.0625rem', color: colors.textSecondary, mt: 0.25 }}>
+            <Typography sx={{ fontSize: '0.75rem', color: colors.textMuted, mt: 0.25 }}>
               {subtitle}
             </Typography>
           )}

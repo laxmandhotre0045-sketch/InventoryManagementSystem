@@ -12,8 +12,8 @@ const InfoCard = ({ icon: Icon, title, value, description, tone = colors.primary
         <Icon size={23} strokeWidth={2} />
       </Box>
       <Box>
-        <Typography sx={{ fontSize: '0.9375rem', fontWeight: 600 }}>{title}</Typography>
-        <Typography sx={{ fontSize: '1.25rem', fontWeight: 700, color: colors.textPrimary }}>{value}</Typography>
+        <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600 }}>{title}</Typography>
+        <Typography sx={{ fontSize: '1rem', fontWeight: 650, color: colors.textPrimary }}>{value}</Typography>
       </Box>
     </Box>
     <Divider sx={{ mb: 1.5 }} />
@@ -30,7 +30,7 @@ const LibrarySettingsPage = () => (
       breadcrumbs={[{ label: 'Library' }, { label: 'Settings' }]}
     />
 
-    <Grid container spacing={2.5} sx={{ mb: 3 }}>
+    <Grid container spacing={2} sx={{ mb: 3 }}>
       <Grid item xs={12} sm={6} md={4}>
         <InfoCard icon={CalendarClock} title="Default Loan Period" value="14 days"
           description="When a due date isn't specified at issue time, books are due two weeks from the issue date." />
@@ -58,7 +58,7 @@ const LibrarySettingsPage = () => (
     </Grid>
 
     <Card sx={{ p: 3 }}>
-      <Typography sx={{ fontSize: '1rem', fontWeight: 700, mb: 0.75 }}>About this module</Typography>
+      <Typography sx={{ fontSize: '0.9375rem', fontWeight: 650, mb: 0.5 }}>About this module</Typography>
       <Typography sx={{ fontSize: '0.9375rem', color: colors.textSecondary, maxWidth: 720 }}>
         The Book Management module provides a complete company-library workflow — catalogue management, member records,
         issuing and returning books, and lending reports. It uses the same authentication as Inventory Management but

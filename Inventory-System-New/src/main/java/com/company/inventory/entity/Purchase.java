@@ -64,6 +64,13 @@ public class Purchase {
     @Column(name = "invoice_file_stored_name", length = 255)
     private String invoiceFileStoredName;
 
+    /** When the invoice document was attached — distinct from when the purchase was created. */
+    @Column(name = "invoice_uploaded_at")
+    private LocalDateTime invoiceUploadedAt;
+
+    @Column(name = "invoice_uploaded_by", length = 120)
+    private String invoiceUploadedBy;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "invoice_processing_status", length = 50)
     private InvoiceProcessingStatus invoiceProcessingStatus;

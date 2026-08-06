@@ -90,6 +90,9 @@ public class PurchaseServiceImpl implements PurchaseService {
         purchase.setInvoiceProcessingStatus(com.company.inventory.entity.InvoiceProcessingStatus.UPLOADED);
         if (request.getInvoiceFilePath() != null && !request.getInvoiceFilePath().isBlank()) {
             purchase.setInvoiceFilePath(request.getInvoiceFilePath());
+            // Same provenance as a manual upload, so the invoice list can show it.
+            purchase.setInvoiceUploadedAt(java.time.LocalDateTime.now());
+            purchase.setInvoiceUploadedBy(username);
         }
 
         BigDecimal totalAmount = BigDecimal.ZERO;
@@ -218,6 +221,8 @@ public class PurchaseServiceImpl implements PurchaseService {
         // Attach an invoice already stored by /extract-invoice, when provided.
         if (request.getInvoiceFilePath() != null && !request.getInvoiceFilePath().isBlank()) {
             purchase.setInvoiceFilePath(request.getInvoiceFilePath());
+            purchase.setInvoiceUploadedAt(java.time.LocalDateTime.now());
+            purchase.setInvoiceUploadedBy(username);
         }
 
         BigDecimal totalAmount = BigDecimal.ZERO;
@@ -267,14 +272,18 @@ public class PurchaseServiceImpl implements PurchaseService {
     }
 
     @Override
-    public PurchaseResponse uploadInvoice(Long purchaseId, MultipartFile file) {
+    public PurchaseResponse uploadInvoice(Long purchaseId, MultipartFile file, String username) {
         Purchase purchase = purchaseRepository.findById(purchaseId)
                 .orElseThrow(() -> new ResourceNotFoundException("Purchase not found with id: " + purchaseId));
         String path = fileStorageService.storeInvoice(file);
         purchase.setInvoiceFilePath(path);
         purchase.setInvoiceFileOriginalName(file.getOriginalFilename());
         purchase.setInvoiceFileStoredName(path);
-        purchase.setInvoiceProcessingStatus(com.company.inventory.entity.InvoiceProcessingStatus.PROCESSING);
+        // Recorded so the invoice list can show who attached the document and when,
+        // which updatedAt cannot answer once anything else on the purchase changes.
+        purchase.setInvoiceUploadedAt(java.time.LocalDateTime.now());
+        purchase.setInvoiceUploadedBy(username);
+        purchase.setInvoiceProcessingStatus(com.company.inventory.entity.InvoiceProcessingStatus.UPLOADED);
         Purchase updated = purchaseRepository.save(purchase);
         return purchaseMapper.toResponse(updated);
     }
@@ -284,6 +293,26 @@ public class PurchaseServiceImpl implements PurchaseService {
         Purchase purchase = purchaseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Purchase not found with id: " + id));
         return purchaseMapper.toResponse(purchase);
+    }
+
+    @Override
+    public org.springframework.core.io.Resource loadInvoiceFile(Long purchaseId) {
+        return fileStorageService.loadInvoice(invoicePathOf(purchaseId));
+    }
+
+    @Override
+    public String invoiceContentType(Long purchaseId) {
+        return fileStorageService.contentTypeOf(invoicePathOf(purchaseId));
+    }
+
+    private String invoicePathOf(Long purchaseId) {
+        Purchase purchase = purchaseRepository.findById(purchaseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Purchase not found with id: " + purchaseId));
+        String path = purchase.getInvoiceFilePath();
+        if (path == null || path.isBlank()) {
+            throw new ResourceNotFoundException("No invoice has been uploaded for this purchase");
+        }
+        return path;
     }
 
     @Override

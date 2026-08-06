@@ -136,8 +136,8 @@ const BooksPage = () => {
       field: 'title', headerName: 'Title',
       render: (row) => (
         <Box>
-          <Typography sx={{ fontSize: '0.9375rem', fontWeight: 600 }}>{row.title}</Typography>
-          <Typography sx={{ fontSize: '0.8125rem', color: colors.textMuted }}>{row.author || '—'}</Typography>
+          <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600 }}>{row.title}</Typography>
+          <Typography sx={{ fontSize: '0.75rem', color: colors.textMuted }}>{row.author || '—'}</Typography>
         </Box>
       ),
     },
@@ -164,12 +164,12 @@ const BooksPage = () => {
         icon={BookOpen}
         breadcrumbs={[{ label: 'Library' }, { label: 'Books' }]}
         actions={
-          <Button variant="contained" startIcon={<Plus size={18} />} onClick={openCreate}>Add Book</Button>
+          <Button variant="contained" startIcon={<Plus size={16} />} onClick={openCreate}>Add Book</Button>
         }
       />
 
-      <Card sx={{ p: 2.5, mb: 4 }}>
-        <Grid container spacing={2.5} alignItems="center">
+      <Card sx={{ p: 2, mb: 2.5 }}>
+        <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} sm={6} md={3.5}>
             <TextField label="Search by code, title, author, ISBN" size="small" fullWidth value={keyword}
               placeholder="e.g. BK0001 or Clean Code"
@@ -207,9 +207,9 @@ const BooksPage = () => {
         }}
         renderActions={(row) => (
           <Box sx={{ display: 'inline-flex', gap: 0.875 }}>
-            <Tooltip title="View"><IconButton size="small" onClick={() => openView(row)}><Eye size={18} /></IconButton></Tooltip>
-            <Tooltip title="Edit"><IconButton size="small" onClick={() => openEdit(row)}><Pencil size={18} /></IconButton></Tooltip>
-            <Tooltip title="Delete"><IconButton size="small" sx={{ color: colors.danger }} onClick={() => setDeleteId(row.id)}><Trash2 size={18} /></IconButton></Tooltip>
+            <Tooltip title="View"><IconButton size="small" onClick={() => openView(row)}><Eye size={16} /></IconButton></Tooltip>
+            <Tooltip title="Edit"><IconButton size="small" onClick={() => openEdit(row)}><Pencil size={16} /></IconButton></Tooltip>
+            <Tooltip title="Delete"><IconButton size="small" sx={{ color: colors.danger }} onClick={() => setDeleteId(row.id)}><Trash2 size={16} /></IconButton></Tooltip>
           </Box>
         )}
       />
@@ -272,7 +272,7 @@ const BooksPage = () => {
                 <StatusBadge {...bookStatusBadge(viewRow.status)} />
                 <StatusBadge {...availabilityBadge(viewRow.availability)} />
               </Box>
-              <Typography sx={{ fontSize: '1.25rem', fontWeight: 700, mb: 0.25 }}>{viewRow.title}</Typography>
+              <Typography sx={{ fontSize: '1rem', fontWeight: 650, mb: 0.25 }}>{viewRow.title}</Typography>
               <Typography sx={{ color: colors.textSecondary, mb: 2 }}>{viewRow.author || '—'}</Typography>
               <Divider sx={{ mb: 2 }} />
               <Grid container spacing={1.5}>
@@ -285,13 +285,13 @@ const BooksPage = () => {
                 ].map(([label, value]) => (
                   <Grid item xs={6} key={label}>
                     <Typography sx={{ fontSize: '0.75rem', color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</Typography>
-                    <Typography sx={{ fontSize: '0.9375rem', fontWeight: 500 }}>{value ?? '—'}</Typography>
+                    <Typography sx={{ fontSize: '0.8125rem', fontWeight: 500 }}>{value ?? '—'}</Typography>
                   </Grid>
                 ))}
                 {viewRow.notes && (
                   <Grid item xs={12}>
                     <Typography sx={{ fontSize: '0.75rem', color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Notes</Typography>
-                    <Typography sx={{ fontSize: '0.9375rem' }}>{viewRow.notes}</Typography>
+                    <Typography sx={{ fontSize: '0.8125rem' }}>{viewRow.notes}</Typography>
                   </Grid>
                 )}
               </Grid>

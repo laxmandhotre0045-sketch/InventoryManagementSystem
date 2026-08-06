@@ -22,6 +22,11 @@ public class PurchaseMapper {
         response.setPurchaseDate(purchase.getPurchaseDate());
         response.setTotalAmount(purchase.getTotalAmount());
         response.setInvoiceFilePath(purchase.getInvoiceFilePath());
+        response.setInvoiceFileOriginalName(purchase.getInvoiceFileOriginalName());
+        response.setInvoiceUploadedAt(purchase.getInvoiceUploadedAt());
+        response.setInvoiceUploadedBy(purchase.getInvoiceUploadedBy());
+        response.setInvoiceProcessingStatus(purchase.getInvoiceProcessingStatus());
+        response.setHasInvoice(purchase.getInvoiceFilePath() != null && !purchase.getInvoiceFilePath().isBlank());
         response.setRemarks(purchase.getRemarks());
         response.setCreatedAt(purchase.getCreatedAt());
         response.setUpdatedAt(purchase.getUpdatedAt());

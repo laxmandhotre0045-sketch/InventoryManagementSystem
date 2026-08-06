@@ -23,8 +23,8 @@ const ActivityList = ({ items, emptyLabel }) => {
         <Box key={r.id}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5, py: 1.5 }}>
             <Box sx={{ minWidth: 0 }}>
-              <Typography sx={{ fontSize: '0.9375rem', fontWeight: 600 }} noWrap>{r.bookTitle}</Typography>
-              <Typography sx={{ fontSize: '0.8125rem', color: colors.textMuted }} noWrap>
+              <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600 }} noWrap>{r.bookTitle}</Typography>
+              <Typography sx={{ fontSize: '0.75rem', color: colors.textMuted }} noWrap>
                 {r.memberName} · {formatDate(r.returnDate || r.issueDate)}
               </Typography>
             </Box>
@@ -68,7 +68,7 @@ const LibraryDashboardPage = () => {
         breadcrumbs={[{ label: 'Library' }, { label: 'Dashboard' }]}
       />
 
-      <Grid container spacing={2.5} sx={{ mb: 3 }}>
+      <Grid container spacing={2} sx={{ mb: 3 }}>
         {metrics.map((m) => (
           <Grid item xs={12} sm={6} md={4} lg={2} key={m.title}>
             <MetricCard title={m.title} value={m.value?.toLocaleString?.() ?? m.value} icon={m.icon} tone={m.tone} loading={loading} />
@@ -76,7 +76,7 @@ const LibraryDashboardPage = () => {
         ))}
       </Grid>
 
-      <Grid container spacing={2.5}>
+      <Grid container spacing={2}>
         <Grid item xs={12} lg={7}>
           <ChartCard title="Books by Category" subtitle="Distribution of titles across categories">
             {chartData.length === 0 ? (

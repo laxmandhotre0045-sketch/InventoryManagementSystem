@@ -50,11 +50,11 @@ export const tints = {
 };
 
 export const radii = {
-  card: 18,
-  button: 10,
-  input: 10,
-  table: 16,
-  modal: 20,
+  card: 12,
+  button: 8,
+  input: 8,
+  table: 12,
+  modal: 14,
   pill: 999,
 };
 
@@ -68,11 +68,13 @@ export const shadows = {
   navbar: '0 1px 0 rgba(16,24,40,0.04)',
 };
 
+// Chrome dimensions follow enterprise dashboard norms (Linear/Notion ≈240px rail,
+// Fiori/MS Admin ≈48–56px top bar) rather than the previous oversized values.
 export const layout = {
-  sidebarWidth: 288,
-  sidebarCollapsedWidth: 88,
-  navbarHeight: 72,
-  gap: 24,
+  sidebarWidth: 248,
+  sidebarCollapsedWidth: 64,
+  navbarHeight: 56,
+  gap: 20,
 };
 
 // Status badges — calm, desaturated tones on soft neutral backgrounds.

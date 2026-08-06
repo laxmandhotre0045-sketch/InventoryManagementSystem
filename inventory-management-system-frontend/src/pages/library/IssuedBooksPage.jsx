@@ -49,8 +49,8 @@ const IssuedBooksPage = () => {
       field: 'bookTitle', headerName: 'Book',
       render: (r) => (
         <Box>
-          <Typography sx={{ fontSize: '0.9375rem', fontWeight: 600 }}>{r.bookTitle}</Typography>
-          <Typography sx={{ fontSize: '0.8125rem', color: colors.textMuted }}>{r.bookAuthor || '—'}</Typography>
+          <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600 }}>{r.bookTitle}</Typography>
+          <Typography sx={{ fontSize: '0.75rem', color: colors.textMuted }}>{r.bookAuthor || '—'}</Typography>
         </Box>
       ),
     },
@@ -58,8 +58,8 @@ const IssuedBooksPage = () => {
       field: 'member', headerName: 'Member',
       render: (r) => (
         <Box>
-          <Typography sx={{ fontSize: '0.9375rem', fontWeight: 500 }}>{r.memberName}</Typography>
-          <Typography sx={{ fontSize: '0.8125rem', color: colors.textMuted }}>{r.memberEmployeeId}</Typography>
+          <Typography sx={{ fontSize: '0.8125rem', fontWeight: 500 }}>{r.memberName}</Typography>
+          <Typography sx={{ fontSize: '0.75rem', color: colors.textMuted }}>{r.memberEmployeeId}</Typography>
         </Box>
       ),
     },
@@ -85,8 +85,8 @@ const IssuedBooksPage = () => {
         breadcrumbs={[{ label: 'Library' }, { label: 'Issued Books' }]}
       />
 
-      <Card sx={{ p: 2.5, mb: 4 }}>
-        <Grid container spacing={2.5} alignItems="center">
+      <Card sx={{ p: 2, mb: 2.5 }}>
+        <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} sm={6} md={4}>
             <TextField label="Search by book or member" size="small" fullWidth value={keyword}
               placeholder="Results filter as you type"

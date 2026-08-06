@@ -3,14 +3,15 @@ import {
   Box, Button, Dialog, DialogActions, DialogContent, DialogTitle,
   IconButton, MenuItem, TextField, Typography, Snackbar, Alert, Grid, Divider, Tooltip,
 } from '@mui/material';
-import { Plus, Trash2, Upload, FileCheck2, ShoppingCart, Sparkles } from 'lucide-react';
+import { Plus, Trash2, Upload, FileCheck2, ShoppingCart, Sparkles, Eye, Download } from 'lucide-react';
 import {
-  getPurchases, searchPurchases, createPurchase, deletePurchase, uploadInvoice,
+  getPurchases, searchPurchases, createPurchase, deletePurchase, uploadInvoice, downloadInvoice,
 } from '../api/purchaseApi';
 import { getComponents } from '../api/componentApi';
 import DataTable from '../components/common/DataTable';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import InvoiceUploadDialog from '../components/purchases/InvoiceUploadDialog';
+import InvoiceViewerDialog from '../components/purchases/InvoiceViewerDialog';
 import { PageHeader, StatusBadge, SearchBar } from '../components/ui';
 import useDebouncedValue from '../hooks/useDebouncedValue';
 import { colors } from '../theme/tokens';
@@ -22,6 +23,8 @@ const emptyForm = {
 
 import { formatCurrency as currency, CURRENCY_SYMBOL } from '../utils/currency';
 
+const dateLabel = (v) =>
+  (v ? new Date(v).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—');
 
 const PurchasesPage = () => {
   const [rows, setRows] = useState([]);
@@ -34,6 +37,7 @@ const PurchasesPage = () => {
   const debouncedKeyword = useDebouncedValue(keyword, 300);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [ocrOpen, setOcrOpen] = useState(false);
+  const [viewRow, setViewRow] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [deleteId, setDeleteId] = useState(null);
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
@@ -114,18 +118,45 @@ const PurchasesPage = () => {
     e.target.value = '';
   };
 
+  const handleDownload = async (row) => {
+    try {
+      await downloadInvoice(row.id, row.invoiceFileOriginalName);
+    } catch (err) {
+      setSnack({ open: true, message: err.response?.data?.message || 'Could not download the invoice', severity: 'error' });
+    }
+  };
+
   const estimatedTotal = form.items.reduce((sum, i) => sum + Number(i.quantity || 0) * Number(i.unitPrice || 0), 0);
 
   const columns = [
+    {
+      field: 'invoiceNumber', headerName: 'Invoice #',
+      render: (row) => (
+        <Box component="span" sx={{ fontWeight: 600, color: colors.primary, whiteSpace: 'nowrap' }}>
+          {row.invoiceNumber}
+        </Box>
+      ),
+    },
     { field: 'supplierName', headerName: 'Supplier' },
-    { field: 'invoiceNumber', headerName: 'Invoice #' },
-    { field: 'purchaseDate', headerName: 'Date' },
+    { field: 'purchaseDate', headerName: 'Invoice Date', render: (row) => dateLabel(row.purchaseDate) },
     { field: 'totalAmount', headerName: 'Total', align: 'right', render: (row) => <Box component="span" sx={{ fontWeight: 600 }}>{currency(row.totalAmount)}</Box> },
     {
-      field: 'invoiceFilePath', headerName: 'Invoice',
-      render: (row) => row.invoiceFilePath
-        ? <StatusBadge status="completed" label="Uploaded" />
-        : <StatusBadge status="pending" label="Missing" />,
+      field: 'invoiceUploadedAt', headerName: 'Uploaded',
+      render: (row) => (row.invoiceUploadedAt
+        ? dateLabel(row.invoiceUploadedAt)
+        : <Box component="span" sx={{ color: colors.textMuted }}>—</Box>),
+    },
+    {
+      field: 'invoiceUploadedBy', headerName: 'Uploaded By',
+      render: (row) => (row.invoiceUploadedBy
+        ? <Box component="span" sx={{ whiteSpace: 'nowrap' }}>{row.invoiceUploadedBy.split('@')[0]}</Box>
+        : <Box component="span" sx={{ color: colors.textMuted }}>—</Box>),
+    },
+    {
+      field: 'hasInvoice', headerName: 'Status',
+      render: (row) => (row.hasInvoice
+        ? <StatusBadge status="completed" label="Attached" />
+        : <StatusBadge status="pending" label="Missing" />),
     },
   ];
 
@@ -148,7 +179,7 @@ const PurchasesPage = () => {
             <Button variant="outlined" startIcon={<Sparkles size={18} />} onClick={() => setOcrOpen(true)}>
               Upload Invoice
             </Button>
-            <Button variant="contained" startIcon={<Plus size={18} />} onClick={() => { setForm(emptyForm); setDialogOpen(true); }}>
+            <Button variant="contained" startIcon={<Plus size={16} />} onClick={() => { setForm(emptyForm); setDialogOpen(true); }}>
               New Purchase
             </Button>
           </>
@@ -184,14 +215,28 @@ const PurchasesPage = () => {
         }}
         renderActions={(row) => (
           <Box sx={{ display: 'inline-flex', gap: 0.5 }}>
-            <Tooltip title="Upload invoice">
-              <IconButton size="small" component="label">
-                {row.invoiceFilePath ? <FileCheck2 size={17} color={colors.success} /> : <Upload size={17} />}
-                <input type="file" hidden onChange={(e) => handleUpload(row.id, e)} />
+            <Tooltip title={row.hasInvoice ? 'View invoice' : 'No invoice uploaded yet'}>
+              <span>
+                <IconButton size="small" disabled={!row.hasInvoice} onClick={() => setViewRow(row)}>
+                  <Eye size={16} />
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title={row.hasInvoice ? 'Download invoice' : 'No invoice uploaded yet'}>
+              <span>
+                <IconButton size="small" disabled={!row.hasInvoice} onClick={() => handleDownload(row)}>
+                  <Download size={16} />
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title={row.hasInvoice ? 'Replace invoice' : 'Upload invoice'}>
+              <IconButton size="small" component="label" sx={row.hasInvoice ? { color: colors.success } : undefined}>
+                {row.hasInvoice ? <FileCheck2 size={16} /> : <Upload size={16} />}
+                <input type="file" hidden accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => handleUpload(row.id, e)} />
               </IconButton>
             </Tooltip>
             <Tooltip title="Delete">
-              <IconButton size="small" sx={{ color: colors.danger }} onClick={() => setDeleteId(row.id)}><Trash2 size={17} /></IconButton>
+              <IconButton size="small" sx={{ color: colors.danger }} onClick={() => setDeleteId(row.id)}><Trash2 size={16} /></IconButton>
             </Tooltip>
           </Box>
         )}
@@ -255,6 +300,12 @@ const PurchasesPage = () => {
           <Button variant="contained" onClick={handleSave}>Create</Button>
         </DialogActions>
       </Dialog>
+
+      <InvoiceViewerDialog
+        open={!!viewRow}
+        purchase={viewRow}
+        onClose={() => setViewRow(null)}
+      />
 
       <ConfirmDialog
         open={!!deleteId}

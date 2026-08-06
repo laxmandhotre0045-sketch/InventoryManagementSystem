@@ -79,10 +79,10 @@ const IssueBookPage = () => {
         breadcrumbs={[{ label: 'Library' }, { label: 'Issue Book' }]}
       />
 
-      <Grid container spacing={3}>
+      <Grid container spacing={2}>
         <Grid item xs={12} md={7}>
           <Card sx={{ p: { xs: 2.5, md: 3.5 } }}>
-            <Grid container spacing={2.5}>
+            <Grid container spacing={2}>
               <Grid item xs={12}>
                 <Autocomplete
                   options={books}
@@ -95,10 +95,10 @@ const IssueBookPage = () => {
                   renderOption={(props, o) => (
                     <Box component="li" {...props} key={o.id}>
                       <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                        <Typography sx={{ fontSize: '0.9375rem', fontWeight: 600 }}>
+                        <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600 }}>
                           <Box component="span" sx={{ color: colors.primary, mr: 1 }}>{o.bookCode}</Box>{o.title}
                         </Typography>
-                        <Typography sx={{ fontSize: '0.8125rem', color: colors.textMuted }}>
+                        <Typography sx={{ fontSize: '0.75rem', color: colors.textMuted }}>
                           {o.author || '—'} · {o.availableCopies} available
                         </Typography>
                       </Box>
@@ -124,8 +124,8 @@ const IssueBookPage = () => {
                   renderOption={(props, o) => (
                     <Box component="li" {...props} key={o.id}>
                       <Box>
-                        <Typography sx={{ fontSize: '0.9375rem', fontWeight: 600 }}>{o.name}</Typography>
-                        <Typography sx={{ fontSize: '0.8125rem', color: colors.textMuted }}>
+                        <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600 }}>{o.name}</Typography>
+                        <Typography sx={{ fontSize: '0.75rem', color: colors.textMuted }}>
                           {o.employeeId}{o.department ? ` · ${o.department}` : ''} · holding {o.activeIssues ?? 0}
                         </Typography>
                       </Box>
@@ -159,7 +159,7 @@ const IssueBookPage = () => {
 
         <Grid item xs={12} md={5}>
           <Card sx={{ p: { xs: 2.5, md: 3 } }}>
-            <Typography sx={{ fontSize: '1.125rem', fontWeight: 700, mb: 0.5 }}>Recently Issued</Typography>
+            <Typography sx={{ fontSize: '0.9375rem', fontWeight: 650, mb: 0.25 }}>Recently Issued</Typography>
             <Typography sx={{ fontSize: '0.875rem', color: colors.textMuted, mb: 2 }}>Latest active loans</Typography>
             <Divider sx={{ mb: 1.5 }} />
             {recent.length === 0 ? (
@@ -169,8 +169,8 @@ const IssueBookPage = () => {
                 {recent.map((r) => (
                   <Box key={r.id} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
                     <Box sx={{ minWidth: 0 }}>
-                      <Typography sx={{ fontSize: '0.9375rem', fontWeight: 600 }} noWrap>{r.bookTitle}</Typography>
-                      <Typography sx={{ fontSize: '0.8125rem', color: colors.textMuted }} noWrap>
+                      <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600 }} noWrap>{r.bookTitle}</Typography>
+                      <Typography sx={{ fontSize: '0.75rem', color: colors.textMuted }} noWrap>
                         {r.memberName} · due {formatDate(r.dueDate)}
                       </Typography>
                     </Box>

@@ -42,12 +42,24 @@ public class Project {
     @Column(name = "project_manager", length = 120)
     private String projectManager;
 
+    /** Comma-separated names. A free-text roster avoids a join table for what is display-only today. */
+    @Column(name = "team_members", length = 500)
+    private String teamMembers;
+
     private LocalDate startDate;
     private LocalDate endDate;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
     private ProjectStatus status;
+
+    /** Nullable so rows created before this column existed keep loading. */
+    @Enumerated(EnumType.STRING)
+    @Column(length = 32)
+    private ProjectPriority priority;
+
+    @Column(precision = 15, scale = 2)
+    private java.math.BigDecimal budget;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

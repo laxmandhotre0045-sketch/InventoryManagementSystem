@@ -45,22 +45,23 @@ const DataTable = ({
               flexWrap: 'wrap',
               alignItems: 'center',
               justifyContent: 'space-between',
-              gap: 1.5,
-              p: 2,
+              gap: 1.25,
+              px: 2,
+              py: 1.5,
             }}
           >
             {title ? (
-              <Typography sx={{ fontSize: '1rem', fontWeight: 600 }}>{title}</Typography>
+              <Typography sx={{ fontSize: '0.875rem', fontWeight: 600 }}>{title}</Typography>
             ) : (
               <span />
             )}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, flexWrap: 'wrap' }}>
               {onSearchChange && (
                 <SearchBar
                   value={search}
                   onChange={(e) => onSearchChange(e.target.value)}
                   placeholder={searchPlaceholder}
-                  width={240}
+                  width={220}
                 />
               )}
               {toolbarActions}
@@ -92,7 +93,7 @@ const DataTable = ({
                 <TableRow key={`sk-${i}`} hover={false}>
                   {Array.from({ length: colSpan }).map((__, j) => (
                     <TableCell key={j}>
-                      <Skeleton variant="text" width={j === 0 ? '60%' : '80%'} height={22} />
+                      <Skeleton variant="text" width={j === 0 ? '60%' : '80%'} height={16} />
                     </TableCell>
                   ))}
                 </TableRow>
@@ -103,8 +104,8 @@ const DataTable = ({
                   {emptyState ? (
                     <EmptyState {...emptyState} />
                   ) : (
-                    <Box sx={{ py: 7, textAlign: 'center' }}>
-                      <Typography color="text.secondary">{emptyMessage}</Typography>
+                    <Box sx={{ py: 5, textAlign: 'center' }}>
+                      <Typography sx={{ fontSize: '0.8125rem' }} color="text.secondary">{emptyMessage}</Typography>
                     </Box>
                   )}
                 </TableCell>

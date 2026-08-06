@@ -70,6 +70,10 @@ public class SecurityConfig {
                         ).hasAnyRole("ADMIN", "USER")
                         // Any authenticated user can mark their notifications read.
                         .requestMatchers(HttpMethod.PUT, api + "/notifications/**").hasAnyRole("ADMIN", "USER")
+                        // Account & role management belongs to the single system owner.
+                        // Plain admins get 403 here, so they cannot create, edit, suspend
+                        // or delete other admins, nor promote themselves.
+                        .requestMatchers(api + "/users/**").hasRole("MASTER_ADMIN")
                         .requestMatchers(api + "/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )

@@ -23,50 +23,52 @@ const MetricCard = ({ icon: Icon, title, value, trend, caption, tone = 'primary'
     <Card
       sx={{
         height: '100%',
-        p: 3.5,
+        p: 2.25,
         bgcolor: t.bg,
         border: `1px solid ${t.border}`,
         boxShadow: 'none',
         transition: 'transform .22s cubic-bezier(.4,0,.2,1), box-shadow .22s ease, border-color .22s ease',
-        '&:hover': { transform: 'translateY(-3px)', boxShadow: '0 14px 32px rgba(16,24,40,0.09)', borderColor: t.chip },
+        '&:hover': { transform: 'translateY(-2px)', boxShadow: '0 8px 20px rgba(16,24,40,0.07)', borderColor: t.chip },
       }}
     >
-      <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 2.75 }}>
-        <Typography sx={{ fontSize: '1.1875rem', fontWeight: 500, color: colors.textSecondary }}>
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1.5, mb: 1.5 }}>
+        <Typography sx={{ fontSize: '0.8125rem', fontWeight: 550, color: colors.textSecondary, lineHeight: 1.4 }}>
           {title}
         </Typography>
         {Icon && (
           <Box
             sx={{
-              width: 52, height: 52, borderRadius: '14px', display: 'grid', placeItems: 'center',
+              width: 34, height: 34, borderRadius: '9px', display: 'grid', placeItems: 'center',
               bgcolor: t.chip, color: t.fg, flexShrink: 0,
             }}
           >
-            <Icon size={26} strokeWidth={2} />
+            <Icon size={17} strokeWidth={2} />
           </Box>
         )}
       </Box>
 
       {loading ? (
-        <Skeleton variant="text" width={120} height={56} />
+        <Skeleton variant="text" width={96} height={34} />
       ) : (
-        <Typography sx={{ fontSize: '3rem', fontWeight: 700, lineHeight: 1.02, letterSpacing: '-0.028em', color: colors.textPrimary }}>
+        // The KPI figure stays deliberately the largest text on the page, but at
+        // 28px rather than 48px it reads as a metric instead of a headline.
+        <Typography sx={{ fontSize: '1.75rem', fontWeight: 650, lineHeight: 1.15, letterSpacing: '-0.022em', color: colors.textPrimary, fontVariantNumeric: 'tabular-nums' }}>
           {value ?? '—'}
         </Typography>
       )}
 
       {trend && !loading && (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 1.5 }}>
-          <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25, color: trendColor, fontWeight: 600, fontSize: '0.9375rem' }}>
-            <TrendIcon size={16} />
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.75 }}>
+          <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25, color: trendColor, fontWeight: 600, fontSize: '0.75rem' }}>
+            <TrendIcon size={13} />
             {trend.value}
           </Box>
-          {trend.label && <Typography sx={{ fontSize: '0.9375rem', color: colors.textMuted }}>{trend.label}</Typography>}
+          {trend.label && <Typography sx={{ fontSize: '0.75rem', color: colors.textMuted }}>{trend.label}</Typography>}
         </Box>
       )}
 
       {caption && !trend && !loading && (
-        <Typography sx={{ fontSize: '1.0625rem', color: colors.textMuted, mt: 1.75 }}>{caption}</Typography>
+        <Typography sx={{ fontSize: '0.75rem', color: colors.textMuted, mt: 0.75, lineHeight: 1.45 }}>{caption}</Typography>
       )}
     </Card>
   );

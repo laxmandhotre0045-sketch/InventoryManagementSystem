@@ -7,13 +7,17 @@ import {
 import {
   Settings as SettingsIcon, Building2, SlidersHorizontal, Boxes, Bell, Palette,
   DatabaseBackup, Users, Save, Plus, Trash2, Download, Upload, ShieldCheck,
+  Pencil, KeyRound, UserX, UserCheck, Crown,
 } from 'lucide-react';
 import { getSettings, updateSettings } from '../api/settingsApi';
-import { getUsers, createUser, updateUserRole, deleteUser } from '../api/userApi';
+import {
+  getUsers, createUser, updateUser, setUserActive, resetUserPassword, deleteUser,
+} from '../api/userApi';
 import { useAuth } from '../auth/AuthContext';
+import { canManageUsers, roleLabel } from '../utils/roleUtils';
 import DataTable from '../components/common/DataTable';
 import ConfirmDialog from '../components/common/ConfirmDialog';
-import { PageHeader } from '../components/ui';
+import { PageHeader, StatusBadge } from '../components/ui';
 import { colors } from '../theme/tokens';
 
 const CATEGORY_META = {
@@ -42,15 +46,22 @@ const NOT_APPLIED_NOTE = {
   PREFERENCES: 'Date format, timezone and language are stored here for upcoming releases; the interface currently uses the system defaults.',
 };
 
-// ---- Users & Roles manager -------------------------------------------------
+// ---- Users & Roles manager (master admin only) -----------------------------
+const emptyUserForm = { username: '', email: '', password: '', role: 'USER' };
+
 const UsersManager = ({ notify }) => {
   const { email: myEmail } = useAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState({ username: '', email: '', password: '', role: 'USER' });
+  const [editRow, setEditRow] = useState(null);
+  const [form, setForm] = useState(emptyUserForm);
   const [saving, setSaving] = useState(false);
-  const [deleteId, setDeleteId] = useState(null);
+  const [deleteRow, setDeleteRow] = useState(null);
+  const [pwdRow, setPwdRow] = useState(null);
+  const [newPassword, setNewPassword] = useState('');
+
+  const isSelf = (r) => r.email?.toLowerCase() === myEmail?.toLowerCase();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -61,104 +72,239 @@ const UsersManager = ({ notify }) => {
 
   useEffect(() => { load(); }, [load]);
 
-  const handleCreate = async () => {
-    if (!form.username.trim() || !form.email.trim() || !form.password) {
-      notify('Name, email and password are required', 'error'); return;
+  const openCreate = () => { setEditRow(null); setForm(emptyUserForm); setDialogOpen(true); };
+  const openEdit = (r) => {
+    setEditRow(r);
+    setForm({ username: r.username || '', email: r.email || '', password: '', role: r.role });
+    setDialogOpen(true);
+  };
+
+  const handleSave = async () => {
+    if (!form.username.trim() || !form.email.trim()) {
+      notify('Name and email are required', 'error'); return;
     }
+    if (!editRow && !form.password) { notify('Password is required', 'error'); return; }
     setSaving(true);
     try {
-      await createUser(form);
-      notify('User created', 'success');
+      if (editRow) {
+        await updateUser(editRow.id, { username: form.username, email: form.email, role: form.role });
+        notify('Account updated', 'success');
+      } else {
+        await createUser(form);
+        notify('Account created', 'success');
+      }
       setDialogOpen(false);
-      setForm({ username: '', email: '', password: '', role: 'USER' });
       load();
-    } catch (err) { notify(err.response?.data?.message || 'Failed to create user', 'error'); }
+    } catch (err) { notify(err.response?.data?.message || 'Save failed', 'error'); }
     finally { setSaving(false); }
   };
 
-  const handleRole = async (id, role) => {
-    try { await updateUserRole(id, role); notify('Role updated', 'success'); load(); }
-    catch (err) { notify(err.response?.data?.message || 'Failed to update role', 'error'); }
+  const handleToggleActive = async (r) => {
+    try {
+      await setUserActive(r.id, !r.active);
+      notify(r.active ? 'Account deactivated' : 'Account activated', 'success');
+      load();
+    } catch (err) { notify(err.response?.data?.message || 'Failed to update account', 'error'); }
+  };
+
+  const handleResetPassword = async () => {
+    if (newPassword.length < 6) { notify('Password must be at least 6 characters', 'error'); return; }
+    setSaving(true);
+    try {
+      await resetUserPassword(pwdRow.id, newPassword);
+      notify(`Password reset for ${pwdRow.email}`, 'success');
+      setPwdRow(null); setNewPassword('');
+    } catch (err) { notify(err.response?.data?.message || 'Failed to reset password', 'error'); }
+    finally { setSaving(false); }
   };
 
   const handleDelete = async () => {
-    try { await deleteUser(deleteId); notify('User deleted', 'success'); setDeleteId(null); load(); }
-    catch (err) { notify(err.response?.data?.message || 'Failed to delete user', 'error'); }
+    try {
+      await deleteUser(deleteRow.id);
+      notify('Account deleted', 'success');
+      setDeleteRow(null);
+      load();
+    } catch (err) { notify(err.response?.data?.message || 'Delete failed', 'error'); }
   };
 
   const columns = [
-    { field: 'username', headerName: 'Name', render: (r) => <Typography sx={{ fontSize: '0.9375rem', fontWeight: 600 }}>{r.username}</Typography> },
+    {
+      field: 'username', headerName: 'Name',
+      render: (r) => (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600 }}>{r.username}</Typography>
+          {isSelf(r) && <Chip size="small" label="You" sx={{ bgcolor: colors.primarySoft, color: colors.primary }} />}
+        </Box>
+      ),
+    },
     { field: 'email', headerName: 'Email' },
     {
       field: 'role', headerName: 'Role',
       render: (r) => (
-        <TextField
-          select size="small" value={r.role}
-          onChange={(e) => handleRole(r.id, e.target.value)}
-          sx={{ minWidth: 120 }}
-          disabled={r.email?.toLowerCase() === myEmail?.toLowerCase()}
-        >
-          <MenuItem value="ADMIN">Admin</MenuItem>
-          <MenuItem value="USER">User</MenuItem>
-        </TextField>
+        <Chip
+          size="small"
+          icon={r.masterAdmin ? <Crown size={12} /> : undefined}
+          label={roleLabel(r.role)}
+          sx={{
+            fontWeight: 600,
+            bgcolor: r.masterAdmin ? colors.warningSoft : r.role === 'ADMIN' ? colors.primarySoft : '#F2F1EE',
+            color: r.masterAdmin ? colors.warning : r.role === 'ADMIN' ? colors.primary : colors.textSecondary,
+            '& .MuiChip-icon': { color: colors.warning },
+          }}
+        />
       ),
     },
-    { field: 'you', headerName: '', render: (r) => (r.email?.toLowerCase() === myEmail?.toLowerCase() ? <Chip size="small" label="You" sx={{ bgcolor: colors.primarySoft, color: colors.primary, fontWeight: 600 }} /> : null) },
+    {
+      field: 'active', headerName: 'Status',
+      render: (r) => <StatusBadge status={r.active ? 'active' : 'cancelled'} label={r.active ? 'Active' : 'Inactive'} />,
+    },
   ];
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 2, mb: 2, flexWrap: 'wrap' }}>
         <Box>
-          <Typography sx={{ fontSize: '1.125rem', fontWeight: 700 }}>Users &amp; Roles</Typography>
-          <Typography sx={{ color: colors.textMuted, fontSize: '0.875rem' }}>Manage who can access the system and their permissions.</Typography>
+          <Typography sx={{ fontSize: '1rem', fontWeight: 650 }}>Users &amp; Roles</Typography>
+          <Typography sx={{ color: colors.textMuted, fontSize: '0.8125rem' }}>
+            Create and manage accounts. Only the master admin can see this screen.
+          </Typography>
         </Box>
-        <Button variant="contained" startIcon={<Plus size={18} />} onClick={() => setDialogOpen(true)}>Add User</Button>
+        <Button variant="contained" startIcon={<Plus size={16} />} onClick={openCreate}>Add Account</Button>
       </Box>
 
       <DataTable
-        columns={columns} rows={users} loading={loading} minWidth={560}
+        columns={columns} rows={users} loading={loading} minWidth={680}
         emptyState={{ icon: Users, title: 'No users', description: 'Add your first user account.', dense: true }}
-        renderActions={(r) => (
-          <Tooltip title={r.email?.toLowerCase() === myEmail?.toLowerCase() ? 'You cannot delete yourself' : 'Delete'}>
-            <span>
-              <IconButton size="small" sx={{ color: colors.danger }} disabled={r.email?.toLowerCase() === myEmail?.toLowerCase()} onClick={() => setDeleteId(r.id)}>
-                <Trash2 size={18} />
-              </IconButton>
-            </span>
-          </Tooltip>
-        )}
+        renderActions={(r) => {
+          // The owner account is immutable to everyone else; only it can edit itself.
+          const lockedByOwner = r.masterAdmin && !isSelf(r);
+          return (
+            <Box sx={{ display: 'inline-flex', gap: 0.5 }}>
+              <Tooltip title={lockedByOwner ? 'The master admin account cannot be modified' : 'Edit'}>
+                <span>
+                  <IconButton size="small" disabled={lockedByOwner} onClick={() => openEdit(r)}>
+                    <Pencil size={16} />
+                  </IconButton>
+                </span>
+              </Tooltip>
+              <Tooltip title={r.masterAdmin ? 'The master admin password can only be changed by its owner' : 'Reset password'}>
+                <span>
+                  <IconButton size="small" disabled={r.masterAdmin && !isSelf(r)} onClick={() => { setPwdRow(r); setNewPassword(''); }}>
+                    <KeyRound size={16} />
+                  </IconButton>
+                </span>
+              </Tooltip>
+              <Tooltip title={
+                r.masterAdmin ? 'The master admin cannot be deactivated'
+                  : isSelf(r) ? 'You cannot deactivate your own account'
+                    : r.active ? 'Deactivate' : 'Activate'
+              }>
+                <span>
+                  <IconButton
+                    size="small"
+                    disabled={r.masterAdmin || isSelf(r)}
+                    sx={{ color: r.active ? colors.warning : colors.success }}
+                    onClick={() => handleToggleActive(r)}
+                  >
+                    {r.active ? <UserX size={16} /> : <UserCheck size={16} />}
+                  </IconButton>
+                </span>
+              </Tooltip>
+              <Tooltip title={
+                r.masterAdmin ? 'The master admin cannot be deleted'
+                  : isSelf(r) ? 'You cannot delete your own account' : 'Delete'
+              }>
+                <span>
+                  <IconButton
+                    size="small" sx={{ color: colors.danger }}
+                    disabled={r.masterAdmin || isSelf(r)}
+                    onClick={() => setDeleteRow(r)}
+                  >
+                    <Trash2 size={16} />
+                  </IconButton>
+                </span>
+              </Tooltip>
+            </Box>
+          );
+        }}
       />
 
+      {/* Create / edit */}
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Add User</DialogTitle>
+        <DialogTitle>{editRow ? 'Edit Account' : 'Add Account'}</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 0.5 }}>
-            <Grid item xs={12} sm={6}><TextField label="Name" fullWidth value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} /></Grid>
             <Grid item xs={12} sm={6}>
-              <TextField select label="Role" fullWidth value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
-                <MenuItem value="ADMIN">Admin</MenuItem>
-                <MenuItem value="USER">User</MenuItem>
+              <TextField label="Name" fullWidth size="small" value={form.username}
+                onChange={(e) => setForm({ ...form, username: e.target.value })} />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                select label="Role" fullWidth size="small" value={form.role}
+                onChange={(e) => setForm({ ...form, role: e.target.value })}
+                disabled={editRow?.masterAdmin}
+                helperText={editRow?.masterAdmin ? 'The master admin role is fixed' : 'The master admin role cannot be assigned'}
+              >
+                {editRow?.masterAdmin && <MenuItem value="MASTER_ADMIN">Master Admin</MenuItem>}
+                <MenuItem value="ADMIN">Administrator</MenuItem>
+                <MenuItem value="USER">Member</MenuItem>
               </TextField>
             </Grid>
-            <Grid item xs={12}><TextField label="Email" type="email" fullWidth value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Grid>
-            <Grid item xs={12}><TextField label="Password" type="password" fullWidth value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} helperText="Minimum 6 characters" /></Grid>
+            <Grid item xs={12}>
+              <TextField label="Email" type="email" fullWidth size="small" value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })} />
+            </Grid>
+            {!editRow && (
+              <Grid item xs={12}>
+                <TextField label="Password" type="password" fullWidth size="small" value={form.password}
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  helperText="Minimum 6 characters" />
+              </Grid>
+            )}
           </Grid>
         </DialogContent>
         <DialogActions>
           <Button variant="text" onClick={() => setDialogOpen(false)} disabled={saving}>Cancel</Button>
-          <Button variant="contained" onClick={handleCreate} disabled={saving}>{saving ? 'Saving…' : 'Create User'}</Button>
+          <Button variant="contained" onClick={handleSave} disabled={saving}>
+            {saving ? 'Saving…' : editRow ? 'Save changes' : 'Create account'}
+          </Button>
         </DialogActions>
       </Dialog>
 
-      <ConfirmDialog open={!!deleteId} title="Delete User" message="This will permanently remove the user account."
-        onConfirm={handleDelete} onCancel={() => setDeleteId(null)} confirmText="Delete" />
+      {/* Reset password */}
+      <Dialog open={!!pwdRow} onClose={() => setPwdRow(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Reset Password</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ fontSize: '0.8125rem', color: colors.textSecondary, mb: 2 }}>
+            Set a new password for <strong>{pwdRow?.email}</strong>. They will need it on their next sign-in.
+          </Typography>
+          <TextField
+            label="New password" type="password" fullWidth size="small" autoFocus
+            value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
+            helperText="Minimum 6 characters"
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button variant="text" onClick={() => setPwdRow(null)} disabled={saving}>Cancel</Button>
+          <Button variant="contained" onClick={handleResetPassword} disabled={saving}>
+            {saving ? 'Saving…' : 'Reset password'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <ConfirmDialog
+        open={!!deleteRow} title="Delete Account"
+        message={`This permanently removes ${deleteRow?.email || 'this account'}. Their historical records are kept.`}
+        onConfirm={handleDelete} onCancel={() => setDeleteRow(null)} confirmText="Delete"
+      />
     </Box>
   );
 };
 
 // ---- Settings page ---------------------------------------------------------
 const SettingsPage = () => {
+  const { role } = useAuth();
+  const manageUsers = canManageUsers(role);
   const [grouped, setGrouped] = useState({});
   const [values, setValues] = useState({});
   const [loading, setLoading] = useState(true);
@@ -186,13 +332,16 @@ const SettingsPage = () => {
 
   useEffect(() => { load(); }, [load]);
 
-  // Categories present, in TAB_ORDER, with USERS injected after COMPANY.
-  const tabs = useMemo(() => {
-    const present = TAB_ORDER.filter((c) => c === 'USERS' || (grouped[c] && grouped[c].length));
-    return present;
-  }, [grouped]);
+  // Categories present, in TAB_ORDER. The Users tab only exists for the master
+  // admin — every /users endpoint returns 403 for anyone else, so showing the tab
+  // to a plain admin would just be a screen full of errors.
+  const tabs = useMemo(
+    () => TAB_ORDER.filter((c) => (c === 'USERS' ? manageUsers : grouped[c] && grouped[c].length)),
+    [grouped, manageUsers]
+  );
 
-  const activeKey = tabs[tab];
+  // Guard against the selected index falling outside the list (e.g. tabs load in).
+  const activeKey = tabs[Math.min(tab, Math.max(tabs.length - 1, 0))];
 
   const setValue = (key, value) => setValues((v) => ({ ...v, [key]: value }));
 
@@ -219,7 +368,7 @@ const SettingsPage = () => {
         <FormControlLabel
           sx={{ m: 0 }}
           control={<Switch checked={val === 'true' || val === true} onChange={(e) => setValue(s.key, e.target.checked ? 'true' : 'false')} />}
-          label={<Typography sx={{ fontSize: '0.9375rem' }}>{s.label}</Typography>}
+          label={<Typography sx={{ fontSize: '0.8125rem' }}>{s.label}</Typography>}
         />
       );
     }
@@ -268,9 +417,9 @@ const SettingsPage = () => {
               <UsersManager notify={notify} />
             ) : activeKey === 'BACKUP' ? (
               <Box>
-                <Typography sx={{ fontSize: '1.125rem', fontWeight: 700, mb: 0.5 }}>Backup &amp; Restore</Typography>
-                <Typography sx={{ color: colors.textMuted, fontSize: '0.875rem', mb: 2.5 }}>{CATEGORY_META.BACKUP.desc}</Typography>
-                <Grid container spacing={2.5}>
+                <Typography sx={{ fontSize: '0.9375rem', fontWeight: 650, mb: 0.25 }}>Backup &amp; Restore</Typography>
+                <Typography sx={{ color: colors.textMuted, fontSize: '0.75rem', mb: 2.5 }}>{CATEGORY_META.BACKUP.desc}</Typography>
+                <Grid container spacing={2}>
                   {(grouped.BACKUP || []).map((s) => (
                     <Grid item xs={12} sm={6} md={4} key={s.key} sx={{ display: 'flex', alignItems: 'center' }}>{renderField(s)}</Grid>
                   ))}
@@ -289,12 +438,12 @@ const SettingsPage = () => {
               </Box>
             ) : (
               <Box>
-                <Typography sx={{ fontSize: '1.125rem', fontWeight: 700, mb: 0.5 }}>{CATEGORY_META[activeKey]?.label}</Typography>
-                <Typography sx={{ color: colors.textMuted, fontSize: '0.875rem', mb: 2.5 }}>{CATEGORY_META[activeKey]?.desc}</Typography>
+                <Typography sx={{ fontSize: '0.9375rem', fontWeight: 650, mb: 0.25 }}>{CATEGORY_META[activeKey]?.label}</Typography>
+                <Typography sx={{ color: colors.textMuted, fontSize: '0.75rem', mb: 2.5 }}>{CATEGORY_META[activeKey]?.desc}</Typography>
                 {NOT_APPLIED_NOTE[activeKey] && (
                   <Alert severity="info" sx={{ mb: 2.5 }}>{NOT_APPLIED_NOTE[activeKey]}</Alert>
                 )}
-                <Grid container spacing={2.5}>
+                <Grid container spacing={2}>
                   {(grouped[activeKey] || []).map((s) => (
                     <Grid item xs={12} sm={6} md={s.valueType === 'boolean' ? 6 : 4} key={s.key} sx={{ display: 'flex', alignItems: 'center' }}>
                       {renderField(s)}

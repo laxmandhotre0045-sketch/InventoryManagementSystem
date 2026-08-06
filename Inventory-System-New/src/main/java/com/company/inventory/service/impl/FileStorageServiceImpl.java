@@ -1,11 +1,15 @@
 package com.company.inventory.service.impl;
 
+import com.company.inventory.exception.ResourceNotFoundException;
 import com.company.inventory.service.FileStorageService;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -61,5 +65,60 @@ public class FileStorageServiceImpl implements FileStorageService {
         }
 
         return Paths.get("uploads", "invoices", filename).toString().replace("\\", "/");
+    }
+
+    @Override
+    public Resource loadInvoice(String storedPath) {
+        Path file = resolveInsideInvoiceFolder(storedPath);
+        if (!Files.exists(file) || !Files.isReadable(file)) {
+            throw new ResourceNotFoundException("Invoice file is no longer available on the server");
+        }
+        try {
+            Resource resource = new UrlResource(file.toUri());
+            if (!resource.exists() || !resource.isReadable()) {
+                throw new ResourceNotFoundException("Invoice file is no longer available on the server");
+            }
+            return resource;
+        } catch (MalformedURLException ex) {
+            throw new ResourceNotFoundException("Invoice file could not be read");
+        }
+    }
+
+    @Override
+    public String contentTypeOf(String storedPath) {
+        Path file = resolveInsideInvoiceFolder(storedPath);
+        try {
+            String probed = Files.probeContentType(file);
+            if (probed != null) {
+                return probed;
+            }
+        } catch (IOException ignored) {
+            // Fall through to the extension check below.
+        }
+        String name = file.getFileName().toString().toLowerCase();
+        if (name.endsWith(".pdf")) return "application/pdf";
+        if (name.endsWith(".png")) return "image/png";
+        if (name.endsWith(".jpg") || name.endsWith(".jpeg")) return "image/jpeg";
+        return "application/octet-stream";
+    }
+
+    /**
+     * Resolves a stored path against the invoice folder and refuses anything that escapes it.
+     *
+     * <p>The path comes from the database rather than the request, but treating it as
+     * untrusted costs nothing and stops a poisoned row from turning the download endpoint
+     * into arbitrary file read (`../../application.properties`).</p>
+     */
+    private Path resolveInsideInvoiceFolder(String storedPath) {
+        if (storedPath == null || storedPath.isBlank()) {
+            throw new ResourceNotFoundException("This purchase has no invoice attached");
+        }
+        // Stored as "uploads/invoices/<name>" — only the file name is meaningful here.
+        String fileName = Paths.get(storedPath.replace("\\", "/")).getFileName().toString();
+        Path resolved = INVOICE_FOLDER.resolve(fileName).normalize();
+        if (!resolved.startsWith(INVOICE_FOLDER)) {
+            throw new IllegalArgumentException("Invalid invoice path");
+        }
+        return resolved;
     }
 }

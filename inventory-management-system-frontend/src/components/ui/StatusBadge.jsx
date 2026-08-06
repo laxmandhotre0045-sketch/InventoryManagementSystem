@@ -38,22 +38,22 @@ const StatusBadge = ({ status, label }) => {
       sx={{
         display: 'inline-flex',
         alignItems: 'center',
-        gap: 0.625,
-        px: 1.5,
-        py: '5px',
+        gap: 0.5,
+        px: 1,
+        py: '3px',
         borderRadius: 999,
-        fontSize: '0.875rem',
+        fontSize: '0.6875rem',
         fontWeight: 600,
-        lineHeight: 1.3,
+        lineHeight: 1.35,
         color: cfg.fg,
         bgcolor: cfg.bg,
         whiteSpace: 'nowrap',
       }}
     >
       {Icon ? (
-        <Icon size={13} strokeWidth={2.5} style={{ flexShrink: 0 }} />
+        <Icon size={11} strokeWidth={2.5} style={{ flexShrink: 0 }} />
       ) : (
-        <Box component="span" sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: cfg.fg, flexShrink: 0 }} />
+        <Box component="span" sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: cfg.fg, flexShrink: 0 }} />
       )}
       {text}
     </Box>

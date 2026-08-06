@@ -20,27 +20,38 @@ const theme = createTheme({
     },
   },
 
+  /**
+   * Type scale calibrated against enterprise dashboards (SAP Fiori, Microsoft
+   * Admin Center, Atlassian, Linear, Notion), all of which set body text at
+   * 14px rather than 16px and keep headings tight above it.
+   *
+   * The root stays at 16px so rem maths is predictable; 0.875rem = 14px is the
+   * workhorse size. Each step was chosen for its role, not by scaling the old
+   * values by a fixed ratio — headings tightened most, small text least, so the
+   * hierarchy stays legible instead of collapsing.
+   */
   typography: {
     fontFamily: '"Inter", "Manrope", "Poppins", "Roboto", "Helvetica", "Arial", sans-serif',
-    // 16px root; sizes below are rem-relative for consistent, comfortable reading.
-    // Dashboard title (~34px)
-    h1: { fontWeight: 700, fontSize: '2.125rem', lineHeight: 1.2, letterSpacing: '-0.02em' },
-    // Page title (~30px)
-    h2: { fontWeight: 700, fontSize: '1.875rem', lineHeight: 1.25, letterSpacing: '-0.02em' },
-    // Section title (~24px)
-    h3: { fontWeight: 600, fontSize: '1.5rem', lineHeight: 1.3, letterSpacing: '-0.01em' },
-    h4: { fontWeight: 600, fontSize: '1.375rem', lineHeight: 1.35 },
-    h5: { fontWeight: 600, fontSize: '1.25rem', lineHeight: 1.4 },
-    // Card title (~17px)
-    h6: { fontWeight: 600, fontSize: '1.0625rem', lineHeight: 1.5 },
-    subtitle1: { fontSize: '1rem', fontWeight: 500 },
-    subtitle2: { fontSize: '0.9375rem', fontWeight: 600, color: colors.textSecondary },
-    // Body text (16px / 15px)
-    body1: { fontSize: '1rem', lineHeight: 1.65 },
-    body2: { fontSize: '0.9375rem', lineHeight: 1.6 },
-    button: { textTransform: 'none', fontWeight: 600, fontSize: '0.9375rem' },
-    caption: { fontSize: '0.8125rem', color: colors.textMuted },
-    overline: { fontSize: '0.75rem', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' },
+    // Dashboard greeting / hero (28px)
+    h1: { fontWeight: 700, fontSize: '1.75rem', lineHeight: 1.25, letterSpacing: '-0.021em' },
+    // Page title (22px)
+    h2: { fontWeight: 650, fontSize: '1.375rem', lineHeight: 1.3, letterSpacing: '-0.018em' },
+    // Section title (18px)
+    h3: { fontWeight: 600, fontSize: '1.125rem', lineHeight: 1.35, letterSpacing: '-0.012em' },
+    // Panel / chart-card title (16px)
+    h4: { fontWeight: 600, fontSize: '1rem', lineHeight: 1.4, letterSpacing: '-0.008em' },
+    // Dialog title (15px)
+    h5: { fontWeight: 600, fontSize: '0.9375rem', lineHeight: 1.45 },
+    // Card title (14px)
+    h6: { fontWeight: 600, fontSize: '0.875rem', lineHeight: 1.45 },
+    subtitle1: { fontSize: '0.875rem', fontWeight: 550, lineHeight: 1.5 },
+    subtitle2: { fontSize: '0.8125rem', fontWeight: 600, lineHeight: 1.5, color: colors.textSecondary },
+    // Body (14px / 13px)
+    body1: { fontSize: '0.875rem', lineHeight: 1.55 },
+    body2: { fontSize: '0.8125rem', lineHeight: 1.5 },
+    button: { textTransform: 'none', fontWeight: 550, fontSize: '0.875rem', letterSpacing: 0 },
+    caption: { fontSize: '0.75rem', lineHeight: 1.45, color: colors.textMuted },
+    overline: { fontSize: '0.6875rem', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' },
   },
 
   shape: { borderRadius: radii.button },
@@ -77,20 +88,22 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           textTransform: 'none',
-          fontWeight: 600,
-          fontSize: '0.9375rem',
+          fontWeight: 550,
+          fontSize: '0.875rem',
+          lineHeight: 1.5,
           borderRadius: radii.button,
-          padding: '11px 22px',
+          padding: '7px 16px',
+          minHeight: 36,
           boxShadow: 'none',
           transition: 'background-color .18s ease, box-shadow .18s ease, transform .15s ease',
           '&:active': { transform: 'translateY(0)' },
         },
         containedPrimary: {
-          '&:hover': { backgroundColor: colors.primaryHover, boxShadow: '0 6px 16px rgba(34,73,127,0.22)', transform: 'translateY(-1px)' },
+          '&:hover': { backgroundColor: colors.primaryHover, boxShadow: '0 4px 12px rgba(34,73,127,0.20)', transform: 'translateY(-1px)' },
         },
         outlined: { borderColor: colors.border, '&:hover': { backgroundColor: colors.hover, borderColor: '#D1D5DB', transform: 'translateY(-1px)' } },
-        sizeLarge: { padding: '13px 26px', fontSize: '1rem' },
-        sizeSmall: { padding: '8px 15px', fontSize: '0.875rem' },
+        sizeLarge: { padding: '9px 20px', fontSize: '0.9375rem', minHeight: 42 },
+        sizeSmall: { padding: '4px 10px', fontSize: '0.8125rem', minHeight: 30 },
       },
     },
 
@@ -111,7 +124,7 @@ const theme = createTheme({
       },
     },
     MuiCardContent: {
-      styleOverrides: { root: { padding: 24, '&:last-child': { paddingBottom: 24 } } },
+      styleOverrides: { root: { padding: 20, '&:last-child': { paddingBottom: 20 } } },
     },
 
     MuiPaper: {
@@ -132,19 +145,26 @@ const theme = createTheme({
           '&.Mui-focused fieldset': { borderColor: colors.primary, borderWidth: 1 },
           '&.Mui-focused': { boxShadow: `0 0 0 3px ${colors.primarySoft}` },
         },
-        input: { padding: '14px 16px', fontSize: '1rem' },
-        inputSizeSmall: { padding: '13px 14px', fontSize: '0.9375rem' },
+        input: { padding: '9px 12px', fontSize: '0.875rem', height: '1.4375em' },
+        inputSizeSmall: { padding: '7px 10px', fontSize: '0.8125rem' },
       },
     },
     MuiInputLabel: {
-      styleOverrides: { root: { fontSize: '0.9375rem', color: colors.textSecondary } },
+      styleOverrides: {
+        root: { fontSize: '0.875rem', color: colors.textSecondary },
+        sizeSmall: { fontSize: '0.8125rem' },
+      },
     },
-    MuiFormHelperText: { styleOverrides: { root: { marginLeft: 2, fontSize: '0.8125rem' } } },
+    MuiFormHelperText: { styleOverrides: { root: { marginLeft: 2, fontSize: '0.75rem' } } },
+    MuiFormControlLabel: {
+      styleOverrides: { label: { fontSize: '0.875rem' } },
+    },
 
     MuiChip: {
       styleOverrides: {
-        root: { fontWeight: 600, fontSize: '0.75rem', borderRadius: radii.pill, height: 24 },
-        label: { paddingLeft: 10, paddingRight: 10 },
+        root: { fontWeight: 600, fontSize: '0.6875rem', borderRadius: radii.pill, height: 22 },
+        label: { paddingLeft: 8, paddingRight: 8 },
+        sizeSmall: { height: 20, fontSize: '0.6875rem' },
       },
     },
 
@@ -153,15 +173,20 @@ const theme = createTheme({
     },
     MuiTableCell: {
       styleOverrides: {
-        root: { borderColor: colors.border, padding: '20px 20px', fontSize: '1.0625rem' },
+        // 13px cells on a 40px row — dense enough to show a useful number of
+        // records without the cramped feel of a 12px grid.
+        root: { borderColor: colors.border, padding: '10px 16px', fontSize: '0.8125rem', lineHeight: 1.45 },
         head: {
           fontWeight: 600,
-          fontSize: '0.9375rem',
-          letterSpacing: '0.02em',
+          fontSize: '0.6875rem',
+          letterSpacing: '0.05em',
           textTransform: 'uppercase',
           backgroundColor: '#F5F4F1',
           color: colors.textSecondary,
+          padding: '9px 16px',
+          whiteSpace: 'nowrap',
         },
+        sizeSmall: { padding: '7px 12px' },
       },
     },
     MuiTableRow: {
@@ -180,26 +205,44 @@ const theme = createTheme({
       },
     },
     MuiDialogTitle: {
-      styleOverrides: { root: { fontSize: '1.25rem', fontWeight: 600, padding: '22px 24px' } },
+      styleOverrides: { root: { fontSize: '1.0625rem', fontWeight: 600, letterSpacing: '-0.011em', padding: '18px 20px 14px' } },
     },
-    MuiDialogContent: { styleOverrides: { root: { padding: '4px 24px 8px' } } },
-    MuiDialogActions: { styleOverrides: { root: { padding: '16px 24px 20px', gap: 8 } } },
+    MuiDialogContent: { styleOverrides: { root: { padding: '4px 20px 8px' } } },
+    MuiDialogActions: { styleOverrides: { root: { padding: '14px 20px 18px', gap: 8 } } },
 
     MuiTooltip: {
       styleOverrides: {
-        tooltip: { backgroundColor: '#1F2937', fontSize: '0.75rem', borderRadius: 8, padding: '6px 10px' },
+        tooltip: { backgroundColor: '#1F2937', fontSize: '0.6875rem', borderRadius: 6, padding: '5px 9px' },
       },
     },
 
     MuiMenu: {
       styleOverrides: {
-        paper: { borderRadius: 12, border: `1px solid ${colors.border}`, boxShadow: shadows.cardHover, marginTop: 6 },
+        paper: { borderRadius: 10, border: `1px solid ${colors.border}`, boxShadow: shadows.cardHover, marginTop: 6 },
       },
     },
     MuiMenuItem: {
       styleOverrides: {
-        root: { fontSize: '0.9375rem', borderRadius: 8, margin: '2px 6px', padding: '10px 12px' },
+        root: { fontSize: '0.875rem', borderRadius: 6, margin: '2px 6px', padding: '7px 10px', minHeight: 34 },
       },
+    },
+    MuiListItemIcon: {
+      styleOverrides: { root: { minWidth: 32 } },
+    },
+    MuiTab: {
+      styleOverrides: {
+        root: { textTransform: 'none', fontSize: '0.875rem', fontWeight: 550, minHeight: 44, padding: '10px 14px' },
+      },
+    },
+    MuiTablePagination: {
+      styleOverrides: {
+        root: { fontSize: '0.8125rem' },
+        selectLabel: { fontSize: '0.8125rem' },
+        displayedRows: { fontSize: '0.8125rem' },
+      },
+    },
+    MuiBreadcrumbs: {
+      styleOverrides: { root: { fontSize: '0.75rem' } },
     },
 
     MuiListItemButton: {
@@ -207,7 +250,7 @@ const theme = createTheme({
     },
 
     MuiAlert: {
-      styleOverrides: { root: { borderRadius: 12, fontSize: '0.9375rem', alignItems: 'center' } },
+      styleOverrides: { root: { borderRadius: 8, fontSize: '0.8125rem', alignItems: 'center', padding: '5px 12px' } },
     },
 
     MuiAppBar: {
@@ -215,7 +258,7 @@ const theme = createTheme({
     },
 
     MuiLinearProgress: {
-      styleOverrides: { root: { borderRadius: 999, height: 8, backgroundColor: colors.hover } },
+      styleOverrides: { root: { borderRadius: 999, height: 6, backgroundColor: colors.hover } },
     },
   },
 });

@@ -16,5 +16,8 @@ public class UserResponse {
     private String username;
     private String email;
     private Role role;
+    private boolean active;
+    /** True for the single system-owner account, which no one else may modify. */
+    private boolean masterAdmin;
     private LocalDateTime createdAt;
 }

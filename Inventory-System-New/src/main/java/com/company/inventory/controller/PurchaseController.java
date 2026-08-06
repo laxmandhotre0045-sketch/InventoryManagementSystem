@@ -14,8 +14,14 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import org.springframework.security.core.Authentication;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -81,9 +87,45 @@ public class PurchaseController {
     @PostMapping("/{id}/upload-invoice")
     public ResponseEntity<ApiResponse<PurchaseResponse>> uploadInvoice(
             @Parameter(description = "Purchase identifier", required = true) @PathVariable Long id,
-            @RequestParam("file") MultipartFile file) {
-        PurchaseResponse response = purchaseService.uploadInvoice(id, file);
+            @RequestParam("file") MultipartFile file,
+            Authentication authentication) {
+        String username = authentication != null ? authentication.getName() : "SYSTEM";
+        PurchaseResponse response = purchaseService.uploadInvoice(id, file, username);
         return ResponseEntity.ok(ApiResponse.success("Invoice uploaded successfully", response));
+    }
+
+    /**
+     * Streams a stored invoice back for viewing or download.
+     *
+     * <p>{@code inline} renders in the browser's PDF/image viewer; {@code attachment}
+     * forces a save. The bytes are served through this authenticated endpoint rather
+     * than from a static directory, so invoices are not publicly reachable by URL.</p>
+     */
+    @Operation(summary = "View or download the stored invoice document")
+    @GetMapping("/{id}/invoice")
+    public ResponseEntity<Resource> getInvoiceFile(
+            @Parameter(description = "Purchase identifier", required = true) @PathVariable Long id,
+            @Parameter(description = "Set true to force a download instead of inline display")
+            @RequestParam(defaultValue = "false") boolean download) {
+
+        PurchaseResponse purchase = purchaseService.getPurchaseById(id);
+        Resource resource = purchaseService.loadInvoiceFile(id);
+
+        String contentType = purchaseService.invoiceContentType(id);
+        String filename = purchase.getInvoiceFileOriginalName() != null
+                ? purchase.getInvoiceFileOriginalName()
+                : "invoice-" + purchase.getInvoiceNumber();
+        // RFC 5987 so non-ASCII invoice names survive the header.
+        String encoded = URLEncoder.encode(filename, StandardCharsets.UTF_8).replace("+", "%20");
+        String disposition = (download ? "attachment" : "inline")
+                + "; filename=\"" + filename.replaceAll("[\"\\r\\n]", "") + "\""
+                + "; filename*=UTF-8''" + encoded;
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(contentType))
+                .header(HttpHeaders.CONTENT_DISPOSITION, disposition)
+                .header(HttpHeaders.CACHE_CONTROL, "private, max-age=0, must-revalidate")
+                .body(resource);
     }
 
     @Operation(summary = "Get purchase by id")

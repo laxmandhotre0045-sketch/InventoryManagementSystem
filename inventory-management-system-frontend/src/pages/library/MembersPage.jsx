@@ -106,7 +106,7 @@ const MembersPage = () => {
       field: 'employeeId', headerName: 'Employee ID',
       render: (row) => <Box component="span" sx={{ fontWeight: 600, color: colors.primary, whiteSpace: 'nowrap' }}>{row.employeeId}</Box>,
     },
-    { field: 'name', headerName: 'Name', render: (row) => <Typography sx={{ fontSize: '0.9375rem', fontWeight: 600 }}>{row.name}</Typography> },
+    { field: 'name', headerName: 'Name', render: (row) => <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600 }}>{row.name}</Typography> },
     { field: 'department', headerName: 'Department', render: (row) => row.department || <Box component="span" sx={{ color: colors.textMuted }}>—</Box> },
     { field: 'email', headerName: 'Email', render: (row) => row.email || <Box component="span" sx={{ color: colors.textMuted }}>—</Box> },
     { field: 'phone', headerName: 'Phone', render: (row) => row.phone || <Box component="span" sx={{ color: colors.textMuted }}>—</Box> },
@@ -126,11 +126,11 @@ const MembersPage = () => {
         subtitle="Employees and students who can borrow books."
         icon={Users}
         breadcrumbs={[{ label: 'Library' }, { label: 'Members' }]}
-        actions={<Button variant="contained" startIcon={<Plus size={18} />} onClick={openCreate}>Add Member</Button>}
+        actions={<Button variant="contained" startIcon={<Plus size={16} />} onClick={openCreate}>Add Member</Button>}
       />
 
-      <Card sx={{ p: 2.5, mb: 4 }}>
-        <Grid container spacing={2.5} alignItems="center">
+      <Card sx={{ p: 2, mb: 2.5 }}>
+        <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} sm={8} md={5}>
             <TextField label="Search by name, ID, email, department" size="small" fullWidth value={keyword}
               placeholder="Results filter as you type"
@@ -151,9 +151,9 @@ const MembersPage = () => {
         emptyState={{ icon: Users, title: 'No members found', description: 'Add your first member to start issuing books.', actionLabel: 'Add Member', onAction: openCreate }}
         renderActions={(row) => (
           <Box sx={{ display: 'inline-flex', gap: 0.875 }}>
-            <Tooltip title="Borrowing history"><IconButton size="small" onClick={() => openHistory(row)}><History size={18} /></IconButton></Tooltip>
-            <Tooltip title="Edit"><IconButton size="small" onClick={() => openEdit(row)}><Pencil size={18} /></IconButton></Tooltip>
-            <Tooltip title="Delete"><IconButton size="small" sx={{ color: colors.danger }} onClick={() => setDeleteId(row.id)}><Trash2 size={18} /></IconButton></Tooltip>
+            <Tooltip title="Borrowing history"><IconButton size="small" onClick={() => openHistory(row)}><History size={16} /></IconButton></Tooltip>
+            <Tooltip title="Edit"><IconButton size="small" onClick={() => openEdit(row)}><Pencil size={16} /></IconButton></Tooltip>
+            <Tooltip title="Delete"><IconButton size="small" sx={{ color: colors.danger }} onClick={() => setDeleteId(row.id)}><Trash2 size={16} /></IconButton></Tooltip>
           </Box>
         )}
       />

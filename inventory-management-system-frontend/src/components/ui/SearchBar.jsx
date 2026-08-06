@@ -8,12 +8,12 @@ const SearchBar = ({ value, onChange, onKeyDown, placeholder = 'Search…', widt
     sx={{
       display: 'flex',
       alignItems: 'center',
-      gap: 1.25,
-      px: 1.75,
-      height: 46,
+      gap: 1,
+      px: 1.25,
+      height: 36,
       width,
       maxWidth: '100%',
-      borderRadius: '11px',
+      borderRadius: '8px',
       border: `1px solid ${colors.border}`,
       bgcolor: colors.paper,
       boxShadow: '0 1px 2px rgba(16,24,40,0.03)',
@@ -23,14 +23,14 @@ const SearchBar = ({ value, onChange, onKeyDown, placeholder = 'Search…', widt
       ...sx,
     }}
   >
-    <Search size={19} color={colors.textMuted} />
+    <Search size={16} color={colors.textMuted} />
     <InputBase
       value={value}
       onChange={onChange}
       onKeyDown={onKeyDown}
       placeholder={placeholder}
       inputProps={inputProps}
-      sx={{ flex: 1, fontSize: '1rem', '& input::placeholder': { color: colors.textSecondary, opacity: 0.75 } }}
+      sx={{ flex: 1, fontSize: '0.875rem', '& input::placeholder': { color: colors.textSecondary, opacity: 0.75 } }}
     />
   </Box>
 );

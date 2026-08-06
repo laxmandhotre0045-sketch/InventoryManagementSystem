@@ -1,5 +1,6 @@
 package com.company.inventory.dto.response;
 
+import com.company.inventory.entity.InvoiceProcessingStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
@@ -28,6 +29,21 @@ public class PurchaseResponse {
 
     @Schema(description = "Invoice file path", example = "uploads/invoices/invoice.pdf")
     private String invoiceFilePath;
+
+    @Schema(description = "Original file name as uploaded", example = "ABC-Electronics-INV-1001.pdf")
+    private String invoiceFileOriginalName;
+
+    @Schema(description = "When the invoice document was attached")
+    private LocalDateTime invoiceUploadedAt;
+
+    @Schema(description = "Who attached the invoice", example = "admin@sensovibe.com")
+    private String invoiceUploadedBy;
+
+    @Schema(description = "Invoice processing status", example = "PROCESSING")
+    private InvoiceProcessingStatus invoiceProcessingStatus;
+
+    @Schema(description = "Whether a viewable invoice document is attached", example = "true")
+    private boolean hasInvoice;
 
     @Schema(description = "Purchase remarks", example = "Order received from ABC Electronics")
     private String remarks;

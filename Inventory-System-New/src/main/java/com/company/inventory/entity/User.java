@@ -44,13 +44,30 @@ public class User {
     @Column(nullable = false, length = 32)
     private Role role;
 
+    /**
+     * Whether the account may sign in. Deactivating is the reversible alternative to
+     * deletion, so an account can be suspended without losing its audit trail.
+     * Nullable in the column so rows created before this field existed still load;
+     * {@link #isEnabled()} treats null as active.
+     */
+    @Column(name = "active")
+    private Boolean active;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    /** Null-safe view of {@link #active} — pre-existing rows default to enabled. */
+    public boolean isEnabled() {
+        return active == null || Boolean.TRUE.equals(active);
+    }
 
     @PrePersist
     public void prePersist() {
         createdAt = LocalDateTime.now();
         updatedAt = createdAt;
+        if (active == null) {
+            active = Boolean.TRUE;
+        }
     }
 
     @PreUpdate

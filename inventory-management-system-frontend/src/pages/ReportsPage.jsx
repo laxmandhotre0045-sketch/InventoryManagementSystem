@@ -34,7 +34,7 @@ const ReportsPage = () => {
         breadcrumbs={[{ label: 'Procurement' }, { label: 'Reports' }]}
       />
 
-      <Grid container spacing={3}>
+      <Grid container spacing={2}>
         {reports.map((r) => {
           const t = toneMap[r.tone];
           const Icon = r.icon;

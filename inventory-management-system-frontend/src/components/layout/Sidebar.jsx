@@ -9,6 +9,7 @@ import {
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
 import { isAdmin } from '../../utils/roleUtils';
+import BrandLogo from '../ui/BrandLogo';
 import { colors, layout } from '../../theme/tokens';
 
 const DRAWER_WIDTH = layout.sidebarWidth;
@@ -50,26 +51,30 @@ const Sidebar = ({ mobileOpen, onClose, collapsed = false }) => {
       {/* Logo — the main visual element of the sidebar */}
       <Box
         sx={{
-          minHeight: layout.navbarHeight,
+          height: layout.navbarHeight,
           display: 'flex',
           alignItems: 'center',
-          px: isCollapsed ? 0 : 3,
-          py: 2.5,
+          px: isCollapsed ? 0 : 2,
           justifyContent: isCollapsed ? 'center' : 'flex-start',
           flexShrink: 0,
+          borderBottom: `1px solid ${colors.border}`,
         }}
       >
-        <Box
-          component="img"
-          src={isCollapsed ? '/sensovibe-mark.svg' : '/sensovibe-logo.svg'}
-          alt="SensoVibe"
-          sx={{ height: isCollapsed ? 40 : 38, width: 'auto', display: 'block' }}
-        />
+        {isCollapsed ? (
+          <Box
+            component="img"
+            src="/sensovibe-mark.svg"
+            alt="SensoVibe"
+            sx={{ height: 30, width: 'auto', display: 'block' }}
+          />
+        ) : (
+          <BrandLogo height={28} />
+        )}
       </Box>
 
       {/* Navigation */}
-      <Box sx={{ flexGrow: 1, overflowY: 'auto', px: isCollapsed ? 1.5 : 2.25, pt: 1.75 }}>
-        <List disablePadding sx={{ display: 'flex', flexDirection: 'column', gap: 1.375 }}>
+      <Box sx={{ flexGrow: 1, overflowY: 'auto', px: isCollapsed ? 1.25 : 1.5, pt: 1 }}>
+        <List disablePadding sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
           {items.map((item) => {
             const selected = location.pathname.startsWith(item.path);
             const Icon = item.icon;
@@ -81,10 +86,10 @@ const Sidebar = ({ mobileOpen, onClose, collapsed = false }) => {
                 disableRipple
                 sx={{
                   position: 'relative',
-                  borderRadius: '11px',
-                  minHeight: 60,
-                  py: 1,
-                  px: isCollapsed ? 0 : 2.5,
+                  borderRadius: '8px',
+                  minHeight: 42,
+                  py: 0.5,
+                  px: isCollapsed ? 0 : 1.5,
                   justifyContent: isCollapsed ? 'center' : 'flex-start',
                   color: selected ? colors.primary : '#565C68',
                   bgcolor: selected ? colors.sidebarActive : 'transparent',
@@ -94,17 +99,17 @@ const Sidebar = ({ mobileOpen, onClose, collapsed = false }) => {
                   '&.Mui-selected': { bgcolor: colors.sidebarActive },
                   '&.Mui-selected:hover': { bgcolor: colors.sidebarActive },
                   ...(selected && !isCollapsed
-                    ? { '&::before': { content: '""', position: 'absolute', left: 0, top: 13, bottom: 13, width: 4, borderRadius: '0 4px 4px 0', bgcolor: colors.primary } }
+                    ? { '&::before': { content: '""', position: 'absolute', left: -6, top: 9, bottom: 9, width: 3, borderRadius: '0 3px 3px 0', bgcolor: colors.primary } }
                     : {}),
                 }}
               >
-                <ListItemIcon className="nav-ico" sx={{ minWidth: isCollapsed ? 0 : 50, color: 'inherit', justifyContent: 'center', transition: 'transform .18s ease' }}>
-                  <Icon size={29} strokeWidth={selected ? 2.3 : 1.9} />
+                <ListItemIcon className="nav-ico" sx={{ minWidth: isCollapsed ? 0 : 32, color: 'inherit', justifyContent: 'center', transition: 'transform .18s ease' }}>
+                  <Icon size={18} strokeWidth={selected ? 2.2 : 1.8} />
                 </ListItemIcon>
                 {!isCollapsed && (
                   <ListItemText
                     primary={item.label}
-                    primaryTypographyProps={{ fontSize: '1.25rem', fontWeight: selected ? 700 : 600, letterSpacing: '-0.01em' }}
+                    primaryTypographyProps={{ fontSize: '0.875rem', fontWeight: selected ? 600 : 500, letterSpacing: 0 }}
                   />
                 )}
               </ListItemButton>
@@ -117,29 +122,29 @@ const Sidebar = ({ mobileOpen, onClose, collapsed = false }) => {
       </Box>
 
       {/* Back to the module picker — mirrors the Book Management sidebar */}
-      <Box sx={{ px: isCollapsed ? 1.5 : 2.25, pb: 2.5, pt: 1, borderTop: `1px solid ${colors.border}` }}>
+      <Box sx={{ px: isCollapsed ? 1.25 : 1.5, pb: 1.5, pt: 1, borderTop: `1px solid ${colors.border}` }}>
         <Tooltip title={isCollapsed ? 'Switch Module' : ''} placement="right">
           <ListItemButton
             onClick={() => handleNav('/modules')}
             disableRipple
             sx={{
-              borderRadius: '11px',
-              minHeight: 52,
-              py: 1,
-              px: isCollapsed ? 0 : 2.5,
+              borderRadius: '8px',
+              minHeight: 40,
+              py: 0.5,
+              px: isCollapsed ? 0 : 1.5,
               justifyContent: isCollapsed ? 'center' : 'flex-start',
               color: colors.textSecondary,
               transition: 'background-color .18s ease, color .18s ease',
               '&:hover': { bgcolor: colors.hover, color: colors.textPrimary },
             }}
           >
-            <ListItemIcon sx={{ minWidth: isCollapsed ? 0 : 50, color: 'inherit', justifyContent: 'center' }}>
-              <ArrowLeftRight size={26} strokeWidth={1.9} />
+            <ListItemIcon sx={{ minWidth: isCollapsed ? 0 : 32, color: 'inherit', justifyContent: 'center' }}>
+              <ArrowLeftRight size={18} strokeWidth={1.8} />
             </ListItemIcon>
             {!isCollapsed && (
               <ListItemText
                 primary="Switch Module"
-                primaryTypographyProps={{ fontSize: '1.15rem', fontWeight: 600, letterSpacing: '-0.01em' }}
+                primaryTypographyProps={{ fontSize: '0.875rem', fontWeight: 500, letterSpacing: 0 }}
               />
             )}
           </ListItemButton>

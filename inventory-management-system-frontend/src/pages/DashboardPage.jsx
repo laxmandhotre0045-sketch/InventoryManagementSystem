@@ -24,24 +24,24 @@ const timeLabel = (iso) => (iso ? new Date(iso).toLocaleTimeString('en-US', { ho
 
 // Row treatment shared by every list section — consistent spacing + hover.
 const rowSx = {
-  py: 2.25, px: 1.75, mx: -1.75, borderRadius: 2.5,
+  py: 1.25, px: 1.25, mx: -1.25, borderRadius: 1.5,
   transition: 'background-color .18s ease',
   '&:hover': { bgcolor: colors.hover },
 };
 
-const metaSx = { display: 'inline-flex', alignItems: 'center', gap: 0.625, fontSize: '1rem', color: colors.textMuted };
+const metaSx = { display: 'inline-flex', alignItems: 'center', gap: 0.5, fontSize: '0.75rem', color: colors.textMuted };
 
 const ChartTooltip = ({ active, payload, total }) => {
   if (!active || !payload?.length) return null;
   const p = payload[0];
   const pct = total ? Math.round((p.value / total) * 100) : 0;
   return (
-    <Box sx={{ bgcolor: colors.textPrimary, color: '#fff', px: 1.75, py: 1.25, borderRadius: 2, boxShadow: '0 8px 24px rgba(0,0,0,0.25)' }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.25 }}>
-        <Box sx={{ width: 9, height: 9, borderRadius: '2px', bgcolor: p.payload?.color }} />
-        <Typography sx={{ fontSize: '1rem', fontWeight: 600 }}>{p.name}</Typography>
+    <Box sx={{ bgcolor: colors.textPrimary, color: '#fff', px: 1.25, py: 0.875, borderRadius: 1.5, boxShadow: '0 8px 24px rgba(0,0,0,0.25)' }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
+        <Box sx={{ width: 8, height: 8, borderRadius: '2px', bgcolor: p.payload?.color }} />
+        <Typography sx={{ fontSize: '0.75rem', fontWeight: 600 }}>{p.name}</Typography>
       </Box>
-      <Typography sx={{ fontSize: '0.9375rem', color: '#D1D5DB' }}>
+      <Typography sx={{ fontSize: '0.6875rem', color: '#D1D5DB' }}>
         {num(p.value)} components · {pct}%
       </Typography>
     </Box>
@@ -140,14 +140,13 @@ const DashboardPage = () => {
       const res = await getComponents({ page: 0, size: 1000, sortBy: 'componentName', sortDir: 'asc' });
       const items = res.data?.content || [];
       const rows = [
-        ['Item Code', 'Component', 'Category', 'Quantity', 'Minimum Qty', 'Unit', 'Location', 'Stock Status', 'Status'],
+        ['Item Code', 'Component', 'Category', 'Quantity', 'Minimum Qty', 'Location', 'Stock Status', 'Status'],
         ...items.map((c) => [
           c.itemCode || '',
           c.componentName || '',
           c.category || '',
           c.quantity ?? 0,
           c.minimumQuantity ?? 0,
-          c.unit || '',
           c.location || '',
           c.quantity === 0 ? 'Out of stock' : c.quantity <= c.minimumQuantity ? 'Low stock' : 'In stock',
           c.status || '',
@@ -201,12 +200,12 @@ const DashboardPage = () => {
   return (
     <Box>
       {/* Header */}
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: 2, mb: 4.5 }}>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: 2, mb: 2.5 }}>
         <Box>
-          <Typography variant="h1" sx={{ fontSize: { xs: '2.25rem', md: '2.625rem' }, mb: 1 }}>
+          <Typography variant="h1" sx={{ fontSize: { xs: '1.5rem', md: '1.75rem' }, mb: 0.5 }}>
             {greeting}, {firstName}
           </Typography>
-          <Typography sx={{ fontSize: '1.25rem', color: colors.textSecondary }}>
+          <Typography sx={{ fontSize: '0.875rem', color: colors.textSecondary }}>
             {today} · {statusLine}
           </Typography>
         </Box>
@@ -216,7 +215,7 @@ const DashboardPage = () => {
               <span>
                 <Button
                   variant="outlined"
-                  startIcon={exporting ? <CircularProgress size={17} color="inherit" /> : <Download size={19} />}
+                  startIcon={exporting ? <CircularProgress size={17} color="inherit" /> : <Download size={16} />}
                   onClick={handleExport}
                   disabled={exporting}
                 >
@@ -225,7 +224,7 @@ const DashboardPage = () => {
               </span>
             </Tooltip>
             <Tooltip title="Record a stock in or stock out movement">
-              <Button variant="contained" startIcon={<Boxes size={19} />} onClick={() => navigate('/inventory')}>Record Movement</Button>
+              <Button variant="contained" startIcon={<Boxes size={16} />} onClick={() => navigate('/inventory')}>Record Movement</Button>
             </Tooltip>
           </Box>
         )}
@@ -234,7 +233,7 @@ const DashboardPage = () => {
       {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
 
       {/* KPIs */}
-      <Grid container spacing={3} sx={{ mb: 3 }}>
+      <Grid container spacing={2} sx={{ mb: 2 }}>
         {(loading ? Array.from({ length: 4 }) : metrics).map((m, i) => (
           <Grid item xs={12} sm={6} lg={3} key={m?.title || i}>
             {m?.tip ? (
@@ -251,19 +250,19 @@ const DashboardPage = () => {
       </Grid>
 
       {/* Stock health + low stock alerts */}
-      <Grid container spacing={3} sx={{ mb: 3 }}>
+      <Grid container spacing={2} sx={{ mb: 2 }}>
         <Grid item xs={12} lg={5}>
           <ChartCard title="Stock Health" subtitle="Components by stock status">
             {stockStatus.length === 0 ? (
               <EmptyState dense icon={Boxes} title="No stock data" description="Component status will appear here once components exist." />
             ) : (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 3.5, flexWrap: 'wrap' }}>
-                <Box sx={{ position: 'relative', width: 216, height: 216, flexShrink: 0 }}>
+                <Box sx={{ position: 'relative', width: 168, height: 168, flexShrink: 0 }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
                         data={stockStatus} dataKey="value" nameKey="name" cx="50%" cy="50%"
-                        innerRadius={62} outerRadius={100} paddingAngle={2.5} stroke="none"
+                        innerRadius={50} outerRadius={78} paddingAngle={2.5} stroke="none"
                         // Sweep clockwise from 12 o'clock on load, and tween
                         // between values when the data refreshes.
                         startAngle={90} endAngle={-270}
@@ -283,7 +282,7 @@ const DashboardPage = () => {
                   </ResponsiveContainer>
                   <Box sx={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', pointerEvents: 'none' }}>
                     <Box sx={{ textAlign: 'center' }}>
-                      <Typography sx={{ fontSize: '2.375rem', fontWeight: 700, lineHeight: 1, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>
+                      <Typography sx={{ fontSize: '1.75rem', fontWeight: 650, lineHeight: 1.1, letterSpacing: '-0.022em', fontVariantNumeric: 'tabular-nums' }}>
                         {num(animatedTotal)}
                       </Typography>
                       <Typography sx={{ fontSize: '0.9375rem', color: colors.textMuted, mt: 0.5 }}>Components</Typography>
@@ -318,9 +317,9 @@ const DashboardPage = () => {
                         }}
                       >
                         <Box sx={{ width: 12, height: 12, borderRadius: '3px', bgcolor: d.color, flexShrink: 0 }} />
-                        <Typography sx={{ fontSize: '1.125rem', flexGrow: 1, color: colors.textSecondary }}>{d.name}</Typography>
+                        <Typography sx={{ fontSize: '0.8125rem', flexGrow: 1, color: colors.textSecondary }}>{d.name}</Typography>
                         <Typography sx={{ fontSize: '0.9375rem', color: colors.textMuted }}>{pct}%</Typography>
-                        <Typography sx={{ fontSize: '1.125rem', fontWeight: 700, minWidth: 32, textAlign: 'right' }}>{num(d.value)}</Typography>
+                        <Typography sx={{ fontSize: '0.8125rem', fontWeight: 700, minWidth: 28, textAlign: 'right' }}>{num(d.value)}</Typography>
                       </Box>
                     );
                   })}
@@ -350,18 +349,18 @@ const DashboardPage = () => {
                     <Box key={row.id} sx={rowSx}>
                       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, mb: 1.25 }}>
                         <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                          <Typography sx={{ fontSize: '1.1875rem', fontWeight: 600, mb: 0.5 }} noWrap>{row.componentName}</Typography>
+                          <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600, mb: 0.25 }} noWrap>{row.componentName}</Typography>
                           <Box sx={{ display: 'flex', flexWrap: 'wrap', columnGap: 2, rowGap: 0.5 }}>
-                            <Tooltip title="Preferred supplier"><Box component="span" sx={metaSx}><Truck size={15} />{row.supplier || 'No supplier on file'}</Box></Tooltip>
-                            <Tooltip title="Warehouse location"><Box component="span" sx={metaSx}><MapPin size={15} />{row.location || 'Unassigned'}</Box></Tooltip>
+                            <Tooltip title="Preferred supplier"><Box component="span" sx={metaSx}><Truck size={13} />{row.supplier || 'No supplier on file'}</Box></Tooltip>
+                            <Tooltip title="Warehouse location"><Box component="span" sx={metaSx}><MapPin size={13} />{row.location || 'Unassigned'}</Box></Tooltip>
                           </Box>
                         </Box>
                         <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
-                          <Typography sx={{ fontSize: '1.1875rem', fontWeight: 700, color: isOut ? colors.danger : colors.warning }}>
+                          <Typography sx={{ fontSize: '0.8125rem', fontWeight: 700, color: isOut ? colors.danger : colors.warning }}>
                             {num(row.quantity)} / {num(row.minimumQuantity)}
                           </Typography>
-                          <Typography sx={{ fontSize: '0.9375rem', color: colors.textMuted }}>
-                            {shortfall > 0 ? `${num(shortfall)} ${row.unit || 'units'} short` : 'at reorder level'}
+                          <Typography sx={{ fontSize: '0.6875rem', color: colors.textMuted }}>
+                            {shortfall > 0 ? `${num(shortfall)} short` : 'at reorder level'}
                           </Typography>
                         </Box>
                         {admin && (
@@ -388,7 +387,7 @@ const DashboardPage = () => {
       </Grid>
 
       {/* Recent activity + projects */}
-      <Grid container spacing={3}>
+      <Grid container spacing={2}>
         <Grid item xs={12} lg={7}>
           <ChartCard
             title="Recent Activity"
@@ -405,21 +404,21 @@ const DashboardPage = () => {
                   return (
                     <Box key={row.id} sx={{ ...rowSx, display: 'flex', alignItems: 'center', gap: 2 }}>
                       <Tooltip title={isIn ? 'Stock received' : 'Stock issued'}>
-                        <Box sx={{ width: 48, height: 48, borderRadius: '13px', display: 'grid', placeItems: 'center', bgcolor: isIn ? colors.successSoft : colors.warningSoft, color: isIn ? colors.success : colors.warning, flexShrink: 0 }}>
-                          {isIn ? <ArrowDownLeft size={23} /> : <ArrowUpRight size={23} />}
+                        <Box sx={{ width: 34, height: 34, borderRadius: '9px', display: 'grid', placeItems: 'center', bgcolor: isIn ? colors.successSoft : colors.warningSoft, color: isIn ? colors.success : colors.warning, flexShrink: 0 }}>
+                          {isIn ? <ArrowDownLeft size={16} /> : <ArrowUpRight size={16} />}
                         </Box>
                       </Tooltip>
                       <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                        <Typography sx={{ fontSize: '1.1875rem', fontWeight: 600, mb: 0.5 }} noWrap>{row.componentName}</Typography>
+                        <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600, mb: 0.25 }} noWrap>{row.componentName}</Typography>
                         <Box sx={{ display: 'flex', flexWrap: 'wrap', columnGap: 2, rowGap: 0.5 }}>
-                          <Tooltip title="Recorded by"><Box component="span" sx={metaSx}><UserRound size={15} />{row.createdBy || 'system'}</Box></Tooltip>
+                          <Tooltip title="Recorded by"><Box component="span" sx={metaSx}><UserRound size={13} />{row.createdBy || 'system'}</Box></Tooltip>
                           <Box component="span" sx={metaSx}>
-                            <CalendarDays size={15} />{dateLabel(row.transactionDate)}{time ? ` · ${time}` : ''}
+                            <CalendarDays size={13} />{dateLabel(row.transactionDate)}{time ? ` · ${time}` : ''}
                           </Box>
                         </Box>
                       </Box>
                       <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
-                        <Typography sx={{ fontSize: '1.3125rem', fontWeight: 700, color: isIn ? colors.success : colors.warning, mb: 0.5 }}>
+                        <Typography sx={{ fontSize: '0.9375rem', fontWeight: 700, color: isIn ? colors.success : colors.warning, mb: 0.25 }}>
                           {isIn ? '+' : '−'}{num(row.quantity)}
                         </Typography>
                         <StatusBadge status={isIn ? 'stock_in' : 'stock_out'} />
@@ -448,7 +447,7 @@ const DashboardPage = () => {
                   return (
                     <Box key={p.id} sx={{ ...rowSx, py: 2 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.75 }}>
-                        <Typography sx={{ fontSize: '1.1875rem', fontWeight: 600, flexGrow: 1 }} noWrap>{p.projectName}</Typography>
+                        <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600, flexGrow: 1 }} noWrap>{p.projectName}</Typography>
                         <StatusBadge
                           status={p.status === 'ACTIVE' ? 'active' : p.status === 'COMPLETED' ? 'completed' : 'pending'}
                           label={p.status === 'ON_HOLD' ? 'On hold' : undefined}
@@ -457,14 +456,14 @@ const DashboardPage = () => {
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', columnGap: 2, rowGap: 0.5, mb: 1.25 }}>
                         <Tooltip title="Project manager">
                           <Box component="span" sx={metaSx}>
-                            <Avatar sx={{ width: 22, height: 22, fontSize: '0.75rem', fontWeight: 700, bgcolor: colors.primarySoft, color: colors.primary }}>
+                            <Avatar sx={{ width: 18, height: 18, fontSize: '0.625rem', fontWeight: 700, bgcolor: colors.primarySoft, color: colors.primary }}>
                               {(p.projectManager || '?').charAt(0).toUpperCase()}
                             </Avatar>
                             {p.projectManager || 'Unassigned'}
                           </Box>
                         </Tooltip>
                         <Tooltip title="Target completion date">
-                          <Box component="span" sx={metaSx}><CalendarDays size={15} />Due {dateLabel(p.endDate)}</Box>
+                          <Box component="span" sx={metaSx}><CalendarDays size={13} />Due {dateLabel(p.endDate)}</Box>
                         </Tooltip>
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
@@ -474,7 +473,7 @@ const DashboardPage = () => {
                             sx={{ flexGrow: 1, height: 10, borderRadius: 999, bgcolor: colors.hover, '& .MuiLinearProgress-bar': { borderRadius: 999, bgcolor: p.status === 'COMPLETED' ? colors.success : colors.primary } }}
                           />
                         </Tooltip>
-                        <Typography sx={{ fontSize: '1.0625rem', fontWeight: 700, color: onHold ? colors.textMuted : colors.textPrimary, minWidth: 46, textAlign: 'right' }}>
+                        <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: onHold ? colors.textMuted : colors.textPrimary, minWidth: 34, textAlign: 'right' }}>
                           {onHold ? '—' : `${pct}%`}
                         </Typography>
                       </Box>

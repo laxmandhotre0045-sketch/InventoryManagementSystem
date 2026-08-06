@@ -1,12 +1,15 @@
 package com.company.inventory.dto.request;
 
+import com.company.inventory.entity.ProjectPriority;
 import com.company.inventory.entity.ProjectStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Data
@@ -34,4 +37,15 @@ public class ProjectRequest {
     @Schema(description = "Project status", example = "ACTIVE")
     @NotNull(message = "Project status is required")
     private ProjectStatus status;
+
+    @Schema(description = "Comma-separated team member names", example = "A. Patil, S. Kulkarni")
+    @Size(max = 500, message = "Team members must be at most 500 characters")
+    private String teamMembers;
+
+    @Schema(description = "Project priority", example = "HIGH")
+    private ProjectPriority priority;
+
+    @Schema(description = "Allocated budget", example = "250000.00")
+    @PositiveOrZero(message = "Budget cannot be negative")
+    private BigDecimal budget;
 }

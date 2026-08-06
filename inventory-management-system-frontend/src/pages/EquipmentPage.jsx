@@ -156,14 +156,14 @@ const EquipmentPage = () => {
         icon={Cpu}
         breadcrumbs={[{ label: 'Manage' }, { label: 'Equipment' }]}
         actions={
-          <Button variant="contained" startIcon={<Plus size={18} />} onClick={openCreate} disabled={!writeAccess}>
+          <Button variant="contained" startIcon={<Plus size={16} />} onClick={openCreate} disabled={!writeAccess}>
             Add Equipment
           </Button>
         }
       />
 
-      <Card sx={{ p: 2.5, mb: 4 }}>
-        <Grid container spacing={2.5} alignItems="center">
+      <Card sx={{ p: 2, mb: 2.5 }}>
+        <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} sm={6} md={3}>
             <TextField label="Search equipment" size="small" fullWidth value={keyword}
               placeholder="Name, serial, category, location…"
@@ -200,8 +200,8 @@ const EquipmentPage = () => {
         }}
         renderActions={writeAccess ? (row) => (
           <Box sx={{ display: 'inline-flex', gap: 0.875 }}>
-            <Tooltip title="Edit"><IconButton size="small" onClick={() => openEdit(row)}><Pencil size={18} /></IconButton></Tooltip>
-            <Tooltip title="Delete"><IconButton size="small" sx={{ color: colors.danger }} onClick={() => setDeleteId(row.id)}><Trash2 size={18} /></IconButton></Tooltip>
+            <Tooltip title="Edit"><IconButton size="small" onClick={() => openEdit(row)}><Pencil size={16} /></IconButton></Tooltip>
+            <Tooltip title="Delete"><IconButton size="small" sx={{ color: colors.danger }} onClick={() => setDeleteId(row.id)}><Trash2 size={16} /></IconButton></Tooltip>
           </Box>
         ) : undefined}
       />

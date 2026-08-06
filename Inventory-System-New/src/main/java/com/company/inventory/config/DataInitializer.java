@@ -45,6 +45,13 @@ public class DataInitializer implements CommandLineRunner {
     @Value("${app.seed.user-password:user123}")
     private String userPassword;
 
+    /**
+     * Email of the single system owner. Defaults to the seeded admin address so an
+     * existing deployment gains a master admin without extra configuration.
+     */
+    @Value("${app.seed.master-admin-email:${app.seed.admin-email:admin@inventory.com}}")
+    private String masterAdminEmail;
+
     public DataInitializer(UserRepository userRepository,
                            PasswordEncoder passwordEncoder,
                            JdbcTemplate jdbcTemplate) {
@@ -56,6 +63,7 @@ public class DataInitializer implements CommandLineRunner {
     @Override
     public void run(String... args) {
         migrateRoleColumn();
+        ensureMasterAdmin();
 
         if (!seedDefaultUsers) {
             log.info("Default user seeding is disabled (app.seed.default-users=false).");
@@ -70,12 +78,57 @@ public class DataInitializer implements CommandLineRunner {
         // stop the application: the existing accounts in the database are still valid and
         // users must be able to sign in with them.
         try {
-            seedUser(adminEmail, adminPassword, Role.ADMIN);
+            // On a brand-new database the first seeded admin becomes the system owner;
+            // once an owner exists, further seeded admins are ordinary admins.
+            Role adminRole = userRepository.existsByRole(Role.MASTER_ADMIN) ? Role.ADMIN : Role.MASTER_ADMIN;
+            seedUser(adminEmail, adminPassword, adminRole);
             seedUser(userEmail, userPassword, Role.USER);
         } catch (Exception ex) {
             log.error("Could not seed the configured accounts. The application will continue; "
                     + "sign in with an account that already exists, or fix SEED_ADMIN_EMAIL / "
                     + "SEED_ADMIN_PASSWORD and restart.", ex);
+        }
+    }
+
+    /**
+     * Guarantees exactly one MASTER_ADMIN exists.
+     *
+     * <p>Account management is master-admin-only, so a database that has none — every
+     * database upgraded from before this role existed — would leave nobody able to
+     * manage users at all. When none is present the configured owner address is
+     * promoted in place (keeping its password and history); if that account does not
+     * exist yet, the newest admin is promoted so the system is never left locked out.
+     * Once an owner exists this is a no-op, so a later rename can never create a
+     * second one.</p>
+     */
+    private void ensureMasterAdmin() {
+        try {
+            if (userRepository.existsByRole(Role.MASTER_ADMIN)) {
+                return;
+            }
+
+            String target = masterAdminEmail == null ? "" : masterAdminEmail.trim();
+            User owner = target.isEmpty() ? null : userRepository.findByEmail(target).orElse(null);
+
+            if (owner == null) {
+                owner = userRepository.findAll().stream()
+                        .filter(u -> u.getRole() == Role.ADMIN)
+                        .max((a, b) -> Long.compare(a.getId(), b.getId()))
+                        .orElse(null);
+            }
+
+            if (owner == null) {
+                log.info("No master admin and no admin to promote yet; the seeded admin will become the owner.");
+                return;
+            }
+
+            owner.setRole(Role.MASTER_ADMIN);
+            userRepository.save(owner);
+            log.warn("Promoted {} to MASTER_ADMIN (system owner). Only this account can manage users.",
+                    owner.getEmail());
+        } catch (Exception ex) {
+            log.error("Could not establish the master admin account. User management will be unavailable "
+                    + "until one exists.", ex);
         }
     }
 

@@ -1,9 +1,11 @@
 package com.company.inventory.dto.response;
 
+import com.company.inventory.entity.ProjectPriority;
 import com.company.inventory.entity.ProjectStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -30,6 +32,15 @@ public class ProjectResponse {
 
     @Schema(description = "Project status", example = "ACTIVE")
     private ProjectStatus status;
+
+    @Schema(description = "Comma-separated team member names", example = "A. Patil, S. Kulkarni")
+    private String teamMembers;
+
+    @Schema(description = "Project priority", example = "HIGH")
+    private ProjectPriority priority;
+
+    @Schema(description = "Allocated budget", example = "250000.00")
+    private BigDecimal budget;
 
     @Schema(description = "Record created timestamp")
     private LocalDateTime createdAt;

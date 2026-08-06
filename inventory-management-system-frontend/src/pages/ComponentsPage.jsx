@@ -175,7 +175,6 @@ const ComponentsPage = () => {
       ),
     },
     { field: 'minimumQuantity', headerName: 'Min Qty', align: 'right', render: (row) => <Box component="span" sx={{ fontVariantNumeric: 'tabular-nums' }}>{row.minimumQuantity.toLocaleString()}</Box> },
-    { field: 'unit', headerName: 'Unit' },
     { field: 'stock', headerName: 'Stock', render: (row) => <StatusBadge status={stockStatusOf(row)} /> },
     {
       field: 'status', headerName: 'Status',
@@ -201,15 +200,15 @@ const ComponentsPage = () => {
                 sx={{ bgcolor: colors.warningSoft, color: colors.warning, fontWeight: 600, '& .MuiChip-icon': { color: colors.warning } }}
               />
             )}
-            <Button variant="contained" startIcon={<Plus size={18} />} onClick={openCreate} disabled={!writeAccess}>
+            <Button variant="contained" startIcon={<Plus size={16} />} onClick={openCreate} disabled={!writeAccess}>
               Add Component
             </Button>
           </>
         }
       />
 
-      <Card sx={{ p: 2.5, mb: 4 }}>
-        <Grid container spacing={2.5} alignItems="center">
+      <Card sx={{ p: 2, mb: 2.5 }}>
+        <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} sm={6} md={3}>
             <TextField label="Search components" size="small" fullWidth value={keyword}
               placeholder="Code, name, category, location…"
@@ -260,17 +259,17 @@ const ComponentsPage = () => {
           <Box sx={{ display: 'inline-flex', gap: 0.875 }}>
             <Tooltip title="Edit">
               <span>
-                <IconButton size="small" onClick={() => openEdit(row)} disabled={!writeAccess}><Pencil size={18} /></IconButton>
+                <IconButton size="small" onClick={() => openEdit(row)} disabled={!writeAccess}><Pencil size={16} /></IconButton>
               </span>
             </Tooltip>
             {row.status === 'ARCHIVED' ? (
               <Tooltip title="Restore">
-                <IconButton size="small" sx={{ color: colors.primary }} onClick={() => handleRestore(row.id)}><RotateCcw size={18} /></IconButton>
+                <IconButton size="small" sx={{ color: colors.primary }} onClick={() => handleRestore(row.id)}><RotateCcw size={16} /></IconButton>
               </Tooltip>
             ) : (
               <Tooltip title="Archive">
                 <span>
-                  <IconButton size="small" sx={{ color: colors.danger }} onClick={() => setDeleteId(row.id)} disabled={!writeAccess}><Trash2 size={18} /></IconButton>
+                  <IconButton size="small" sx={{ color: colors.danger }} onClick={() => setDeleteId(row.id)} disabled={!writeAccess}><Trash2 size={16} /></IconButton>
                 </span>
               </Tooltip>
             )}
@@ -293,8 +292,6 @@ const ComponentsPage = () => {
               onChange={(e) => setForm({ ...form, componentName: e.target.value })} /></Grid>
             <Grid item xs={12} sm={6}><TextField label="Category" fullWidth value={form.category}
               onChange={(e) => setForm({ ...form, category: e.target.value })} /></Grid>
-            <Grid item xs={12} sm={6}><TextField label="Unit" fullWidth value={form.unit}
-              onChange={(e) => setForm({ ...form, unit: e.target.value })} /></Grid>
             <Grid item xs={12} sm={6}><TextField label="Warehouse Location" fullWidth placeholder="e.g. Rack A-12 / Bin 04"
               value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} /></Grid>
             <Grid item xs={12} sm={6}>
