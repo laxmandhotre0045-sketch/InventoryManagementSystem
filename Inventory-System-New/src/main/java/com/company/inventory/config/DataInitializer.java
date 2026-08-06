@@ -66,8 +66,17 @@ public class DataInitializer implements CommandLineRunner {
             return;
         }
 
-        seedUser("admin", adminEmail, adminPassword, Role.ADMIN);
-        seedUser("user", userEmail, userPassword, Role.USER);
+        // Seeding is a convenience, never a startup requirement. A failure here must not
+        // stop the application: the existing accounts in the database are still valid and
+        // users must be able to sign in with them.
+        try {
+            seedUser(adminEmail, adminPassword, Role.ADMIN);
+            seedUser(userEmail, userPassword, Role.USER);
+        } catch (Exception ex) {
+            log.error("Could not seed the configured accounts. The application will continue; "
+                    + "sign in with an account that already exists, or fix SEED_ADMIN_EMAIL / "
+                    + "SEED_ADMIN_PASSWORD and restart.", ex);
+        }
     }
 
     private void migrateRoleColumn() {
@@ -84,19 +93,54 @@ public class DataInitializer implements CommandLineRunner {
         }
     }
 
-    private void seedUser(String username, String email, String password, Role role) {
+    private void seedUser(String email, String password, Role role) {
         if (email == null || email.isBlank() || password == null || password.isBlank()) {
-            log.warn("Skipped seeding the {} account: email or password is blank.", role);
+            log.debug("Skipped seeding the {} account: email or password is blank.", role);
             return;
         }
-        if (!userRepository.existsByEmail(email)) {
-            userRepository.save(User.builder()
-                    .username(username)
-                    .email(email)
-                    .password(passwordEncoder.encode(password))
-                    .role(role)
-                    .build());
-            log.info("Seeded {} user: {}", role, email);
+
+        String normalisedEmail = email.trim();
+        if (userRepository.existsByEmail(normalisedEmail)) {
+            log.info("{} account {} already exists — leaving it untouched.", role, normalisedEmail);
+            return;
         }
+
+        userRepository.save(User.builder()
+                .username(uniqueUsernameFor(normalisedEmail))
+                .email(normalisedEmail)
+                .password(passwordEncoder.encode(password))
+                .role(role)
+                .build());
+        log.info("Seeded {} account: {}", role, normalisedEmail);
+    }
+
+    /**
+     * Derives a free username from the email's local part.
+     *
+     * <p>{@code users.username} is UNIQUE, so a fixed literal like "admin" collides as soon as
+     * a differently-named admin is seeded into a database that already holds the original one —
+     * which fails the insert and, before this was handled, took the whole application down with
+     * it. Suffixes are appended until a free name is found.</p>
+     */
+    private String uniqueUsernameFor(String email) {
+        int at = email.indexOf('@');
+        String base = (at > 0 ? email.substring(0, at) : email).replaceAll("[^A-Za-z0-9._-]", "");
+        if (base.isBlank()) {
+            base = "user";
+        }
+        if (base.length() > 70) {
+            base = base.substring(0, 70);
+        }
+
+        if (!userRepository.existsByUsername(base)) {
+            return base;
+        }
+        for (int suffix = 2; suffix < 1000; suffix++) {
+            String candidate = base + suffix;
+            if (!userRepository.existsByUsername(candidate)) {
+                return candidate;
+            }
+        }
+        return base + System.currentTimeMillis();
     }
 }

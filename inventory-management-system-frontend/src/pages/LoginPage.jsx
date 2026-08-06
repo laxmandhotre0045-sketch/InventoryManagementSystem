@@ -28,6 +28,36 @@ const trustPoints = [
   { icon: UserCheck, label: 'Authorized Personnel Only' },
 ];
 
+/**
+ * Turns a failed sign-in into an accurate message.
+ *
+ * Only a 401 actually means the credentials were wrong. Reporting "Invalid email or
+ * password" for every failure hides the common cases — the API being unreachable or
+ * erroring — and sends people hunting for a password problem that doesn't exist.
+ */
+const describeLoginError = (err) => {
+  const status = err.response?.status;
+
+  if (status === 401) {
+    return err.response?.data?.message || 'Invalid email or password.';
+  }
+  if (status === 400) {
+    return err.response?.data?.message || 'Please enter a valid email address and password.';
+  }
+  if (status === 429) {
+    return 'Too many sign-in attempts. Please wait a moment and try again.';
+  }
+  if (!err.response) {
+    // No HTTP response at all: server down, DNS/proxy failure, or the request timed out.
+    return 'Cannot reach the server. Check that the backend is running, then try again.';
+  }
+  if (status >= 500) {
+    return `The server could not process the sign-in (error ${status}). `
+      + 'This is not a password problem — check the backend logs.';
+  }
+  return err.response?.data?.message || `Sign-in failed (error ${status}).`;
+};
+
 // Taller inputs, readable placeholder, subtle brand focus glow.
 const fieldSx = {
   '& .MuiOutlinedInput-root': {
@@ -56,7 +86,7 @@ const LoginPage = () => {
       await login(email, password);
       navigate('/modules', { replace: true });
     } catch (err) {
-      setError(err.response?.data?.message || 'Invalid email or password');
+      setError(describeLoginError(err));
     } finally {
       setLoading(false);
     }
