@@ -54,6 +54,19 @@ public class ComponentItem {
     @Column(nullable = false)
     private Integer minimumQuantity;
 
+    /**
+     * Purchase price for one unit, and the sole basis for inventory valuation
+     * (stock value = quantity x unitPrice).
+     *
+     * <p>Nullable on purpose: existing rows predate this column, and a component
+     * whose cost is genuinely unknown must contribute nothing to the total rather
+     * than silently borrowing a price from elsewhere. Valuation skips nulls, and
+     * the dashboard reports how many components are unpriced so the gap is visible
+     * instead of hidden inside the total.</p>
+     */
+    @Column(name = "unit_price", precision = 15, scale = 2)
+    private java.math.BigDecimal unitPrice;
+
     @Column(length = 50)
     private String unit;
 

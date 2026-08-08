@@ -55,19 +55,25 @@ public class SettingsInitializer implements CommandLineRunner {
             new Seed("notifications.purchaseAlerts", "true", "NOTIFICATIONS", "boolean", "Purchase Alerts"),
             new Seed("notifications.emailNotifications", "false", "NOTIFICATIONS", "boolean", "Email Notifications"),
 
-            // Theme / Appearance
-            new Seed("appearance.theme", "light", "APPEARANCE", "string", "Theme"),
-            new Seed("appearance.accentColor", "#22497F", "APPEARANCE", "string", "Accent Color"),
-            new Seed("appearance.density", "comfortable", "APPEARANCE", "string", "UI Density"),
-
             // Backup & Restore (future-ready)
             new Seed("backup.autoBackup", "false", "BACKUP", "boolean", "Automatic Backup"),
             new Seed("backup.frequency", "weekly", "BACKUP", "string", "Backup Frequency"),
             new Seed("backup.retentionDays", "30", "BACKUP", "number", "Retention (days)")
     );
 
+    /**
+     * Settings that no longer exist. The Appearance group configured a theme and density
+     * the interface never read, so it is removed rather than left as dead rows the API
+     * would keep returning to clients.
+     */
+    private static final List<String> REMOVED_KEYS = List.of(
+            "appearance.theme", "appearance.accentColor", "appearance.density");
+
     @Override
     public void run(String... args) {
+        REMOVED_KEYS.forEach(key -> settingRepository.findBySettingKey(key)
+                .ifPresent(settingRepository::delete));
+
         for (Seed seed : DEFAULTS) {
             if (!settingRepository.existsBySettingKey(seed.key())) {
                 settingRepository.save(AppSetting.builder()

@@ -140,16 +140,18 @@ const DashboardPage = () => {
       const res = await getComponents({ page: 0, size: 1000, sortBy: 'componentName', sortDir: 'asc' });
       const items = res.data?.content || [];
       const rows = [
-        ['Item Code', 'Component', 'Category', 'Quantity', 'Minimum Qty', 'Location', 'Stock Status', 'Status'],
+        ['Item Code', 'Component', 'Category', 'Quantity', 'Minimum Qty', 'Unit Price', 'Stock Value', 'Location', 'Stock Level', 'Status'],
         ...items.map((c) => [
           c.itemCode || '',
           c.componentName || '',
           c.category || '',
           c.quantity ?? 0,
           c.minimumQuantity ?? 0,
+          c.unitPrice ?? '',
+          c.stockValue ?? '',
           c.location || '',
           c.quantity === 0 ? 'Out of stock' : c.quantity <= c.minimumQuantity ? 'Low stock' : 'In stock',
-          c.status || '',
+          c.quantity > 0 && c.status === 'ACTIVE' ? 'Available' : 'Not Available',
         ]),
       ];
       downloadCsv(`stock-levels-${new Date().toISOString().slice(0, 10)}.csv`, rows);
@@ -164,6 +166,7 @@ const DashboardPage = () => {
   const low = summary?.lowStockComponents || 0;
   const out = summary?.outOfStockComponents || 0;
   const healthy = Math.max(totalComponents - low - out, 0);
+  const unpriced = summary?.componentsWithoutPrice || 0;
   // Memoised so the array identity only changes when the numbers actually do.
   // Without this a new array is created on every render (e.g. hovering a slice),
   // which makes Recharts restart/interrupt the draw animation.
@@ -182,7 +185,18 @@ const DashboardPage = () => {
   const legendKey = useMemo(() => stockStatus.map((d) => `${d.name}:${d.value}`).join('|'), [stockStatus]);
 
   const metrics = [
-    { title: 'Total Stock Value', value: currency(summary?.totalInventoryValue), icon: DollarSign, tone: 'success', caption: 'Valuation across all components', tip: 'On-hand quantity × average purchased unit price' },
+    {
+      title: 'Total Stock Value',
+      value: currency(summary?.totalInventoryValue),
+      icon: DollarSign,
+      tone: 'success',
+      // An unpriced component contributes nothing, so say so rather than let the
+      // figure quietly understate the inventory.
+      caption: unpriced > 0
+        ? `${num(unpriced)} component${unpriced === 1 ? '' : 's'} without a unit price`
+        : 'Every component is priced',
+      tip: 'On-hand quantity × the unit price set on each component',
+    },
     { title: 'Total Components', value: num(totalComponents), icon: CircuitBoard, tone: 'info', caption: `${num(healthy)} within healthy levels`, tip: 'Active components in the catalogue' },
     { title: 'Low Stock Items', value: num(low), icon: AlertTriangle, tone: 'warning', caption: 'At or below reorder point', tip: 'Quantity is at or below the minimum level' },
     { title: 'Active Projects', value: num(summary?.activeProjects), icon: FolderKanban, tone: 'purple', caption: 'Currently in progress', tip: 'Projects with status ACTIVE' },

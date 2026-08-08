@@ -30,8 +30,17 @@ public class DashboardSummaryResponse {
     @Schema(description = "Total available stock count across all components", example = "1500")
     private long totalAvailableStock;
 
+    /** Sum of (on-hand quantity x unit price) over non-archived, priced components. */
     @Schema(description = "Total inventory value", example = "125000.50")
-    private double totalInventoryValue;
+    private java.math.BigDecimal totalInventoryValue;
+
+    /**
+     * Components with no unit price. They contribute nothing to the valuation, so the
+     * figure above understates reality by exactly these items — surfacing the count
+     * keeps that visible instead of buried.
+     */
+    @Schema(description = "Components with no unit price set", example = "3")
+    private long componentsWithoutPrice;
 
     @Schema(description = "ISO currency code all monetary values are expressed in", example = "INR")
     private String currencyCode;

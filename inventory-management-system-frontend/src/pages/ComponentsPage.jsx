@@ -14,25 +14,30 @@ import DataTable from '../components/common/DataTable';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import { PageHeader, StatusBadge } from '../components/ui';
 import useDebouncedValue from '../hooks/useDebouncedValue';
+import { formatCurrency as currency, CURRENCY_SYMBOL } from '../utils/currency';
 import { colors } from '../theme/tokens';
 
 const emptyForm = {
-  componentName: '', category: '', quantity: 0, minimumQuantity: 0, unit: '', location: '',
-  status: 'ACTIVE', description: '',
+  componentName: '', category: '', quantity: 0, minimumQuantity: 0, unitPrice: '',
+  location: '', status: 'ACTIVE', description: '',
 };
 
+// Two states only. ARCHIVED still exists in the data model to back the soft delete,
+// but it is set by the archive/restore actions — never chosen from this list.
 const STATUS_OPTIONS = [
-  { value: 'ACTIVE', label: 'Active' },
-  { value: 'INACTIVE', label: 'Inactive' },
-  { value: 'DISCONTINUED', label: 'Discontinued' },
-  { value: 'ARCHIVED', label: 'Archived' },
+  { value: 'ACTIVE', label: 'Available' },
+  { value: 'INACTIVE', label: 'Not Available' },
 ];
 
-const stockStatusOf = (row) => {
-  if (row.quantity === 0) return 'out_of_stock';
-  if (row.quantity <= row.minimumQuantity) return 'low_stock';
-  return 'available';
-};
+/**
+ * Availability is binary: in stock and active, or not.
+ *
+ * Running low is not a third state here — it shows as the amber warning beside the
+ * quantity and drives the low-stock chip and dashboard alerts, so a nearly-empty
+ * component still reads as Available, which is what it is.
+ */
+const availabilityOf = (row) =>
+  (row.quantity > 0 && row.status === 'ACTIVE' ? 'available' : 'not_available');
 
 const ComponentsPage = () => {
   const { role } = useAuth();
@@ -59,8 +64,11 @@ const ComponentsPage = () => {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
+      // Item code ascending is the default order and stays that way through
+      // searching, filtering and paging — the backend applies it to the whole
+      // matching set, so page 2 continues where page 1 left off.
       const params = {
-        page, size, sortBy: 'componentName', sortDir: 'asc',
+        page, size, sortBy: 'itemCode', sortDir: 'asc',
         keyword: debouncedKeyword.trim(), category, status, stockStatus,
       };
       // API responses are wrapped in an ApiResponse envelope: { success, message, data }.
@@ -98,7 +106,7 @@ const ComponentsPage = () => {
       itemCode: row.itemCode || '',
       componentName: row.componentName || '', category: row.category || '',
       quantity: row.quantity ?? 0, minimumQuantity: row.minimumQuantity ?? 0,
-      unit: row.unit || '', location: row.location || '',
+      unitPrice: row.unitPrice ?? '', location: row.location || '',
       status: row.status || 'ACTIVE', description: row.description || '',
     });
     setDialogOpen(true);
@@ -107,7 +115,14 @@ const ComponentsPage = () => {
   const handleSave = async () => {
     try {
       // itemCode is system-generated — never sent to the API.
-      const payload = { ...form, quantity: Number(form.quantity), minimumQuantity: Number(form.minimumQuantity) };
+      const payload = {
+        ...form,
+        quantity: Number(form.quantity),
+        minimumQuantity: Number(form.minimumQuantity),
+        // Blank means "no price known", which is not the same as free. Sending null
+        // keeps the component out of the valuation instead of valuing it at zero.
+        unitPrice: form.unitPrice === '' || form.unitPrice === null ? null : Number(form.unitPrice),
+      };
       delete payload.itemCode;
       if (editId) {
         await updateComponent(editId, payload);
@@ -175,12 +190,27 @@ const ComponentsPage = () => {
       ),
     },
     { field: 'minimumQuantity', headerName: 'Min Qty', align: 'right', render: (row) => <Box component="span" sx={{ fontVariantNumeric: 'tabular-nums' }}>{row.minimumQuantity.toLocaleString()}</Box> },
-    { field: 'stock', headerName: 'Stock', render: (row) => <StatusBadge status={stockStatusOf(row)} /> },
+    {
+      field: 'unitPrice', headerName: 'Unit Price', align: 'right',
+      render: (row) => (row.unitPrice != null
+        ? <Box component="span" sx={{ fontVariantNumeric: 'tabular-nums' }}>{currency(row.unitPrice)}</Box>
+        : (
+          <Tooltip title="No price set — this component is excluded from the stock valuation">
+            <Box component="span" sx={{ color: colors.warning, fontWeight: 600 }}>Not set</Box>
+          </Tooltip>
+        )),
+    },
+    {
+      field: 'stockValue', headerName: 'Stock Value', align: 'right',
+      render: (row) => (row.stockValue != null
+        ? <Box component="span" sx={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{currency(row.stockValue)}</Box>
+        : <Box component="span" sx={{ color: colors.textMuted }}>—</Box>),
+    },
     {
       field: 'status', headerName: 'Status',
-      render: (row) => (
-        <StatusBadge status={row.status === 'ARCHIVED' ? 'cancelled' : 'active'} label={row.status || 'ACTIVE'} />
-      ),
+      render: (row) => (row.status === 'ARCHIVED'
+        ? <StatusBadge status="cancelled" label="Archived" />
+        : <StatusBadge status={availabilityOf(row)} />),
     },
   ];
 
@@ -223,19 +253,20 @@ const ComponentsPage = () => {
             <TextField label="Status" size="small" fullWidth select value={status}
               onChange={(e) => setStatus(e.target.value)}>
               <MenuItem value="">All</MenuItem>
-              <MenuItem value="ACTIVE">Active</MenuItem>
-              <MenuItem value="INACTIVE">Inactive</MenuItem>
-              <MenuItem value="DISCONTINUED">Discontinued</MenuItem>
+              <MenuItem value="ACTIVE">Available</MenuItem>
+              <MenuItem value="INACTIVE">Not Available</MenuItem>
               <MenuItem value="ARCHIVED">Archived</MenuItem>
             </TextField>
           </Grid>
           <Grid item xs={12} sm={6} md={2}>
-            <TextField label="Stock" size="small" fullWidth select value={stockStatus}
+            {/* Stock level stays a separate filter: it answers "what needs reordering",
+                which the binary status column deliberately no longer encodes. */}
+            <TextField label="Stock level" size="small" fullWidth select value={stockStatus}
               onChange={(e) => setStockStatus(e.target.value)}>
               <MenuItem value="">All</MenuItem>
-              <MenuItem value="AVAILABLE">Available</MenuItem>
-              <MenuItem value="LOW_STOCK">Low Stock</MenuItem>
-              <MenuItem value="OUT_OF_STOCK">Out of Stock</MenuItem>
+              <MenuItem value="AVAILABLE">In stock</MenuItem>
+              <MenuItem value="LOW_STOCK">Low stock</MenuItem>
+              <MenuItem value="OUT_OF_STOCK">Out of stock</MenuItem>
             </TextField>
           </Grid>
           <Grid item xs={12} md={2.5} sx={{ display: 'flex', justifyContent: { xs: 'flex-start', md: 'flex-end' }, gap: 1.25 }}>
@@ -304,6 +335,19 @@ const ComponentsPage = () => {
               onChange={(e) => setForm({ ...form, quantity: e.target.value })} /></Grid>
             <Grid item xs={12} sm={6}><TextField label="Minimum Quantity" type="number" fullWidth required value={form.minimumQuantity}
               onChange={(e) => setForm({ ...form, minimumQuantity: e.target.value })} /></Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label={`Unit Price (${CURRENCY_SYMBOL})`} type="number" fullWidth
+                inputProps={{ min: 0, step: '0.01' }}
+                value={form.unitPrice}
+                onChange={(e) => setForm({ ...form, unitPrice: e.target.value })}
+                helperText={
+                  form.unitPrice === '' || form.unitPrice === null
+                    ? 'Without a price this component is excluded from the stock valuation.'
+                    : `Stock value: ${currency(Number(form.unitPrice || 0) * Number(form.quantity || 0))}`
+                }
+              />
+            </Grid>
             <Grid item xs={12}><TextField label="Description" fullWidth multiline rows={2} value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })} /></Grid>
           </Grid>

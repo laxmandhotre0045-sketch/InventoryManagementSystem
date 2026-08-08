@@ -114,6 +114,10 @@ public class ComponentServiceImpl implements ComponentService {
                                                               int page, int size, String sortBy, String sortDir) {
         Pageable pageable = createPageable(page, size, sortBy, sortDir);
         Specification<ComponentItem> spec = buildComponentSpecification(keyword, category, status, stockStatus);
+        if (isItemCodeSort(sortBy)) {
+            Sort.Direction direction = "desc".equalsIgnoreCase(sortDir) ? Sort.Direction.DESC : Sort.Direction.ASC;
+            spec = spec.and(itemCodeOrder(direction));
+        }
         Page<ComponentItem> componentPage = componentRepository.findAll(spec, pageable);
         return mapPage(componentPage);
     }
@@ -125,14 +129,68 @@ public class ComponentServiceImpl implements ComponentService {
                 .collect(Collectors.toList());
     }
 
+    /** Sort fields a client may request; anything else falls back to the item code. */
+    private static final java.util.Set<String> SORTABLE = java.util.Set.of(
+            "itemCode", "componentName", "category", "quantity", "minimumQuantity",
+            "unitPrice", "location", "status", "createdAt", "updatedAt", "id");
+
+    /**
+     * Builds the page ordering, defaulting to item code ascending.
+     *
+     * <p>Item codes are zero-padded to four digits (C0001…C9999) and then grow a digit,
+     * so a plain string sort puts C10000 between C0999 and C2000. Ordering by length
+     * first and value second restores true numeric order for any width, and works the
+     * same whether the query is filtered, searched or paged — the sort is applied by
+     * the database over the whole matching set, not per page.</p>
+     */
     private Pageable createPageable(int page, int size, String sortBy, String sortDir) {
-        Sort sort = Sort.by(sortBy);
-        if ("desc".equalsIgnoreCase(sortDir)) {
-            sort = sort.descending();
-        } else {
-            sort = sort.ascending();
+        String property = (sortBy != null && SORTABLE.contains(sortBy)) ? sortBy : "itemCode";
+        Sort.Direction direction = "desc".equalsIgnoreCase(sortDir) ? Sort.Direction.DESC : Sort.Direction.ASC;
+
+        int safePage = Math.max(0, page);
+        int safeSize = size < 1 ? 10 : Math.min(size, 500);
+
+        if ("itemCode".equals(property)) {
+            // Left unsorted here on purpose: the length-then-value ordering cannot be
+            // expressed as a Sort property (Spring Data resolves those through
+            // PropertyPath, which rejects function calls), so itemCodeOrder() applies
+            // it through the Criteria API instead.
+            return PageRequest.of(safePage, safeSize);
         }
-        return PageRequest.of(page, size, sort);
+        // Id as the final tiebreak keeps paging stable when the primary column repeats.
+        return PageRequest.of(safePage, safeSize,
+                Sort.by(direction, property).and(Sort.by(Sort.Direction.ASC, "id")));
+    }
+
+    /** True when the caller wants the default item-code ordering. */
+    private boolean isItemCodeSort(String sortBy) {
+        return sortBy == null || sortBy.isBlank() || "itemCode".equals(sortBy) || !SORTABLE.contains(sortBy);
+    }
+
+    /**
+     * Orders by item code numerically: length first, then value.
+     *
+     * <p>Codes are zero-padded to four digits and then grow (C9999 → C10000), so a plain
+     * string sort would place C10000 between C0999 and C2000. Comparing length first
+     * fixes that for any width.</p>
+     *
+     * <p>Applied as a Specification because the expression involves {@code length()},
+     * which {@link Sort} cannot represent. The count query Spring issues for pagination
+     * shares this Specification, and an ORDER BY there is both pointless and rejected by
+     * some databases — hence the result-type guard.</p>
+     */
+    private Specification<ComponentItem> itemCodeOrder(Sort.Direction direction) {
+        return (root, query, cb) -> {
+            Class<?> resultType = query.getResultType();
+            if (resultType != Long.class && resultType != long.class) {
+                jakarta.persistence.criteria.Expression<Integer> length = cb.length(root.get("itemCode"));
+                jakarta.persistence.criteria.Expression<String> code = root.get("itemCode");
+                query.orderBy(direction == Sort.Direction.DESC
+                        ? List.of(cb.desc(length), cb.desc(code))
+                        : List.of(cb.asc(length), cb.asc(code)));
+            }
+            return cb.conjunction();
+        };
     }
 
     private PagedResponse<ComponentResponse> mapPage(Page<ComponentItem> pageData) {

@@ -8,6 +8,7 @@ import { statusPalette } from '../../theme/tokens';
 const iconMap = {
   active: Activity,
   available: Check,
+  not_available: XCircle,
   in_stock: Check,
   completed: Check,
   low_stock: AlertTriangle,

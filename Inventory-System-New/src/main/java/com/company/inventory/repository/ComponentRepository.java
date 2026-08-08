@@ -47,11 +47,27 @@ public interface ComponentRepository extends JpaRepository<ComponentItem, Long>,
             + "FROM components WHERE item_code REGEXP '^C[0-9]+$'", nativeQuery = true)
     long findMaxItemCodeNumber();
 
-    // Current stock value = sum of (on-hand quantity x average purchased unit price) per component.
-    @Query(value = "SELECT COALESCE(SUM(c.quantity * p.avg_price), 0) "
-            + "FROM components c "
-            + "JOIN (SELECT component_id, AVG(unit_price) AS avg_price FROM purchase_items GROUP BY component_id) p "
-            + "ON p.component_id = c.id "
-            + "WHERE c.status <> 'ARCHIVED'", nativeQuery = true)
-    double sumInventoryValue();
+    /**
+     * Current stock value = sum of (on-hand quantity x the component's own unit price).
+     *
+     * <p>Computed live from the two columns that define it, so it is correct by
+     * construction: a stock-in raises it, a stock-out lowers it, and editing a unit
+     * price re-values that component immediately. Nothing is cached, so the figure
+     * can never drift from the data.</p>
+     *
+     * <p>This replaces an earlier version that averaged {@code purchase_items.unit_price}
+     * and applied it to the entire on-hand quantity. That valued stock the user had
+     * never priced — the whole quantity of a component was valued as soon as any
+     * purchase for it existed — and gave no way to set a cost directly.</p>
+     */
+    @Query("select coalesce(sum(c.quantity * c.unitPrice), 0) from ComponentItem c "
+            + "where c.status <> com.company.inventory.entity.ComponentStatus.ARCHIVED "
+            + "and c.unitPrice is not null")
+    java.math.BigDecimal sumInventoryValue();
+
+    /** Non-archived components with no unit price — these contribute nothing to the valuation. */
+    @Query("select count(c) from ComponentItem c "
+            + "where c.status <> com.company.inventory.entity.ComponentStatus.ARCHIVED "
+            + "and c.unitPrice is null")
+    long countWithoutUnitPrice();
 }

@@ -167,6 +167,9 @@ public class PurchaseServiceImpl implements PurchaseService {
             totalAmount = totalAmount.add(totalPrice);
 
             component.setQuantity(component.getQuantity() + line.getQuantity());
+            // The invoice is the authoritative cost, so it becomes the component's unit
+            // price and the stock is valued at what was actually paid for it.
+            component.setUnitPrice(line.getUnitPrice());
             componentRepository.save(component);
 
             transactionRepository.save(InventoryTransaction.builder()
@@ -242,6 +245,8 @@ public class PurchaseServiceImpl implements PurchaseService {
             totalAmount = totalAmount.add(totalPrice);
 
             component.setQuantity(component.getQuantity() + itemRequest.getQuantity());
+            // Purchase price flows onto the component so the valuation reflects it.
+            component.setUnitPrice(itemRequest.getUnitPrice());
             componentRepository.save(component);
 
             InventoryTransaction transaction = InventoryTransaction.builder()

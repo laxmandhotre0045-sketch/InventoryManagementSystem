@@ -86,7 +86,7 @@ public class InventoryTransactionController {
     public ResponseEntity<ApiResponse<PagedResponse<InventoryTransactionResponse>>> getHistory(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "transactionDate") String sortBy,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
             @RequestParam(defaultValue = "desc") String sortDir) {
         PagedResponse<InventoryTransactionResponse> response = transactionService.getTransactionHistory(page, size, sortBy, sortDir);
         return ResponseEntity.ok(ApiResponse.success("Transaction history retrieved successfully", response));
@@ -98,7 +98,7 @@ public class InventoryTransactionController {
             @Parameter(description = "Component identifier", required = true) @PathVariable Long componentId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "transactionDate") String sortBy,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
             @RequestParam(defaultValue = "desc") String sortDir) {
         PagedResponse<InventoryTransactionResponse> response = transactionService.getComponentTransactionHistory(componentId, page, size, sortBy, sortDir);
         return ResponseEntity.ok(ApiResponse.success("Component transaction history retrieved successfully", response));

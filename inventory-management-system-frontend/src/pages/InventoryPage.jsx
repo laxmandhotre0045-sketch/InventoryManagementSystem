@@ -8,6 +8,17 @@ import { stockIn, stockOut, getTransactionHistory } from '../api/inventoryApi';
 import { getComponents } from '../api/componentApi';
 import DataTable from '../components/common/DataTable';
 import { PageHeader, StatusBadge } from '../components/ui';
+import { colors } from '../theme/tokens';
+
+/**
+ * Audit timestamps come from createdAt — the moment the movement was recorded —
+ * not transactionDate, which is date-only and cannot show a time.
+ */
+const auditDate = (v) =>
+  (v ? new Date(v).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—');
+
+const auditTime = (v) =>
+  (v ? new Date(v).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '—');
 
 const InventoryPage = () => {
   const [components, setComponents] = useState([]);
@@ -29,7 +40,9 @@ const InventoryPage = () => {
   const fetchHistory = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await getTransactionHistory({ page, size, sortBy: 'transactionDate', sortDir: 'desc' });
+      // createdAt is the precise timestamp; sorting on it (not the date-only column)
+      // is what puts the newest movement at the top and keeps paging stable.
+      const res = await getTransactionHistory({ page, size, sortBy: 'createdAt', sortDir: 'desc' });
       setHistory(res.data?.content || []);
       setTotal(res.data?.totalElements || 0);
     } catch (err) {
@@ -63,6 +76,9 @@ const InventoryPage = () => {
         setSnack({ open: true, message: 'Stock OUT recorded', severity: 'success' });
       }
       setDialogOpen(false);
+      // Jump to page 1 so the movement just recorded is visible at the top,
+      // rather than silently landing above whatever page is currently shown.
+      setPage(0);
       fetchHistory();
       loadComponents();
     } catch (err) {
@@ -71,14 +87,44 @@ const InventoryPage = () => {
   };
 
   const columns = [
-    { field: 'transactionDate', headerName: 'Date' },
+    {
+      field: 'createdAt', headerName: 'Date',
+      render: (row) => (
+        <Box component="span" sx={{ whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+          {auditDate(row.createdAt || row.transactionDate)}
+        </Box>
+      ),
+    },
+    {
+      field: 'time', headerName: 'Time',
+      render: (row) => (
+        <Box component="span" sx={{ whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums', color: colors.textSecondary }}>
+          {auditTime(row.createdAt)}
+        </Box>
+      ),
+    },
+    {
+      field: 'createdBy', headerName: 'User',
+      render: (row) => (row.createdBy
+        ? <Box component="span" sx={{ whiteSpace: 'nowrap' }}>{row.createdBy}</Box>
+        : <Box component="span" sx={{ color: colors.textMuted }}>system</Box>),
+    },
     {
       field: 'transactionType', headerName: 'Type',
       render: (row) => <StatusBadge status={row.transactionType === 'STOCK_IN' ? 'stock_in' : 'stock_out'} />,
     },
     { field: 'componentName', headerName: 'Component' },
-    { field: 'quantity', headerName: 'Quantity', align: 'right', render: (row) => <Box component="span" sx={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{Number(row.quantity).toLocaleString()}</Box> },
-    { field: 'createdBy', headerName: 'By' },
+    {
+      field: 'quantity', headerName: 'Quantity', align: 'right',
+      render: (row) => {
+        const isIn = row.transactionType === 'STOCK_IN';
+        return (
+          <Box component="span" sx={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: isIn ? colors.success : colors.warning }}>
+            {isIn ? '+' : '−'}{Number(row.quantity).toLocaleString()}
+          </Box>
+        );
+      },
+    },
     { field: 'remarks', headerName: 'Remarks' },
   ];
 

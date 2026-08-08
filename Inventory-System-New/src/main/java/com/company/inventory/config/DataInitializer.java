@@ -2,6 +2,7 @@ package com.company.inventory.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.core.annotation.Order;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -24,6 +25,11 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 @Component
+// Must precede every other CommandLineRunner: this one carries the schema/data
+// migrations, and ItemCodeBackfillRunner (@Order 20) loads ComponentItem entities.
+// A row still holding a retired enum value would fail to convert and abort startup
+// if the backfill ran first. Migrations go before anything that reads entities.
+@Order(10)
 public class DataInitializer implements CommandLineRunner {
 
     private final UserRepository userRepository;
@@ -143,6 +149,18 @@ public class DataInitializer implements CommandLineRunner {
             jdbcTemplate.update("UPDATE users SET role = 'USER' WHERE role = 'EMPLOYEE'");
         } catch (Exception ex) {
             log.debug("EMPLOYEE to USER migration skipped: {}", ex.getMessage());
+        }
+
+        // DISCONTINUED was removed from ComponentStatus (it behaved identically to
+        // INACTIVE). Rows still holding it would fail to deserialise into the enum,
+        // so fold them in before anything reads the table.
+        try {
+            int moved = jdbcTemplate.update("UPDATE components SET status = 'INACTIVE' WHERE status = 'DISCONTINUED'");
+            if (moved > 0) {
+                log.info("Migrated {} component(s) from DISCONTINUED to INACTIVE.", moved);
+            }
+        } catch (Exception ex) {
+            log.debug("DISCONTINUED to INACTIVE migration skipped: {}", ex.getMessage());
         }
     }
 

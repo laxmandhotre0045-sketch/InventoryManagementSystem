@@ -19,6 +19,7 @@ public class ComponentMapper {
                 .category(request.getCategory())
                 .quantity(request.getQuantity())
                 .minimumQuantity(request.getMinimumQuantity())
+                .unitPrice(request.getUnitPrice())
                 .unit(request.getUnit())
                 .location(request.getLocation())
                 .description(request.getDescription())
@@ -38,6 +39,12 @@ public class ComponentMapper {
         response.setCategory(item.getCategory());
         response.setQuantity(item.getQuantity());
         response.setMinimumQuantity(item.getMinimumQuantity());
+        response.setUnitPrice(item.getUnitPrice());
+        // Derived here rather than stored, so it can never disagree with quantity x price.
+        if (item.getUnitPrice() != null && item.getQuantity() != null) {
+            response.setStockValue(item.getUnitPrice()
+                    .multiply(java.math.BigDecimal.valueOf(item.getQuantity())));
+        }
         response.setUnit(item.getUnit());
         response.setLocation(item.getLocation());
         response.setStatus(item.getStatus() != null ? item.getStatus().name() : null);
@@ -56,6 +63,11 @@ public class ComponentMapper {
         item.setCategory(request.getCategory());
         item.setQuantity(request.getQuantity());
         item.setMinimumQuantity(request.getMinimumQuantity());
+        // Only overwrite when supplied, so a client that omits the field cannot
+        // silently wipe an existing price (and with it, that component's valuation).
+        if (request.getUnitPrice() != null) {
+            item.setUnitPrice(request.getUnitPrice());
+        }
         item.setUnit(request.getUnit());
         item.setLocation(request.getLocation());
         item.setDescription(request.getDescription());

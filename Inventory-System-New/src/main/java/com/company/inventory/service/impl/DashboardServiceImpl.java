@@ -59,8 +59,9 @@ public class DashboardServiceImpl implements DashboardService {
         response.setOutOfStockComponents(componentRepository.countOutOfStock());
         response.setTotalAvailableStock(componentRepository.sumTotalAvailableStock());
         response.setPurchasesThisMonth(purchaseRepository.countPurchasesThisMonth());
-        // Current stock value: on-hand quantity x average purchased unit price per component.
+        // Live valuation: on-hand quantity x the component's own unit price.
         response.setTotalInventoryValue(componentRepository.sumInventoryValue());
+        response.setComponentsWithoutPrice(componentRepository.countWithoutUnitPrice());
         response.setCurrencyCode(currencyCode);
 
         return response;
@@ -119,8 +120,9 @@ public class DashboardServiceImpl implements DashboardService {
         response.setLocation(item.getLocation());
         response.setUnit(item.getUnit());
         response.setSupplier(purchaseItemRepository.findLatestSupplierByComponentId(item.getId()));
-        java.math.BigDecimal price = purchaseItemRepository.findLatestUnitPriceByComponentId(item.getId());
-        response.setLastUnitPrice(price != null ? price.doubleValue() : null);
+        // The component's own price is what the valuation uses, so report the same
+        // number here rather than a second, possibly different, figure from purchases.
+        response.setLastUnitPrice(item.getUnitPrice() != null ? item.getUnitPrice().doubleValue() : null);
         return response;
     }
 

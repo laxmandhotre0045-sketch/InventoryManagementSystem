@@ -61,7 +61,7 @@ public class ComponentController {
             @RequestParam(defaultValue = "") String stockStatus,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "componentName") String sortBy,
+            @RequestParam(defaultValue = "itemCode") String sortBy,
             @RequestParam(defaultValue = "asc") String sortDir) {
         PagedResponse<ComponentResponse> response = componentService.getAllComponents(
                 page, size, sortBy, sortDir, keyword, category, status, stockStatus);
@@ -110,7 +110,7 @@ public class ComponentController {
             @RequestParam(defaultValue = "") String stockStatus,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "componentName") String sortBy,
+            @RequestParam(defaultValue = "itemCode") String sortBy,
             @RequestParam(defaultValue = "asc") String sortDir) {
         PagedResponse<ComponentResponse> response = componentService.searchComponents(
                 keyword, category, status, stockStatus, page, size, sortBy, sortDir);

@@ -78,11 +78,17 @@ export const layout = {
 };
 
 // Status badges — calm, desaturated tones on soft neutral backgrounds.
+//
+// Component availability is deliberately binary: green "Available" or red
+// "Not Available". Running low is a separate signal (the amber warning beside the
+// quantity, the low-stock chip and the dashboard alerts) rather than a third state,
+// so the status column answers one question only — can this be used right now.
 export const statusPalette = {
   available: { label: 'Available', fg: colors.success, bg: colors.successSoft },
-  in_stock: { label: 'In Stock', fg: colors.success, bg: colors.successSoft },
+  not_available: { label: 'Not Available', fg: colors.danger, bg: colors.dangerSoft },
+  in_stock: { label: 'Available', fg: colors.success, bg: colors.successSoft },
   low_stock: { label: 'Low Stock', fg: colors.warning, bg: colors.warningSoft },
-  out_of_stock: { label: 'Out of Stock', fg: colors.danger, bg: colors.dangerSoft },
+  out_of_stock: { label: 'Not Available', fg: colors.danger, bg: colors.dangerSoft },
   pending: { label: 'Pending', fg: colors.warning, bg: colors.warningSoft },
   in_progress: { label: 'In Progress', fg: colors.info, bg: colors.infoSoft },
   maintenance: { label: 'Maintenance', fg: colors.warning, bg: colors.warningSoft },

@@ -35,6 +35,13 @@ public class ComponentResponse {
     @Schema(description = "Minimum allowable stock level before low stock alert", example = "5")
     private Integer minimumQuantity;
 
+    @Schema(description = "Purchase price for one unit", example = "149.50")
+    private java.math.BigDecimal unitPrice;
+
+    /** quantity x unitPrice, or null when the component has no price yet. */
+    @Schema(description = "Value of the stock on hand", example = "2990.00")
+    private java.math.BigDecimal stockValue;
+
     @Schema(description = "Unit of measurement", example = "pcs")
     private String unit;
 

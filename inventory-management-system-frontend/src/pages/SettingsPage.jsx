@@ -5,7 +5,7 @@ import {
   Dialog, DialogTitle, DialogContent, DialogActions, Tooltip, Chip,
 } from '@mui/material';
 import {
-  Settings as SettingsIcon, Building2, SlidersHorizontal, Boxes, Bell, Palette,
+  Settings as SettingsIcon, Building2, SlidersHorizontal, Boxes, Bell,
   DatabaseBackup, Users, Save, Plus, Trash2, Download, Upload, ShieldCheck,
   Pencil, KeyRound, UserX, UserCheck, Crown,
 } from 'lucide-react';
@@ -25,15 +25,12 @@ const CATEGORY_META = {
   PREFERENCES: { label: 'Preferences', icon: SlidersHorizontal, desc: 'Regional and display preferences.' },
   INVENTORY: { label: 'Inventory', icon: Boxes, desc: 'Stock, currency and item-code behaviour.' },
   NOTIFICATIONS: { label: 'Notifications', icon: Bell, desc: 'Choose which alerts are generated.' },
-  APPEARANCE: { label: 'Appearance', icon: Palette, desc: 'Theme and interface density.' },
   BACKUP: { label: 'Backup', icon: DatabaseBackup, desc: 'Data backup configuration.' },
 };
 // Tab order; "USERS" is a synthetic tab handled separately.
-const TAB_ORDER = ['COMPANY', 'USERS', 'PREFERENCES', 'INVENTORY', 'NOTIFICATIONS', 'APPEARANCE', 'BACKUP'];
+const TAB_ORDER = ['COMPANY', 'USERS', 'PREFERENCES', 'INVENTORY', 'NOTIFICATIONS', 'BACKUP'];
 
 const SELECT_OPTIONS = {
-  'appearance.theme': ['light', 'dark'],
-  'appearance.density': ['comfortable', 'compact'],
   'backup.frequency': ['daily', 'weekly', 'monthly'],
   'inventory.currency': ['INR', 'USD', 'EUR', 'GBP'],
   'preferences.language': ['English', 'Hindi'],
@@ -42,7 +39,6 @@ const SELECT_OPTIONS = {
 // Categories whose values are stored but not yet read by the interface. Saying so
 // beats letting someone pick "dark" and wonder why nothing changed.
 const NOT_APPLIED_NOTE = {
-  APPEARANCE: 'Saved for future use — the interface currently renders in the light theme at comfortable density regardless of these values.',
   PREFERENCES: 'Date format, timezone and language are stored here for upcoming releases; the interface currently uses the system defaults.',
 };
 

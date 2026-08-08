@@ -9,7 +9,6 @@ public interface InventoryTransactionRepository extends JpaRepository<InventoryT
 
     Page<InventoryTransaction> findByComponentId(Long componentId, Pageable pageable);
 
-    Page<InventoryTransaction> findAllByOrderByTransactionDateDesc(Pageable pageable);
 
     boolean existsByComponentId(Long componentId);
 }

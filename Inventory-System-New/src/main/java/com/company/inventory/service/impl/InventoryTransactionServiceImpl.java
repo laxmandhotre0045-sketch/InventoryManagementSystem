@@ -99,9 +99,11 @@ public class InventoryTransactionServiceImpl implements InventoryTransactionServ
 
     @Override
     public PagedResponse<InventoryTransactionResponse> getTransactionHistory(int page, int size, String sortBy, String sortDir) {
+        // Plain findAll: the previous findAllByOrderByTransactionDateDesc ordered by the
+        // DATE column only, so every transaction recorded on the same day tied and the
+        // database returned them in whatever order it liked — the "random" ordering.
         Pageable pageable = createPageable(page, size, sortBy, sortDir);
-        Page<InventoryTransaction> transactionPage = transactionRepository.findAllByOrderByTransactionDateDesc(pageable);
-        return mapPage(transactionPage);
+        return mapPage(transactionRepository.findAll(pageable));
     }
 
     @Override
@@ -115,14 +117,29 @@ public class InventoryTransactionServiceImpl implements InventoryTransactionServ
         return mapPage(transactionPage);
     }
 
+    /** Sort fields a client may ask for. Anything else falls back to createdAt. */
+    private static final java.util.Set<String> SORTABLE =
+            java.util.Set.of("createdAt", "transactionDate", "quantity", "transactionType", "createdBy", "id");
+
+    /**
+     * Builds a deterministic, newest-first ordering.
+     *
+     * <p>Two details matter. Sorting on {@code createdAt} (a timestamp) rather than
+     * {@code transactionDate} (a date) gives sub-second resolution. And {@code id} is
+     * always appended as the final tiebreak, because a single purchase writes several
+     * stock-in rows inside one transaction — they share a timestamp to the millisecond,
+     * and without the tiebreak their relative order on a paged query is undefined,
+     * which can make a row appear on two pages or none.</p>
+     */
     private Pageable createPageable(int page, int size, String sortBy, String sortDir) {
-        Sort sort = Sort.by(sortBy);
-        if ("desc".equalsIgnoreCase(sortDir)) {
-            sort = sort.descending();
-        } else {
-            sort = sort.ascending();
+        String property = (sortBy != null && SORTABLE.contains(sortBy)) ? sortBy : "createdAt";
+        // Legacy callers ask for transactionDate; give them the precise column instead.
+        if ("transactionDate".equals(property)) {
+            property = "createdAt";
         }
-        return PageRequest.of(page, size, sort);
+        Sort.Direction direction = "asc".equalsIgnoreCase(sortDir) ? Sort.Direction.ASC : Sort.Direction.DESC;
+        Sort sort = Sort.by(direction, property).and(Sort.by(direction, "id"));
+        return PageRequest.of(Math.max(0, page), size < 1 ? 10 : Math.min(size, 200), sort);
     }
 
     private PagedResponse<InventoryTransactionResponse> mapPage(Page<InventoryTransaction> pageData) {

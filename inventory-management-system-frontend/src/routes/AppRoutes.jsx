@@ -5,6 +5,7 @@ import { useAuth } from '../auth/AuthContext';
 import ProtectedRoute from '../auth/ProtectedRoute';
 import RoleRoute from '../auth/RoleRoute';
 import Layout from '../components/layout/Layout';
+import ScrollToTop from '../components/common/ScrollToTop';
 import LoginPage from '../pages/LoginPage';
 
 // Lazy-load page bundles so each route is code-split and loaded on demand.
@@ -44,7 +45,9 @@ const AppRoutes = () => {
   const { isAuthenticated } = useAuth();
 
   return (
-    <Routes>
+    <>
+      <ScrollToTop />
+      <Routes>
       <Route
         path="/login"
         element={isAuthenticated ? <Navigate to="/modules" replace /> : <LoginPage />}
@@ -137,8 +140,9 @@ const AppRoutes = () => {
         <Route path="settings" element={<Suspense fallback={<PageFallback />}><LibrarySettingsPage /></Suspense>} />
       </Route>
 
-      <Route path="*" element={<Navigate to={isAuthenticated ? '/modules' : '/login'} replace />} />
-    </Routes>
+        <Route path="*" element={<Navigate to={isAuthenticated ? '/modules' : '/login'} replace />} />
+      </Routes>
+    </>
   );
 };
 

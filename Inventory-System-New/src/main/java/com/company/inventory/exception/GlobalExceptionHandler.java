@@ -1,7 +1,9 @@
 package com.company.inventory.exception;
 
 import com.company.inventory.dto.response.ApiResponse;
+import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -50,6 +52,28 @@ public class GlobalExceptionHandler {
                 errors.put(error.getField(), error.getDefaultMessage())
         );
         return new ResponseEntity<>(ApiResponse.failure("Validation failed", errors), HttpStatus.BAD_REQUEST);
+    }
+
+    /**
+     * A body Jackson cannot read: malformed JSON, a wrong field type, or a value outside
+     * an enum (for example the retired DISCONTINUED component status). All of these are
+     * client mistakes, so they get 400 rather than falling through to the 500 catch-all.
+     * The parser's own message names internal classes, so it is logged, not returned.
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse<Object>> handleUnreadableBody(HttpMessageNotReadableException ex) {
+        log.warn("Rejected unreadable request body: {}", ex.getMostSpecificCause().getMessage());
+
+        String message = "The request body could not be read. Check that every field has a valid value.";
+        Throwable cause = ex.getCause();
+        if (cause instanceof InvalidFormatException invalid && invalid.getTargetType() != null
+                && invalid.getTargetType().isEnum()) {
+            String allowed = java.util.Arrays.stream(invalid.getTargetType().getEnumConstants())
+                    .map(String::valueOf)
+                    .collect(java.util.stream.Collectors.joining(", "));
+            message = "'" + invalid.getValue() + "' is not a valid value. Allowed values: " + allowed + ".";
+        }
+        return new ResponseEntity<>(ApiResponse.failure(message, null), HttpStatus.BAD_REQUEST);
     }
 
     /**
