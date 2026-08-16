@@ -3,22 +3,22 @@ package com.company.inventory.repository;
 import java.util.List;
 import java.util.Optional;
 
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 
 import com.company.inventory.entity.ComponentItem;
+import com.company.inventory.entity.ComponentStatus;
 
 public interface ComponentRepository extends JpaRepository<ComponentItem, Long>, JpaSpecificationExecutor<ComponentItem> {
 
     Optional<ComponentItem> findByComponentName(String componentName);
 
-    Page<ComponentItem> findByComponentNameContainingIgnoreCaseOrCategoryContainingIgnoreCase(
-            String componentName,
-            String category,
-            Pageable pageable);
+    /** Every component in a category, archived included — the delete guard's basis. */
+    long countByCategoryId(Long categoryId);
+
+    /** Components a user would actually see in a category; the count shown in the UI. */
+    long countByCategoryIdAndStatusNot(Long categoryId, ComponentStatus status);
 
     @Query("select c from ComponentItem c where c.status <> com.company.inventory.entity.ComponentStatus.ARCHIVED and c.quantity > 0 and c.quantity <= c.minimumQuantity")
     List<ComponentItem> findLowStock();

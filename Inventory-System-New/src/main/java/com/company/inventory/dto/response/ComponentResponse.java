@@ -26,8 +26,17 @@ public class ComponentResponse {
     @Schema(description = "Unique component name", example = "ESP32")
     private String componentName;
 
-    @Schema(description = "Category of the component", example = "Microcontroller")
+    /**
+     * Category name, kept under the original field name so every existing consumer of
+     * this payload — the components table, the dashboard's low-stock panel, any saved
+     * export — keeps reading a plain string exactly as before. {@link #categoryId} is
+     * the addition that lets a client round-trip the value back into a save.
+     */
+    @Schema(description = "Category of the component", example = "Resistor")
     private String category;
+
+    @Schema(description = "Id of the component's category", example = "1")
+    private Long categoryId;
 
     @Schema(description = "Quantity available in stock", example = "20")
     private Integer quantity;

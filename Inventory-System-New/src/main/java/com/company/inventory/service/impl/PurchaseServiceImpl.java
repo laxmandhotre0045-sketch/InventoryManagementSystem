@@ -47,6 +47,7 @@ public class PurchaseServiceImpl implements PurchaseService {
     private final com.company.inventory.service.InvoiceExtractionService invoiceExtractionService;
     private final com.company.inventory.repository.EquipmentRepository equipmentRepository;
     private final com.company.inventory.service.ItemCodeGenerator itemCodeGenerator;
+    private final com.company.inventory.service.ComponentCategoryService componentCategoryService;
 
     public PurchaseServiceImpl(PurchaseRepository purchaseRepository,
                                PurchaseItemRepository purchaseItemRepository,
@@ -57,7 +58,8 @@ public class PurchaseServiceImpl implements PurchaseService {
                                PurchaseMapper purchaseMapper,
                                com.company.inventory.service.InvoiceExtractionService invoiceExtractionService,
                                com.company.inventory.repository.EquipmentRepository equipmentRepository,
-                               com.company.inventory.service.ItemCodeGenerator itemCodeGenerator) {
+                               com.company.inventory.service.ItemCodeGenerator itemCodeGenerator,
+                               com.company.inventory.service.ComponentCategoryService componentCategoryService) {
         this.purchaseRepository = purchaseRepository;
         this.purchaseItemRepository = purchaseItemRepository;
         this.componentRepository = componentRepository;
@@ -68,6 +70,7 @@ public class PurchaseServiceImpl implements PurchaseService {
         this.invoiceExtractionService = invoiceExtractionService;
         this.equipmentRepository = equipmentRepository;
         this.itemCodeGenerator = itemCodeGenerator;
+        this.componentCategoryService = componentCategoryService;
     }
 
     /**
@@ -147,7 +150,11 @@ public class PurchaseServiceImpl implements PurchaseService {
                             .itemCode(itemCodeGenerator.buildCode(
                                     com.company.inventory.service.ItemCodeGenerator.COMPONENT_PREFIX, ++compCodeNum))
                             .componentName(name)
-                            .category(line.getCategory())
+                            // Category text off an invoice is free-form, so it is matched
+                            // case-insensitively against existing categories and only
+                            // creates one when genuinely new. A line with no category at
+                            // all lands in "Uncategorized" rather than blocking the import.
+                            .category(componentCategoryService.resolveOrCreate(line.getCategory()))
                             .quantity(0)
                             .minimumQuantity(0)
                             .unit(line.getUnit() != null ? line.getUnit() : "pcs")

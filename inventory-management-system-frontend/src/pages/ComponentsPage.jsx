@@ -2,12 +2,13 @@ import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Box, Button, Card, Dialog, DialogActions, DialogContent, DialogTitle,
-  IconButton, TextField, MenuItem, Snackbar, Alert, Grid, Tooltip, Chip, InputAdornment,
+  IconButton, TextField, MenuItem, Snackbar, Alert, Grid, Tooltip, Chip, InputAdornment, Typography,
 } from '@mui/material';
-import { Plus, Pencil, Trash2, RotateCcw, Filter, X, AlertTriangle, CircuitBoard, Search } from 'lucide-react';
+import { Plus, Pencil, Trash2, RotateCcw, Filter, X, AlertTriangle, CircuitBoard, Search, Layers } from 'lucide-react';
 import {
   getComponents, createComponent, updateComponent, deleteComponent, restoreComponent, getLowStockComponents,
 } from '../api/componentApi';
+import { getComponentCategories, createComponentCategory } from '../api/componentCategoryApi';
 import { useAuth } from '../auth/AuthContext';
 import { canWrite } from '../utils/roleUtils';
 import DataTable from '../components/common/DataTable';
@@ -18,9 +19,31 @@ import { formatCurrency as currency, CURRENCY_SYMBOL } from '../utils/currency';
 import { colors } from '../theme/tokens';
 
 const emptyForm = {
-  componentName: '', category: '', quantity: 0, minimumQuantity: 0, unitPrice: '',
+  componentName: '', categoryId: '', quantity: 0, minimumQuantity: 0, unitPrice: '',
   location: '', status: 'ACTIVE', description: '',
 };
+
+// Sentinel value for the "create a new category" row in the category dropdown.
+// Not a valid id, so it can never be mistaken for a real selection.
+const NEW_CATEGORY = '__new__';
+
+/**
+ * Selected category reads as a filled brand pill; the rest stay quiet outlines.
+ * Selection has to survive a glance across a dozen chips, so it carries colour,
+ * weight and border together rather than relying on any one of them.
+ */
+const chipSx = (selected) => ({
+  fontWeight: selected ? 700 : 500,
+  fontSize: '0.75rem',
+  cursor: 'pointer',
+  bgcolor: selected ? colors.primary : colors.paper,
+  color: selected ? colors.textInverse : colors.textSecondary,
+  border: `1px solid ${selected ? colors.primary : colors.border}`,
+  '&:hover': { bgcolor: selected ? colors.primaryHover : colors.primarySoft },
+});
+
+/** "Resistor (4)", or just "Resistor" until the count has loaded. */
+const categoryLabel = (c) => (c.componentCount == null ? c.name : `${c.name} (${c.componentCount})`);
 
 // Two states only. ARCHIVED still exists in the data model to back the soft delete,
 // but it is set by the archive/restore actions — never chosen from this list.
@@ -52,7 +75,7 @@ const ComponentsPage = () => {
   const [total, setTotal] = useState(0);
   const [keyword, setKeyword] = useState(() => searchParams.get('q') || '');
   const debouncedKeyword = useDebouncedValue(keyword, 300);
-  const [category, setCategory] = useState('');
+  const [categoryId, setCategoryId] = useState('');
   const [status, setStatus] = useState('');
   const [stockStatus, setStockStatus] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -60,6 +83,10 @@ const ComponentsPage = () => {
   const [editId, setEditId] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
+  const [categories, setCategories] = useState([]);
+  const [newCategoryOpen, setNewCategoryOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [savingCategory, setSavingCategory] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -69,8 +96,14 @@ const ComponentsPage = () => {
       // matching set, so page 2 continues where page 1 left off.
       const params = {
         page, size, sortBy: 'itemCode', sortDir: 'asc',
-        keyword: debouncedKeyword.trim(), category, status, stockStatus,
+        keyword: debouncedKeyword.trim(), status, stockStatus,
       };
+      // Omitted entirely when "All categories" is selected: the backend types this
+      // parameter as a number, so sending an empty string would be a bad request
+      // rather than "no filter".
+      if (categoryId !== '') {
+        params.categoryId = categoryId;
+      }
       // API responses are wrapped in an ApiResponse envelope: { success, message, data }.
       // The paged payload lives at res.data.{content,totalElements}.
       const res = await getComponents(params);
@@ -83,9 +116,30 @@ const ComponentsPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, size, debouncedKeyword, category, status, stockStatus]);
+  }, [page, size, debouncedKeyword, categoryId, status, stockStatus]);
+
+  // Categories change far less often than the component list, so they load once
+  // rather than on every filter change. Refreshed explicitly after one is created.
+  const fetchCategories = useCallback(async () => {
+    try {
+      const res = await getComponentCategories();
+      setCategories(res.data || []);
+    } catch {
+      // Non-fatal: the component list still renders. The dropdown falls back to its
+      // empty state, which the form reports as "no categories yet".
+      setCategories([]);
+    }
+  }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { fetchCategories(); }, [fetchCategories]);
+
+  /**
+   * Anything that changes which components exist changes the per-category counts
+   * on the rail too, so the two are always reloaded together. Without this the
+   * chips keep showing the figures from page load and slowly drift out of date.
+   */
+  const refresh = useCallback(() => { fetchData(); fetchCategories(); }, [fetchData, fetchCategories]);
   // Reset to the first page whenever the (debounced) search term changes.
   useEffect(() => { setPage(0); }, [debouncedKeyword]);
 
@@ -99,12 +153,49 @@ const ComponentsPage = () => {
     setSearchParams({}, { replace: true });
   }, [queryParam, setSearchParams]);
 
-  const openCreate = () => { setEditId(null); setForm(emptyForm); setDialogOpen(true); };
+  /** The category currently being browsed, or null when showing all. */
+  const activeCategory = categories.find((c) => c.id === categoryId) || null;
+
+  // Sum of the per-category counts rather than the page's total: it has to stay
+  // right while a category filter is narrowing the list below it.
+  const totalInCategories = categories.reduce((sum, c) => sum + (c.componentCount || 0), 0);
+
+  /** The category the open form will save into. */
+  const formCategory = categories.find((c) => c.id === Number(form.categoryId)) || null;
+
+  // Says which of the three states the field is in: nothing chosen yet, carried in
+  // from the category being browsed, or picked deliberately. The inherited case is
+  // called out because it is the one the user did not type — it should be obvious
+  // it can be changed, not something noticed only after saving.
+  let categoryHelperText = ' ';
+  if (form.categoryId === '') {
+    categoryHelperText = 'Required — choose the category this component belongs to.';
+  } else if (!editId && activeCategory && Number(form.categoryId) === activeCategory.id) {
+    categoryHelperText = `From the ${activeCategory.name} category you are viewing. Change it here if needed.`;
+  }
+
+  const selectCategory = (value) => { setCategoryId(value); setPage(0); };
+
+  /**
+   * A new component inherits the category being browsed.
+   *
+   * <p>Adding a resistor is almost always something you do while looking at the
+   * resistors, so pre-selecting the filtered category saves the step and stops a
+   * component from quietly landing in the wrong place. It is a default, not a
+   * constraint — the form still shows the field and it can be changed before saving.
+   * With "All Categories" selected there is nothing to inherit, so the field starts
+   * empty and must be filled in.</p>
+   */
+  const openCreate = () => {
+    setEditId(null);
+    setForm({ ...emptyForm, categoryId: activeCategory ? activeCategory.id : '' });
+    setDialogOpen(true);
+  };
   const openEdit = (row) => {
     setEditId(row.id);
     setForm({
       itemCode: row.itemCode || '',
-      componentName: row.componentName || '', category: row.category || '',
+      componentName: row.componentName || '', categoryId: row.categoryId ?? '',
       quantity: row.quantity ?? 0, minimumQuantity: row.minimumQuantity ?? 0,
       unitPrice: row.unitPrice ?? '', location: row.location || '',
       status: row.status || 'ACTIVE', description: row.description || '',
@@ -112,11 +203,55 @@ const ComponentsPage = () => {
     setDialogOpen(true);
   };
 
+  /**
+   * The category select doubles as the entry point for creating one, so an admin who
+   * finds the category missing mid-entry can add it without losing the form they are
+   * part-way through filling in.
+   */
+  const handleCategoryChange = (value) => {
+    if (value === NEW_CATEGORY) {
+      setNewCategoryName('');
+      setNewCategoryOpen(true);
+      return;
+    }
+    setForm((prev) => ({ ...prev, categoryId: value }));
+  };
+
+  const handleCreateCategory = async () => {
+    const name = newCategoryName.trim();
+    if (!name) {
+      setSnack({ open: true, message: 'Category name is required', severity: 'error' });
+      return;
+    }
+    setSavingCategory(true);
+    try {
+      const res = await createComponentCategory({ name });
+      const created = res.data;
+      await fetchCategories();
+      // Select it straight away — creating it from inside the form means it is the
+      // one the user wants for the component they are entering.
+      setForm((prev) => ({ ...prev, categoryId: created?.id ?? '' }));
+      setNewCategoryOpen(false);
+      setSnack({ open: true, message: `Category "${created?.name || name}" created`, severity: 'success' });
+    } catch (err) {
+      setSnack({ open: true, message: err.response?.data?.message || 'Could not create category', severity: 'error' });
+    } finally {
+      setSavingCategory(false);
+    }
+  };
+
   const handleSave = async () => {
+    // Caught here as well as by the backend so the user gets the message beside the
+    // form rather than a validation error after a round trip.
+    if (form.categoryId === '' || form.categoryId == null) {
+      setSnack({ open: true, message: 'Please select a category', severity: 'error' });
+      return;
+    }
     try {
       // itemCode is system-generated — never sent to the API.
       const payload = {
         ...form,
+        categoryId: Number(form.categoryId),
         quantity: Number(form.quantity),
         minimumQuantity: Number(form.minimumQuantity),
         // Blank means "no price known", which is not the same as free. Sending null
@@ -124,15 +259,19 @@ const ComponentsPage = () => {
         unitPrice: form.unitPrice === '' || form.unitPrice === null ? null : Number(form.unitPrice),
       };
       delete payload.itemCode;
+      // Named in the confirmation because the form's category can be changed after
+      // it was inherited from the rail — this is what makes a component landing
+      // somewhere other than the category on screen visible rather than silent.
+      const savedIn = categories.find((c) => c.id === Number(form.categoryId))?.name;
       if (editId) {
         await updateComponent(editId, payload);
-        setSnack({ open: true, message: 'Component updated', severity: 'success' });
+        setSnack({ open: true, message: `Component updated in ${savedIn}`, severity: 'success' });
       } else {
         await createComponent(payload);
-        setSnack({ open: true, message: 'Component created', severity: 'success' });
+        setSnack({ open: true, message: `Component created in ${savedIn}`, severity: 'success' });
       }
       setDialogOpen(false);
-      fetchData();
+      refresh();
     } catch (err) {
       setSnack({ open: true, message: err.response?.data?.message || 'Save failed', severity: 'error' });
     }
@@ -143,7 +282,7 @@ const ComponentsPage = () => {
       await deleteComponent(deleteId);
       setSnack({ open: true, message: 'Component archived successfully', severity: 'success' });
       setDeleteId(null);
-      fetchData();
+      refresh();
     } catch (err) {
       setSnack({ open: true, message: err.response?.data?.message || 'Delete failed', severity: 'error' });
     }
@@ -153,14 +292,14 @@ const ComponentsPage = () => {
     try {
       await restoreComponent(id);
       setSnack({ open: true, message: 'Component restored successfully', severity: 'success' });
-      fetchData();
+      refresh();
     } catch (err) {
       setSnack({ open: true, message: err.response?.data?.message || 'Restore failed', severity: 'error' });
     }
   };
 
   const resetFilters = () => {
-    setKeyword(''); setCategory(''); setStatus(''); setStockStatus(''); setPage(0);
+    setKeyword(''); setCategoryId(''); setStatus(''); setStockStatus(''); setPage(0);
   };
 
   const columns = [
@@ -237,19 +376,57 @@ const ComponentsPage = () => {
         }
       />
 
+      {/* The category rail sits above the other filters because it is the primary way
+          the catalogue is navigated — one click, no dropdown to open, and the current
+          selection is legible at a glance rather than hidden inside a closed control. */}
+      <Card sx={{ p: 2, mb: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5, flexWrap: 'wrap' }}>
+          <Layers size={16} color={colors.textMuted} />
+          <Typography sx={{ fontSize: '0.8125rem', fontWeight: 650 }}>Categories</Typography>
+          <Typography sx={{ fontSize: '0.75rem', color: colors.textMuted }}>
+            {activeCategory
+              ? `Showing ${activeCategory.name} only`
+              : 'Showing every category'}
+          </Typography>
+          <Box sx={{ flexGrow: 1 }} />
+          {writeAccess && (
+            <Button size="small" variant="text" startIcon={<Plus size={15} />}
+              onClick={() => { setNewCategoryName(''); setNewCategoryOpen(true); }}>
+              New Category
+            </Button>
+          )}
+        </Box>
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          <Chip
+            label={`All Categories (${totalInCategories})`}
+            onClick={() => selectCategory('')}
+            sx={chipSx(categoryId === '')}
+          />
+          {categories.map((c) => (
+            <Chip
+              key={c.id}
+              label={categoryLabel(c)}
+              onClick={() => selectCategory(c.id)}
+              sx={chipSx(categoryId === c.id)}
+            />
+          ))}
+          {categories.length === 0 && (
+            <Typography sx={{ fontSize: '0.8125rem', color: colors.textMuted }}>
+              No categories yet. Create one to start organising components.
+            </Typography>
+          )}
+        </Box>
+      </Card>
+
       <Card sx={{ p: 2, mb: 2.5 }}>
         <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid item xs={12} sm={6} md={4.5}>
             <TextField label="Search components" size="small" fullWidth value={keyword}
               placeholder="Code, name, category, location…"
               onChange={(e) => setKeyword(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && fetchData()}
               InputProps={{ startAdornment: <InputAdornment position="start"><Search size={17} color={colors.textMuted} /></InputAdornment> }} />
           </Grid>
           <Grid item xs={12} sm={6} md={2.5}>
-            <TextField label="Category" size="small" fullWidth value={category}
-              onChange={(e) => setCategory(e.target.value)} />
-          </Grid>
-          <Grid item xs={12} sm={6} md={2}>
             <TextField label="Status" size="small" fullWidth select value={status}
               onChange={(e) => setStatus(e.target.value)}>
               <MenuItem value="">All</MenuItem>
@@ -258,7 +435,7 @@ const ComponentsPage = () => {
               <MenuItem value="ARCHIVED">Archived</MenuItem>
             </TextField>
           </Grid>
-          <Grid item xs={12} sm={6} md={2}>
+          <Grid item xs={12} sm={6} md={2.5}>
             {/* Stock level stays a separate filter: it answers "what needs reordering",
                 which the binary status column deliberately no longer encodes. */}
             <TextField label="Stock level" size="small" fullWidth select value={stockStatus}
@@ -309,7 +486,16 @@ const ComponentsPage = () => {
       />
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>{editId ? 'Edit Component' : 'Add Component'}</DialogTitle>
+        {/* The title names the category so the destination is stated before the
+            form is even read, not only in the field half way down it. */}
+        <DialogTitle>
+          {editId ? 'Edit Component' : 'Add Component'}
+          {!editId && formCategory && (
+            <Typography component="span" sx={{ color: colors.textSecondary, fontWeight: 500 }}>
+              {' '}to {formCategory.name}
+            </Typography>
+          )}
+        </DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 0.5 }}>
             <Grid item xs={12}>
@@ -321,8 +507,27 @@ const ComponentsPage = () => {
             </Grid>
             <Grid item xs={12}><TextField label="Component Name" fullWidth required value={form.componentName}
               onChange={(e) => setForm({ ...form, componentName: e.target.value })} /></Grid>
-            <Grid item xs={12} sm={6}><TextField label="Category" fullWidth value={form.category}
-              onChange={(e) => setForm({ ...form, category: e.target.value })} /></Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                select required fullWidth label="Category"
+                value={form.categoryId}
+                onChange={(e) => handleCategoryChange(e.target.value)}
+                error={form.categoryId === ''}
+                helperText={categoryHelperText}
+              >
+                {categories.map((c) => (
+                  <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
+                ))}
+                {writeAccess && (
+                  <MenuItem
+                    value={NEW_CATEGORY}
+                    sx={{ color: colors.primary, fontWeight: 600, borderTop: `1px solid ${colors.border}`, mt: 0.5 }}
+                  >
+                    <Plus size={15} style={{ marginRight: 8 }} /> Create new category…
+                  </MenuItem>
+                )}
+              </TextField>
+            </Grid>
             <Grid item xs={12} sm={6}><TextField label="Warehouse Location" fullWidth placeholder="e.g. Rack A-12 / Bin 04"
               value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} /></Grid>
             <Grid item xs={12} sm={6}>
@@ -355,6 +560,29 @@ const ComponentsPage = () => {
         <DialogActions>
           <Button variant="text" onClick={() => setDialogOpen(false)}>Cancel</Button>
           <Button variant="contained" onClick={handleSave}>Save</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Sits above the component dialog so the half-filled form is still there when
+          this closes. Only the name is asked for — anything else is an extra field
+          between the user and getting back to the component they were adding. */}
+      <Dialog open={newCategoryOpen} onClose={() => setNewCategoryOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>New Category</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus fullWidth label="Category Name" sx={{ mt: 1 }}
+            placeholder="e.g. Voltage Regulator"
+            value={newCategoryName}
+            onChange={(e) => setNewCategoryName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !savingCategory) handleCreateCategory(); }}
+            helperText="Must be unique. It will be selected for this component once created."
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button variant="text" onClick={() => setNewCategoryOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={handleCreateCategory} disabled={savingCategory}>
+            {savingCategory ? 'Creating…' : 'Create'}
+          </Button>
         </DialogActions>
       </Dialog>
 

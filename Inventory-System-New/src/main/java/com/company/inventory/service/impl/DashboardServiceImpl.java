@@ -114,7 +114,7 @@ public class DashboardServiceImpl implements DashboardService {
         LowStockResponse response = new LowStockResponse();
         response.setId(item.getId());
         response.setComponentName(item.getComponentName());
-        response.setCategory(item.getCategory());
+        response.setCategory(item.getCategory() != null ? item.getCategory().getName() : null);
         response.setQuantity(item.getQuantity());
         response.setMinimumQuantity(item.getMinimumQuantity());
         response.setLocation(item.getLocation());

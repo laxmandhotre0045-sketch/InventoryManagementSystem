@@ -63,6 +63,11 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET,
                                 api + "/equipment/**",
                                 api + "/components/**",
+                                // Read-only: the components screen needs the category list
+                                // to render its filter and form for every signed-in user.
+                                // Creating and editing categories is not listed here, so it
+                                // falls to the admin-only rule below.
+                                api + "/component-categories/**",
                                 api + "/projects/**",
                                 api + "/dashboard/**",
                                 api + "/notifications/**",

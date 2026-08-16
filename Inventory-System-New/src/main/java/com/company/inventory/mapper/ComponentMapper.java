@@ -4,19 +4,25 @@ import org.springframework.stereotype.Component;
 
 import com.company.inventory.dto.request.ComponentRequest;
 import com.company.inventory.dto.response.ComponentResponse;
+import com.company.inventory.entity.ComponentCategory;
 import com.company.inventory.entity.ComponentItem;
 
 @Component
 public class ComponentMapper {
 
-    public ComponentItem toEntity(ComponentRequest request) {
+    /**
+     * The category arrives already resolved rather than as an id, so the mapper stays a
+     * pure translation step and the "does this category exist?" decision lives in the
+     * service with the rest of the validation.
+     */
+    public ComponentItem toEntity(ComponentRequest request, ComponentCategory category) {
         if (request == null) {
             return null;
         }
 
         return ComponentItem.builder()
                 .componentName(request.getComponentName())
-                .category(request.getCategory())
+                .category(category)
                 .quantity(request.getQuantity())
                 .minimumQuantity(request.getMinimumQuantity())
                 .unitPrice(request.getUnitPrice())
@@ -36,7 +42,12 @@ public class ComponentMapper {
         response.setId(item.getId());
         response.setItemCode(item.getItemCode());
         response.setComponentName(item.getComponentName());
-        response.setCategory(item.getCategory());
+        // Flattened to a name and an id: the name keeps every existing consumer of this
+        // payload working unchanged, the id lets a client send the value straight back.
+        if (item.getCategory() != null) {
+            response.setCategory(item.getCategory().getName());
+            response.setCategoryId(item.getCategory().getId());
+        }
         response.setQuantity(item.getQuantity());
         response.setMinimumQuantity(item.getMinimumQuantity());
         response.setUnitPrice(item.getUnitPrice());
@@ -54,13 +65,13 @@ public class ComponentMapper {
         return response;
     }
 
-    public void updateEntity(ComponentRequest request, ComponentItem item) {
+    public void updateEntity(ComponentRequest request, ComponentItem item, ComponentCategory category) {
         if (request == null || item == null) {
             return;
         }
 
         item.setComponentName(request.getComponentName());
-        item.setCategory(request.getCategory());
+        item.setCategory(category);
         item.setQuantity(request.getQuantity());
         item.setMinimumQuantity(request.getMinimumQuantity());
         // Only overwrite when supplied, so a client that omits the field cannot

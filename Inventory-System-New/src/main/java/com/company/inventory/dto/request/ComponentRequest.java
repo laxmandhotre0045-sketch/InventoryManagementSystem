@@ -19,9 +19,14 @@ public class ComponentRequest {
     @Size(max = 150, message = "Component name must be at most 150 characters")
     private String componentName;
 
-    @Schema(description = "Category of the component", example = "Microcontroller")
-    @Size(max = 100, message = "Category must be at most 100 characters")
-    private String category;
+    /**
+     * Required: every component belongs to exactly one category. The client picks an
+     * id from /component-categories rather than typing a name, which is what keeps
+     * two spellings of the same category from ever being created through this path.
+     */
+    @Schema(description = "Id of an existing component category", example = "1")
+    @NotNull(message = "Category is required")
+    private Long categoryId;
 
     @Schema(description = "Quantity available in stock", example = "20")
     @NotNull(message = "Quantity is required")

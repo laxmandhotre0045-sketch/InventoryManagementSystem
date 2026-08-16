@@ -56,6 +56,8 @@ public class ComponentController {
     @GetMapping
     public ResponseEntity<ApiResponse<PagedResponse<ComponentResponse>>> getAllComponents(
             @RequestParam(defaultValue = "") String keyword,
+            @Parameter(description = "Filter to a single category by id") @RequestParam(required = false) Long categoryId,
+            @Parameter(description = "Filter by category name (legacy); categoryId takes precedence")
             @RequestParam(defaultValue = "") String category,
             @RequestParam(defaultValue = "") String status,
             @RequestParam(defaultValue = "") String stockStatus,
@@ -64,7 +66,7 @@ public class ComponentController {
             @RequestParam(defaultValue = "itemCode") String sortBy,
             @RequestParam(defaultValue = "asc") String sortDir) {
         PagedResponse<ComponentResponse> response = componentService.getAllComponents(
-                page, size, sortBy, sortDir, keyword, category, status, stockStatus);
+                page, size, sortBy, sortDir, keyword, categoryId, category, status, stockStatus);
         return ResponseEntity.ok(ApiResponse.success("Components retrieved successfully", response));
     }
 
@@ -105,6 +107,8 @@ public class ComponentController {
     @GetMapping("/search")
     public ResponseEntity<ApiResponse<PagedResponse<ComponentResponse>>> searchComponents(
             @RequestParam(defaultValue = "") String keyword,
+            @Parameter(description = "Filter to a single category by id") @RequestParam(required = false) Long categoryId,
+            @Parameter(description = "Filter by category name (legacy); categoryId takes precedence")
             @RequestParam(defaultValue = "") String category,
             @RequestParam(defaultValue = "") String status,
             @RequestParam(defaultValue = "") String stockStatus,
@@ -113,7 +117,7 @@ public class ComponentController {
             @RequestParam(defaultValue = "itemCode") String sortBy,
             @RequestParam(defaultValue = "asc") String sortDir) {
         PagedResponse<ComponentResponse> response = componentService.searchComponents(
-                keyword, category, status, stockStatus, page, size, sortBy, sortDir);
+                keyword, categoryId, category, status, stockStatus, page, size, sortBy, sortDir);
         return ResponseEntity.ok(ApiResponse.success("Component search completed successfully", response));
     }
 
