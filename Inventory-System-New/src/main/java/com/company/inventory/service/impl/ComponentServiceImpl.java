@@ -276,15 +276,18 @@ public class ComponentServiceImpl implements ComponentService {
             if (keyword != null && !keyword.isBlank()) {
                 String pattern = "%" + keyword.toLowerCase().trim() + "%";
                 // One search box matches every text field of a component:
-                // item code (part number), name, category, unit, location, description.
+                // item code (part number), name, category, unit, location, rack, description.
                 // The category term now reads through the join, so searching "resistor"
                 // still finds every resistor exactly as it did when it was a text column.
+                // itemCode stays searchable even though the UI no longer displays it —
+                // anyone who knows a part number can still type it and get a hit.
                 predicates.add(cb.or(
                         cb.like(cb.lower(root.get("itemCode")), pattern),
                         cb.like(cb.lower(root.get("componentName")), pattern),
                         cb.like(cb.lower(categoryJoin(root).get("name")), pattern),
                         cb.like(cb.lower(root.get("unit")), pattern),
                         cb.like(cb.lower(root.get("location")), pattern),
+                        cb.like(cb.lower(root.get("rackNo")), pattern),
                         cb.like(cb.lower(root.get("description")), pattern)
                 ));
             }

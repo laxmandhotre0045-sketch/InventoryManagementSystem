@@ -12,6 +12,7 @@ import LoginPage from '../pages/LoginPage';
 const DashboardPage = lazy(() => import('../pages/DashboardPage'));
 const EquipmentPage = lazy(() => import('../pages/EquipmentPage'));
 const ComponentsPage = lazy(() => import('../pages/ComponentsPage'));
+const ComponentCategoriesPage = lazy(() => import('../pages/ComponentCategoriesPage'));
 const InventoryPage = lazy(() => import('../pages/InventoryPage'));
 const ProjectsPage = lazy(() => import('../pages/ProjectsPage'));
 const PurchasesPage = lazy(() => import('../pages/PurchasesPage'));
@@ -83,6 +84,13 @@ const AppRoutes = () => {
         <Route
           path="components"
           element={<Suspense fallback={<PageFallback />}><ComponentsPage /></Suspense>}
+        />
+        {/* Readable by USER for the same reason the components list is: the category
+            endpoints are open to any signed-in user, and only the create/edit/delete
+            controls inside are gated on write access. */}
+        <Route
+          path="component-categories"
+          element={<Suspense fallback={<PageFallback />}><ComponentCategoriesPage /></Suspense>}
         />
         <Route
           path="projects"

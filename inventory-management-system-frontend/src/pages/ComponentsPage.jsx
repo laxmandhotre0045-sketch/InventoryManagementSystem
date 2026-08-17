@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Box, Button, Card, Dialog, DialogActions, DialogContent, DialogTitle,
   IconButton, TextField, MenuItem, Snackbar, Alert, Grid, Tooltip, Chip, InputAdornment, Typography,
@@ -20,7 +20,7 @@ import { colors } from '../theme/tokens';
 
 const emptyForm = {
   componentName: '', categoryId: '', quantity: 0, minimumQuantity: 0, unitPrice: '',
-  location: '', status: 'ACTIVE', description: '',
+  location: '', rackNo: '', status: 'ACTIVE', description: '',
 };
 
 // Sentinel value for the "create a new category" row in the category dropdown.
@@ -67,6 +67,8 @@ const ComponentsPage = () => {
   const writeAccess = canWrite(role);
   // The navbar's global search lands here as ?q=… — seed the filter from it.
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const routerLocation = useLocation();
   const [rows, setRows] = useState([]);
   const [lowStock, setLowStock] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -153,6 +155,25 @@ const ComponentsPage = () => {
     setSearchParams({}, { replace: true });
   }, [queryParam, setSearchParams]);
 
+  /**
+   * "Add Component" pressed from inside a category on the Categories page.
+   *
+   * That screen hands the category over in navigation state rather than duplicating this
+   * form, so arriving with it means: filter to that category and open the create dialog
+   * with it preselected. The state is cleared immediately so a later back-navigation or
+   * refresh does not reopen the dialog.
+   */
+  const createInCategoryId = routerLocation.state?.createInCategoryId;
+  useEffect(() => {
+    if (!createInCategoryId) return;
+    setCategoryId(createInCategoryId);
+    setPage(0);
+    setEditId(null);
+    setForm({ ...emptyForm, categoryId: createInCategoryId });
+    setDialogOpen(true);
+    navigate(routerLocation.pathname, { replace: true, state: null });
+  }, [createInCategoryId, navigate, routerLocation.pathname]);
+
   /** The category currently being browsed, or null when showing all. */
   const activeCategory = categories.find((c) => c.id === categoryId) || null;
 
@@ -194,10 +215,13 @@ const ComponentsPage = () => {
   const openEdit = (row) => {
     setEditId(row.id);
     setForm({
+      // itemCode is still carried so the existing "never send it back" guard in
+      // handleSave has something to strip; it is simply no longer shown.
       itemCode: row.itemCode || '',
       componentName: row.componentName || '', categoryId: row.categoryId ?? '',
       quantity: row.quantity ?? 0, minimumQuantity: row.minimumQuantity ?? 0,
       unitPrice: row.unitPrice ?? '', location: row.location || '',
+      rackNo: row.rackNo || '',
       status: row.status || 'ACTIVE', description: row.description || '',
     });
     setDialogOpen(true);
@@ -302,16 +326,22 @@ const ComponentsPage = () => {
     setKeyword(''); setCategoryId(''); setStatus(''); setStockStatus(''); setPage(0);
   };
 
+  // The generated item code (C0001, C0002, …) is deliberately absent from this table.
+  // It is still generated, still stored, still unique and still matched by the search
+  // box — it simply is not what anyone on the floor uses to find a part. Rack no takes
+  // its place because that is the label that says where the component physically is.
   const columns = [
-    {
-      field: 'itemCode', headerName: 'Code',
-      render: (row) => (
-        <Box component="span" sx={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: colors.primary, whiteSpace: 'nowrap' }}>
-          {row.itemCode || '—'}
-        </Box>
-      ),
-    },
     { field: 'componentName', headerName: 'Name' },
+    {
+      field: 'rackNo', headerName: 'Rack No',
+      render: (row) => (row.rackNo
+        ? (
+          <Box component="span" sx={{ fontWeight: 600, whiteSpace: 'nowrap', color: colors.primary }}>
+            {row.rackNo}
+          </Box>
+        )
+        : <Box component="span" sx={{ color: colors.textMuted }}>—</Box>),
+    },
     { field: 'category', headerName: 'Category', render: (row) => row.category || <Box component="span" sx={{ color: colors.textMuted }}>—</Box> },
     {
       field: 'quantity', headerName: 'Quantity', align: 'right',
@@ -422,7 +452,7 @@ const ComponentsPage = () => {
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} sm={6} md={4.5}>
             <TextField label="Search components" size="small" fullWidth value={keyword}
-              placeholder="Code, name, category, location…"
+              placeholder="Name, rack no, category, location…"
               onChange={(e) => setKeyword(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && fetchData()}
               InputProps={{ startAdornment: <InputAdornment position="start"><Search size={17} color={colors.textMuted} /></InputAdornment> }} />
           </Grid>
@@ -498,13 +528,9 @@ const ComponentsPage = () => {
         </DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 0.5 }}>
-            <Grid item xs={12}>
-              <TextField
-                label="Item Code" fullWidth disabled
-                value={editId ? (form.itemCode || '—') : 'Generated automatically on save'}
-                helperText="System-generated and cannot be edited."
-              />
-            </Grid>
+            {/* The read-only Item Code field was removed with the column: the value is
+                system-generated, uneditable, and of no use while filling this form in.
+                It is still assigned on save and still stored. */}
             <Grid item xs={12}><TextField label="Component Name" fullWidth required value={form.componentName}
               onChange={(e) => setForm({ ...form, componentName: e.target.value })} /></Grid>
             <Grid item xs={12} sm={6}>
@@ -527,6 +553,14 @@ const ComponentsPage = () => {
                   </MenuItem>
                 )}
               </TextField>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Rack No" fullWidth placeholder="e.g. 12, A12, RACK-A, B-04"
+                inputProps={{ maxLength: 50 }}
+                helperText="Numbers or text — entered by you, not generated."
+                value={form.rackNo} onChange={(e) => setForm({ ...form, rackNo: e.target.value })}
+              />
             </Grid>
             <Grid item xs={12} sm={6}><TextField label="Warehouse Location" fullWidth placeholder="e.g. Rack A-12 / Bin 04"
               value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} /></Grid>
