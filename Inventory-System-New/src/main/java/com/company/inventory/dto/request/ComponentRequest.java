@@ -57,6 +57,16 @@ public class ComponentRequest {
     private String location;
 
     /**
+     * Typed by the user, never generated. Digits, letters or both are all valid — "12",
+     * "A12", "RACK-A", "B-04" — so nothing beyond a length cap is enforced. Applying a
+     * pattern here would reject the labelling scheme of whichever warehouse does not
+     * happen to match it.
+     */
+    @Schema(description = "Rack number where the component is physically stored", example = "A12")
+    @Size(max = 50, message = "Rack no must be at most 50 characters")
+    private String rackNo;
+
+    /**
      * Optional. When omitted on create the entity defaults to ACTIVE; when omitted
      * on update the existing status is preserved — keeping older clients working.
      */

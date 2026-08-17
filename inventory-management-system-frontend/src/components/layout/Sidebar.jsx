@@ -3,7 +3,7 @@ import {
   Box, Tooltip, useTheme, useMediaQuery,
 } from '@mui/material';
 import {
-  LayoutDashboard, Cpu, CircuitBoard, Boxes, FolderKanban,
+  LayoutDashboard, Cpu, CircuitBoard, LayoutGrid, Boxes, FolderKanban,
   ShoppingCart, Store, BarChart3, Settings, ArrowLeftRight,
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -20,6 +20,7 @@ const menuItems = [
   { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, roles: ['ADMIN', 'USER'] },
   { label: 'Equipment', path: '/equipment', icon: Cpu, roles: ['ADMIN', 'USER'] },
   { label: 'Components', path: '/components', icon: CircuitBoard, roles: ['ADMIN', 'USER'] },
+  { label: 'Categories', path: '/component-categories', icon: LayoutGrid, roles: ['ADMIN', 'USER'] },
   { label: 'Inventory', path: '/inventory', icon: Boxes, roles: ['ADMIN'] },
   { label: 'Projects', path: '/projects', icon: FolderKanban, roles: ['ADMIN', 'USER'] },
   { label: 'Purchases', path: '/purchases', icon: ShoppingCart, roles: ['ADMIN'] },

@@ -99,6 +99,22 @@ public class ComponentItem {
     @Column(length = 120)
     private String location;
 
+    /**
+     * The rack this component physically sits on, typed by whoever stores it.
+     *
+     * <p>Free-form text rather than a number because real racks are labelled every way a
+     * warehouse can think of — {@code 12}, {@code A12}, {@code RACK-A}, {@code B-04} — and
+     * a numeric column would reject most of them.</p>
+     *
+     * <p>Deliberately <em>not</em> a key and <em>not</em> generated. It is neither unique
+     * (one rack holds many components) nor stable (stock gets moved), so it identifies a
+     * place rather than a record: {@link #itemCode} remains the generated business
+     * identifier and {@link #id} the primary key. Nullable because existing components
+     * predate the column, and a component not yet put away genuinely has no rack.</p>
+     */
+    @Column(name = "rack_no", length = 50)
+    private String rackNo;
+
     @Column(columnDefinition = "TEXT")
     private String description;
 

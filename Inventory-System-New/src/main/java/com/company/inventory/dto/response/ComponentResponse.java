@@ -57,6 +57,10 @@ public class ComponentResponse {
     @Schema(description = "Warehouse storage location", example = "Rack A-12 / Bin 04")
     private String location;
 
+    /** Physical rack label. Free-form and user-entered — see ComponentItem#rackNo. */
+    @Schema(description = "Rack number where the component is physically stored", example = "A12")
+    private String rackNo;
+
     @Schema(description = "Component status", example = "ACTIVE")
     private String status;
 

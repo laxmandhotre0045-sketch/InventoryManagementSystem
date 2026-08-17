@@ -28,6 +28,7 @@ public class ComponentMapper {
                 .unitPrice(request.getUnitPrice())
                 .unit(request.getUnit())
                 .location(request.getLocation())
+                .rackNo(request.getRackNo())
                 .description(request.getDescription())
                 // Null is fine: @PrePersist defaults a new component to ACTIVE.
                 .status(request.getStatus())
@@ -58,6 +59,7 @@ public class ComponentMapper {
         }
         response.setUnit(item.getUnit());
         response.setLocation(item.getLocation());
+        response.setRackNo(item.getRackNo());
         response.setStatus(item.getStatus() != null ? item.getStatus().name() : null);
         response.setDescription(item.getDescription());
         response.setCreatedAt(item.getCreatedAt());
@@ -81,6 +83,7 @@ public class ComponentMapper {
         }
         item.setUnit(request.getUnit());
         item.setLocation(request.getLocation());
+        item.setRackNo(request.getRackNo());
         item.setDescription(request.getDescription());
         // Only overwrite when the client actually sends a status, so existing
         // callers that omit it (and the archive/restore flow) keep working.

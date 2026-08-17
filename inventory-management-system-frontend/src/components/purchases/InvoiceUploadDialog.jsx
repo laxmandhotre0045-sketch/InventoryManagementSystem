@@ -304,8 +304,11 @@ const InvoiceUploadDialog = ({ open, onClose, components, onCreated }) => {
                               <MenuItem value="skip"><em>Skip this line</em></MenuItem>
                               <ListSubheader>Components</ListSubheader>
                               <MenuItem value="newcomp">➕ Create as new component</MenuItem>
+                              {/* Rack no rather than the generated item code: the code is
+                                  hidden from the UI now, and the rack is what tells two
+                                  similarly named parts apart on the shelf. */}
                               {components.map((c) => (
-                                <MenuItem key={`c${c.id}`} value={`comp:${c.id}`}>{c.itemCode ? `${c.itemCode} · ` : ''}{c.componentName}</MenuItem>
+                                <MenuItem key={`c${c.id}`} value={`comp:${c.id}`}>{c.componentName}{c.rackNo ? ` · Rack ${c.rackNo}` : ''}</MenuItem>
                               ))}
                               <ListSubheader>Equipment</ListSubheader>
                               <MenuItem value="newequip">➕ Register as new equipment</MenuItem>

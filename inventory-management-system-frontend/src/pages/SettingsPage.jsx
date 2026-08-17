@@ -7,12 +7,15 @@ import {
 import {
   Settings as SettingsIcon, Building2, SlidersHorizontal, Boxes, Bell,
   DatabaseBackup, Users, Save, Plus, Trash2, Download, Upload, ShieldCheck,
-  Pencil, KeyRound, UserX, UserCheck, Crown,
+  Pencil, KeyRound, UserX, UserCheck, Crown, UsersRound,
 } from 'lucide-react';
 import { getSettings, updateSettings } from '../api/settingsApi';
 import {
   getUsers, createUser, updateUser, setUserActive, resetUserPassword, deleteUser,
 } from '../api/userApi';
+import {
+  getTeamMembers, createTeamMember, updateTeamMember, deleteTeamMember,
+} from '../api/teamMemberApi';
 import { useAuth } from '../auth/AuthContext';
 import { canManageUsers, roleLabel } from '../utils/roleUtils';
 import DataTable from '../components/common/DataTable';
@@ -27,8 +30,8 @@ const CATEGORY_META = {
   NOTIFICATIONS: { label: 'Notifications', icon: Bell, desc: 'Choose which alerts are generated.' },
   BACKUP: { label: 'Backup', icon: DatabaseBackup, desc: 'Data backup configuration.' },
 };
-// Tab order; "USERS" is a synthetic tab handled separately.
-const TAB_ORDER = ['COMPANY', 'USERS', 'PREFERENCES', 'INVENTORY', 'NOTIFICATIONS', 'BACKUP'];
+// Tab order; "USERS" and "TEAM" are synthetic tabs handled separately.
+const TAB_ORDER = ['COMPANY', 'USERS', 'TEAM', 'PREFERENCES', 'INVENTORY', 'NOTIFICATIONS', 'BACKUP'];
 
 const SELECT_OPTIONS = {
   'backup.frequency': ['daily', 'weekly', 'monthly'],
@@ -297,6 +300,207 @@ const UsersManager = ({ notify }) => {
   );
 };
 
+// ---- Team members ----------------------------------------------------------
+/**
+ * The roster that the project manager and team dropdowns are drawn from.
+ *
+ * <p>Lives in Settings, next to Users &amp; Roles, because it is the same kind of thing:
+ * an admin-curated list that other screens consume. It is deliberately separate from
+ * Users, though — a team member is someone work is assigned to, not someone who signs in,
+ * and most people on a project roster will never have an account.</p>
+ *
+ * <p>Deactivate is offered before delete, and delete is refused by the server while the
+ * person is still staffed. That ordering is what keeps historical projects readable: a
+ * member who has left stops appearing in dropdowns but stays on the work they did.</p>
+ */
+const emptyMemberForm = { name: '', designation: '', email: '', phone: '', active: true };
+
+const TeamMembersManager = ({ notify }) => {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editRow, setEditRow] = useState(null);
+  const [form, setForm] = useState(emptyMemberForm);
+  const [saving, setSaving] = useState(false);
+  const [deleteRow, setDeleteRow] = useState(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await getTeamMembers();
+      setRows(res.data || []);
+    } catch (err) {
+      notify(err.response?.data?.message || 'Failed to load team members', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [notify]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const openCreate = () => { setEditRow(null); setForm(emptyMemberForm); setDialogOpen(true); };
+  const openEdit = (row) => {
+    setEditRow(row);
+    setForm({
+      name: row.name || '', designation: row.designation || '',
+      email: row.email || '', phone: row.phone || '', active: row.active !== false,
+    });
+    setDialogOpen(true);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      if (editRow) {
+        await updateTeamMember(editRow.id, form);
+        notify('Team member updated');
+      } else {
+        await createTeamMember(form);
+        notify('Team member added');
+      }
+      setDialogOpen(false);
+      load();
+    } catch (err) {
+      notify(err.response?.data?.message || 'Save failed', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleActive = async (row) => {
+    try {
+      await updateTeamMember(row.id, { ...row, active: !(row.active !== false) });
+      notify(row.active !== false ? 'Team member deactivated' : 'Team member reactivated');
+      load();
+    } catch (err) {
+      notify(err.response?.data?.message || 'Update failed', 'error');
+    }
+  };
+
+  const handleDelete = async () => {
+    try {
+      await deleteTeamMember(deleteRow.id);
+      notify('Team member deleted');
+      setDeleteRow(null);
+      load();
+    } catch (err) {
+      // The server explains how many projects still reference them; pass it through
+      // verbatim rather than replacing it with a generic failure.
+      notify(err.response?.data?.message || 'Delete failed', 'error');
+      setDeleteRow(null);
+    }
+  };
+
+  const columns = [
+    { field: 'name', headerName: 'Name' },
+    { field: 'designation', headerName: 'Designation', render: (r) => r.designation || '—' },
+    { field: 'email', headerName: 'Email', render: (r) => r.email || '—' },
+    { field: 'phone', headerName: 'Phone', render: (r) => r.phone || '—' },
+    {
+      field: 'projectCount', headerName: 'Projects', align: 'right',
+      render: (r) => (
+        <Box component="span" sx={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+          {Number(r.projectCount || 0).toLocaleString()}
+        </Box>
+      ),
+    },
+    {
+      field: 'active', headerName: 'Status',
+      render: (r) => <StatusBadge status={r.active !== false ? 'active' : 'default'} label={r.active !== false ? 'Active' : 'Inactive'} />,
+    },
+  ];
+
+  return (
+    <Box>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'flex-start', justifyContent: 'space-between', mb: 2.5 }}>
+        <Box>
+          <Typography sx={{ fontSize: '0.9375rem', fontWeight: 650, mb: 0.25 }}>Team Members</Typography>
+          <Typography sx={{ color: colors.textMuted, fontSize: '0.75rem' }}>
+            People who can be assigned to projects. Only active members appear in the project dropdowns.
+          </Typography>
+        </Box>
+        <Button variant="contained" startIcon={<Plus size={16} />} onClick={openCreate}>Add Member</Button>
+      </Box>
+
+      <DataTable
+        columns={columns}
+        rows={rows}
+        loading={loading}
+        emptyState={{
+          icon: Users,
+          title: 'No team members yet',
+          description: 'Add the people who work on projects so they can be assigned as manager or team.',
+          actionLabel: 'Add Member',
+          onAction: openCreate,
+        }}
+        renderActions={(row) => (
+          <Box sx={{ display: 'inline-flex', gap: 0.5 }}>
+            <Tooltip title="Edit"><IconButton size="small" onClick={() => openEdit(row)}><Pencil size={16} /></IconButton></Tooltip>
+            <Tooltip title={row.active !== false ? 'Deactivate' : 'Reactivate'}>
+              <IconButton size="small" onClick={() => toggleActive(row)}>
+                {row.active !== false ? <UserX size={16} /> : <UserCheck size={16} />}
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Delete">
+              <IconButton size="small" sx={{ color: colors.danger }} onClick={() => setDeleteRow(row)}>
+                <Trash2 size={16} />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        )}
+      />
+
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>{editRow ? 'Edit Team Member' : 'Add Team Member'}</DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 0.5 }}>
+            <Grid item xs={12}>
+              <TextField label="Name" fullWidth required autoFocus placeholder="e.g. A. Patil"
+                value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField label="Designation" fullWidth placeholder="e.g. Design Engineer"
+                value={form.designation} onChange={(e) => setForm({ ...form, designation: e.target.value })} />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField label="Email" type="email" fullWidth
+                value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField label="Phone" fullWidth
+                value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+            </Grid>
+            <Grid item xs={12}>
+              <FormControlLabel
+                control={(
+                  <Switch checked={form.active}
+                    onChange={(e) => setForm({ ...form, active: e.target.checked })} />
+                )}
+                label="Available for project assignment"
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="text" onClick={() => setDialogOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={handleSave} disabled={saving || !form.name.trim()}>
+            {saving ? 'Saving…' : editRow ? 'Save changes' : 'Add member'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <ConfirmDialog
+        open={!!deleteRow}
+        title="Delete Team Member"
+        message={deleteRow
+          ? `Delete "${deleteRow.name}"? Members already assigned to a project cannot be deleted — deactivate them instead.`
+          : ''}
+        onConfirm={handleDelete} onCancel={() => setDeleteRow(null)} confirmText="Delete"
+      />
+    </Box>
+  );
+};
+
 // ---- Settings page ---------------------------------------------------------
 const SettingsPage = () => {
   const { role } = useAuth();
@@ -331,8 +535,15 @@ const SettingsPage = () => {
   // Categories present, in TAB_ORDER. The Users tab only exists for the master
   // admin — every /users endpoint returns 403 for anyone else, so showing the tab
   // to a plain admin would just be a screen full of errors.
+  // The Team tab is always present for anyone who can reach Settings: the whole page is
+  // already admin-only, and unlike Users it needs no master-admin privilege — the
+  // team-member endpoints follow the ordinary admin write rule.
   const tabs = useMemo(
-    () => TAB_ORDER.filter((c) => (c === 'USERS' ? manageUsers : grouped[c] && grouped[c].length)),
+    () => TAB_ORDER.filter((c) => {
+      if (c === 'USERS') return manageUsers;
+      if (c === 'TEAM') return true;
+      return grouped[c] && grouped[c].length;
+    }),
     [grouped, manageUsers]
   );
 
@@ -402,7 +613,10 @@ const SettingsPage = () => {
             sx={{ px: 1, borderBottom: `1px solid ${colors.border}`, '& .MuiTab-root': { textTransform: 'none', fontWeight: 600, fontSize: '0.9375rem', minHeight: 56 } }}
           >
             {tabs.map((c) => {
-              const meta = c === 'USERS' ? { label: 'Users & Roles', icon: Users } : CATEGORY_META[c];
+              let meta;
+              if (c === 'USERS') meta = { label: 'Users & Roles', icon: Users };
+              else if (c === 'TEAM') meta = { label: 'Team Members', icon: UsersRound };
+              else meta = CATEGORY_META[c];
               const Icon = meta.icon;
               return <Tab key={c} icon={<Icon size={17} />} iconPosition="start" label={meta.label} />;
             })}
@@ -411,6 +625,8 @@ const SettingsPage = () => {
           <Box sx={{ p: { xs: 2.5, md: 3.5 } }}>
             {activeKey === 'USERS' ? (
               <UsersManager notify={notify} />
+            ) : activeKey === 'TEAM' ? (
+              <TeamMembersManager notify={notify} />
             ) : activeKey === 'BACKUP' ? (
               <Box>
                 <Typography sx={{ fontSize: '0.9375rem', fontWeight: 650, mb: 0.25 }}>Backup &amp; Restore</Typography>
