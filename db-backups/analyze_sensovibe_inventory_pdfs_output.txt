@@ -1,0 +1,68 @@
+FILE c:\Users\Admin\Downloads\Sensovibe_Emd_Inventory - Sensovibe_General_inventory_1 .pdf
+ PAGE 1 width 792 height 612
+  text lines 31
+  first 10 lines:
+    Sensovibe Embedded Lab Inventory (Equipments, Resistors, Capacitors, Diode, IC's, Other Components)
+    Product Name Specification Quantity Value Package Tolerance QTY Value Package Quantity Type Quantity Name Specification Quantity Type Name Package Specification Quantity
+    Dc Power Supply Hantek HDP135V6S Programmable DC Power Supply 35V, 6A 2k 0603 1% 200 2.2 UF 1206 100 SMF36A 100 Battery Duracell 3V Lithium 5 Ethernet Ic W5500 3
+    Digital Multimeter Pro-Range SM-04 Smart Digita2l Multimeter 200 0603 1% 200 1UF 1206 400 SRV05 30 RFID Module 4 Power Supply Hi-Link Power supTpHlyT 100-240V in, out-5V 2
+    Soldering Station YIHUA 995D+-I SJ 110W soldering iron LCD large screen power d1is5p0lay hot air 2 in 016 m03ultiple soldering station, t1hr%ee memories p2re0s0et channels 10PF 0805 100 IN5819W 50 OLED Display 0.96 inch 4 Power Supply Hi-Link Power supTpHlyT 100-240V in, out-12V 5
+    SMPS Mean Well LRS-350-24 24V 14.6A - 350.4W SMPS 100 0603 1% 200 18PF 0805 50 SM712 50 OLED Display Mod1u.3le Inch I2C IIC 4 pin 1 Power Supply URB2405YMD THT 24V-5V, 1.2A 1
+    SMPS Mean Well LRS-100-12 12V 8.5A - 102W SMPS 470k 0603 1% 200 1UF 0805 100 SMAJ30A 15 Breadboard 400 Tie Points Contacts Mini Circuit Experiment Solderless Breadboard Power Supply G-Energy- URB2405YMD, OUT-5V. 200mA 6
+    SMPS Mean Well LRS-200-24 24V 8.8A - 211.2W SMPS 47k 0603 1% 200 6.8nF 0603 20 Green LED 200 Jumper wires F-T-AFCEBOTT 20CM Dupont Wire 40pin Female to Female 75176 25
+    Evalution Board AD7768 2 120 0603 1% 500 0.1UF 0805 300 Red LED 200 Jumper wires M-TM-Male to Female Jumper Wires 40 Pin 30cm AM1117 100
+    STLINK 1 220 0603 1% 200 10UF 1206 200 Yellow LED 100 Wire pair CrocodilTee Csltiipnsg lead wire pair with Crocodile Clips (Red+Black)-1Meter PCF8563 4
+  tables extracted: 1
+   table 1 rows 33
+     ["Sensovibe Embedded Lab Inventory (Equipments, Resistors, Capacitors, Diode, IC's, Other Components)", None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None]
+     ['', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+     ['', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+     ['Product Name', 'Specification', 'Quantity', '', 'Value', 'Package', 'Tolerance', 'QTY', '', 'Value', 'Package', 'Quantity', '', 'Type', 'Quantity', '', 'Name', 'Specification', 'Quantity', '', 'Type', 'Name', 'Package', 'Specification', 'Quantity']
+     ['Dc Power Supply', 'Hantek HDP135V6S Progra', 'mmable DC Powe', 'r Supply 35V, 6A', '2k', '0603', '1%', '200', '', '2.2 UF', '1206', '100', '', 'SMF36A', '100', '', 'Battery', 'Duracell 3V Lithium', '5', '', 'Ethernet Ic', 'W5500', '', '', '3']
+  words 556
+  row groups 31
+   y=54 count=11 text=Sensovibe Embedded Lab Inventory (Equipments, Resistors, Capacitors, Diode, IC's, Other Components)
+   y=75 count=21 text=Product Name Specification Quantity Value Package Tolerance QTY Value Package Quantity Type Quantity Name Specification Quantity Type Name Package Specification Quantity
+   y=81 count=30 text=Dc Power Supply Hantek HDP135V6S Programmable DC Power Supply 35V, 6A 2k 0603 1% 200 2.2 UF 1206 100 SMF36A 100 Battery Duracell 3V Lithium 5 Ethernet Ic W5500 3
+   y=90 count=28 text=Digital Multimeter Pro-Range SM-04 Smart Digita2l Multimeter 200 0603 1% 200 1UF 1206 400 SRV05 30 RFID Module 4 Power Supply Hi-Link Power supTpHlyT 100-240V in, out-5V 2
+   y=96 count=44 text=Soldering Station YIHUA 995D+-I SJ 110W soldering iron LCD large screen power d1is5p0lay hot air 2 in 016 m03ultiple soldering station, t1hr%ee memories p2re0s0et channels 10PF 0805 100 IN5819W 50 OLE
+   y=105 count=34 text=SMPS Mean Well LRS-350-24 24V 14.6A - 350.4W SMPS 100 0603 1% 200 18PF 0805 50 SM712 50 OLED Display Mod1u.3le Inch I2C IIC 4 pin 1 Power Supply URB2405YMD THT 24V-5V, 1.2A 1
+   y=114 count=35 text=SMPS Mean Well LRS-100-12 12V 8.5A - 102W SMPS 470k 0603 1% 200 1UF 0805 100 SMAJ30A 15 Breadboard 400 Tie Points Contacts Mini Circuit Experiment Solderless Breadboard Power Supply G-Energy- URB2405Y
+   y=120 count=31 text=SMPS Mean Well LRS-200-24 24V 8.8A - 211.2W SMPS 47k 0603 1% 200 6.8nF 0603 20 Green LED 200 Jumper wires F-T-AFCEBOTT 20CM Dupont Wire 40pin Female to Female 75176 25
+   y=129 count=26 text=Evalution Board AD7768 2 120 0603 1% 500 0.1UF 0805 300 Red LED 200 Jumper wires M-TM-Male to Female Jumper Wires 40 Pin 30cm AM1117 100
+   y=135 count=25 text=STLINK 1 220 0603 1% 200 10UF 1206 200 Yellow LED 100 Wire pair CrocodilTee Csltiipnsg lead wire pair with Crocodile Clips (Red+Black)-1Meter PCF8563 4
+---
+FILE c:\Users\Admin\Downloads\Sensovibe_Emd_Inventory - Sensovibe_General_inventory_2.pdf
+ PAGE 1 width 792 height 612
+  text lines 14
+  first 10 lines:
+    Sensovibe Embedded Lab Inventory (Connectors, Sensors)
+    Name Size Quantity Name Value Quantity Modules Specification Value
+    Double Decker 5.08 mm 60 Gas Sensors MQ 137 0 ESP32 1
+    JST 3 PIN 2.5 mm 100 Gas Sensors MQ 2 1
+    JST 4 PIN 2.5 mm 150 Gas Sensors MQ-6/9 0
+    JST 5 PIN 2.5 mm 1 Gas Sensors MQ-4 1
+    JST 8 PIN 2.5 mm 10 Temperature Sensor AHT20 10
+    Terminal Block 100 Proximity Sensor 2
+    Wafer Male Conne2c.5tomrm 8pin 100 Sound sensor module 1
+    header pin 1x40 10
+  tables extracted: 1
+   table 1 rows 16
+     ['Sensovibe Embedded Lab Inventory (Connectors, Sensors)', None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, '']
+     ['', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+     ['', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+     ['Name', 'Size', 'Quantity', '', 'Name', 'Value', 'Quantity', '', 'Modules', 'Specification', 'Value', '', '', '', '', '', '', '', '', '', '', '', '', '']
+     ['Double Decker', '5.08 mm', '60', '', 'Gas Sensors', 'MQ 137', '0', '', 'ESP32', '', '1', '', '', '', '', '', '', '', '', '', '', '', '', '']
+  words 103
+  row groups 15
+   y=54 count=6 text=Sensovibe Embedded Lab Inventory (Connectors, Sensors)
+   y=75 count=9 text=Name Size Quantity Name Value Quantity Modules Specification Value
+   y=84 count=12 text=Double Decker 5.08 mm 60 Gas Sensors MQ 137 0 ESP32 1
+   y=93 count=11 text=JST 3 PIN 2.5 mm 100 Gas Sensors MQ 2 1
+   y=102 count=10 text=JST 4 PIN 2.5 mm 150 Gas Sensors MQ-6/9 0
+   y=108 count=10 text=JST 5 PIN 2.5 mm 1 Gas Sensors MQ-4 1
+   y=117 count=10 text=JST 8 PIN 2.5 mm 10 Temperature Sensor AHT20 10
+   y=126 count=6 text=Terminal Block 100 Proximity Sensor 2
+   y=132 count=6 text=Wafer Male Conne2c.5tomrm 8pin 100 1
+   y=135 count=3 text=Sound sensor module
+---

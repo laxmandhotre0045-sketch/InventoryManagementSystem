@@ -1,0 +1,14 @@
+FILE c:\Users\Admin\Downloads\Sensovibe_Emd_Inventory - Sensovibe_General_inventory_1 .pdf
+PAGES 1
+ PAGE 1 TABLES 1
+  TABLE 1 ROWS 33 COLS 25
+    ["Sensovibe Embedded Lab Inventory (Equipments, Resistors, Capacitors, Diode, IC's, Other Components)", None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None]
+    ['', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+    ['', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+FILE c:\Users\Admin\Downloads\Sensovibe_Emd_Inventory - Sensovibe_General_inventory_2.pdf
+PAGES 1
+ PAGE 1 TABLES 1
+  TABLE 1 ROWS 16 COLS 24
+    ['Sensovibe Embedded Lab Inventory (Connectors, Sensors)', None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, '']
+    ['', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+    ['', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']

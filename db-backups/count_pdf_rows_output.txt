@@ -1,0 +1,54 @@
+FILE c:\Users\Admin\Downloads\Sensovibe_Emd_Inventory - Sensovibe_General_inventory_1 .pdf
+1 y= 54 count= 11 first= Sensovibe Embedded Lab Inventory (Equipments, Resistors, Capacitors, Diode, IC's, Other Components)
+2 y= 75 count= 21 first= Product Name Specification Quantity Value Package Tolerance QTY Value Package Quantity Type Quantity Name Specification Quantity Type Name Package Specification Quantity
+3 y= 81 count= 30 first= Dc Power Supply Hantek HDP135V6S Programmable DC Power Supply 35V, 6A 2k 0603 1% 200 2.2 UF 1206 100 SMF36A 100 Battery Duracell 3V Lithium 5 Ethernet Ic W5500 3
+4 y= 90 count= 28 first= Digital Multimeter Pro-Range SM-04 Smart Digita2l Multimeter 200 0603 1% 200 1UF 1206 400 SRV05 30 RFID Module 4 Power Supply Hi-Link Power supTpHlyT 100-240V in, out-5V 2
+5 y= 96 count= 44 first= Soldering Station YIHUA 995D+-I SJ 110W soldering iron LCD large screen power d1is5p0lay hot air 2 in 016 m03ultiple soldering station, t1hr%ee memories p2re0s0et channels 10PF 0805 100 IN5819W 50 OLE
+6 y= 105 count= 34 first= SMPS Mean Well LRS-350-24 24V 14.6A - 350.4W SMPS 100 0603 1% 200 18PF 0805 50 SM712 50 OLED Display Mod1u.3le Inch I2C IIC 4 pin 1 Power Supply URB2405YMD THT 24V-5V, 1.2A 1
+7 y= 114 count= 35 first= SMPS Mean Well LRS-100-12 12V 8.5A - 102W SMPS 470k 0603 1% 200 1UF 0805 100 SMAJ30A 15 Breadboard 400 Tie Points Contacts Mini Circuit Experiment Solderless Breadboard Power Supply G-Energy- URB2405Y
+8 y= 120 count= 31 first= SMPS Mean Well LRS-200-24 24V 8.8A - 211.2W SMPS 47k 0603 1% 200 6.8nF 0603 20 Green LED 200 Jumper wires F-T-AFCEBOTT 20CM Dupont Wire 40pin Female to Female 75176 25
+9 y= 129 count= 26 first= Evalution Board AD7768 2 120 0603 1% 500 0.1UF 0805 300 Red LED 200 Jumper wires M-TM-Male to Female Jumper Wires 40 Pin 30cm AM1117 100
+10 y= 135 count= 25 first= STLINK 1 220 0603 1% 200 10UF 1206 200 Yellow LED 100 Wire pair CrocodilTee Csltiipnsg lead wire pair with Crocodile Clips (Red+Black)-1Meter PCF8563 4
+11 y= 144 count= 28 first= ZED board 1 22k 0603 1% 200 0.01UF 0603 100 Blue LED 100 Alligator Clips 50cm Long Alligator Clips, Electrical DIY Test Leads 5pcs, for Micro:bit AD358 9
+12 y= 150 count= 21 first= 10k 0603 1% 200 22PF 0805 100 Zener IN4148 5.1V-1206 50 Tactile Switches 100 TPS61023DRLR2.2V~5.5V 3A 500mV~5.5V SOT-563 DC-DC Converters ROHS
+13 y= 159 count= 16 first= 47 0603 1% 22uf 1206 50 BC847 10 Adapter SOP- 8 20 LQM18PN1R0MG2H0D0mΩ 0603 Inductors (
+14 y= 165 count= 20 first= 33 0603 1% 50 1UF 1206 500 Zener diode 1206 5.1V 100 Crystal Oscillator25MHZ 20 AD8132ARZ -Differential Amplifier, High Speed
+15 y= 174 count= 17 first= 82 0603 1% 50 0.1uf 1206 500 Common Mode DCLhWok2e1sH N/ 9F0il0teSrQs2L LM234Z -1V~40V TO-92-3 Current Source
+16 y= 180 count= 18 first= 470 0603 1% 200 10UF/63V THT 100 Reed Switches 10 TL431 -36V 37V 100mA Adjustable SOT-23 Voltage Reference
+17 y= 189 count= 20 first= 330 0603 1% 200 100UF/25V THT 100 TL431CLP Voltage Reference, Precision, Shunt - Adjustable, TL431 Series, 2.495V to 36V, TO-226AA-3
+18 y= 195 count= 11 first= 49.9 0603 1% 100 47UF/25V THT 100 I2C- E2PROM P24CM02F 20
+19 y= 204 count= 14 first= 4k7 0603 1% 200 4.7UF/63V THT 100 2N2907A -60V 625mW 100@150mA,10V 600mA PNP TO-92-3
+20 y= 210 count= 27 first= 49.9K 0603 1% 100 22UF/25V THT 100 OPA192IDR Operational Amplifier, 1 Amplifier, 10 MHz, 20 V/µs, ± 2.25V to ± 18V, 4.5V to 36V, SOIC, 8 Pins
+21 y= 219 count= 9 first= 10 0603 1% 50 220UF/50V THT 100 ESP32 7
+22 y= 225 count= 6 first= 130 0603 200 220UF/25V THT 100
+23 y= 234 count= 6 first= 12.4K 0603 25 470UF/25V THT 100
+24 y= 240 count= 8 first= ferrite bead, 600 o0h6m03s 10 22UF/50V THT 100
+25 y= 249 count= 7 first= 220k 0603 1% 200 1000UF/25V THT 100
+26 y= 255 count= 7 first= 0 0603 1% 200 22PF THT 100
+27 y= 264 count= 7 first= 1M 0603 1% 200 10PF THT 100
+28 y= 270 count= 7 first= 2k2 0603 1% 500 10UF/63V THT 100
+29 y= 279 count= 9 first= 100k 0603 1% 200 Varac tor ZOV THT 100
+30 y= 285 count= 7 first= 5.1k 0603 1% 100 0.33UF THT 50
+31 y= 294 count= 6 first= 10k Ohm 0.25W Metal Film Resistor100
+--- total rows 31
+header y 75 data row groups 29
+
+FILE c:\Users\Admin\Downloads\Sensovibe_Emd_Inventory - Sensovibe_General_inventory_2.pdf
+1 y= 54 count= 6 first= Sensovibe Embedded Lab Inventory (Connectors, Sensors)
+2 y= 75 count= 9 first= Name Size Quantity Name Value Quantity Modules Specification Value
+3 y= 84 count= 12 first= Double Decker 5.08 mm 60 Gas Sensors MQ 137 0 ESP32 1
+4 y= 93 count= 11 first= JST 3 PIN 2.5 mm 100 Gas Sensors MQ 2 1
+5 y= 102 count= 10 first= JST 4 PIN 2.5 mm 150 Gas Sensors MQ-6/9 0
+6 y= 108 count= 10 first= JST 5 PIN 2.5 mm 1 Gas Sensors MQ-4 1
+7 y= 117 count= 10 first= JST 8 PIN 2.5 mm 10 Temperature Sensor AHT20 10
+8 y= 126 count= 6 first= Terminal Block 100 Proximity Sensor 2
+9 y= 132 count= 6 first= Wafer Male Conne2c.5tomrm 8pin 100 1
+10 y= 135 count= 3 first= Sound sensor module
+11 y= 141 count= 4 first= header pin 1x40 10
+12 y= 150 count= 3 first= Ethernet Connector 4
+13 y= 156 count= 3 first= RTC 466 20
+14 y= 165 count= 4 first= SD Card Socket 6
+15 y= 174 count= 6 first= JST 4 PIN 2 mm 150
+--- total rows 15
+header y 75 data row groups 13
+
