@@ -131,6 +131,12 @@ const InvoiceUploadDialog = ({ open, onClose, components, onCreated }) => {
   const populateFromResponse = (d) => {
     setResult({ extractionId: d.extractionId, invoiceFilePath: d.invoiceFilePath, provider: d.provider, mock: d.mock });
     const ex = d.extracted || {};
+    // If the AI found nothing invoice-like (e.g. someone uploaded notes/a random doc),
+    // say so clearly instead of showing an empty form the user can't act on.
+    const itemCount = (ex.items || []).length;
+    if (!d.mock && itemCount === 0 && !ex.supplierName && !ex.invoiceNumber) {
+      setError('No invoice data was found in this file — it doesn’t look like an invoice. Please upload a clear photo or PDF of an actual invoice.');
+    }
     setHeader({
       supplierName: ex.supplierName || '', supplierAddress: ex.supplierAddress || '',
       gstNumber: ex.gstNumber || '', invoiceNumber: ex.invoiceNumber || '', invoiceDate: ex.invoiceDate || '',
