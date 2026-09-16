@@ -18,15 +18,34 @@ Containerized stack for the Inventory Management System: **MySQL** + **Spring Bo
 
 ```bash
 # From the project root (this folder):
-cp .env.example .env      # a ready-to-run .env is already provided
+cp .env.example .env      # then EDIT .env — it is NOT committed (contains secrets)
 docker compose up --build
 ```
 
-Then open:
+`.env` is intentionally **not** in the repo (it holds secrets). After copying it from
+`.env.example`, set at least these before starting:
 
-- **Frontend:** http://localhost:5173
-- **Backend / Swagger UI:** http://localhost:8081/swagger-ui.html
-- **MySQL:** localhost:3306
+| Variable | Why |
+|----------|-----|
+| `MYSQL_ROOT_PASSWORD` | database password (pick a strong one) |
+| `JWT_SECRET` | **required** — the app refuses to boot under the `prod` profile with the placeholder value. Generate one with `openssl rand -base64 48` |
+| `OPENAI_API_KEY` | enables AI invoice extraction + voice; leave blank to run without AI (invoice upload then returns sample/mock data) |
+| `INVOICE_OCR_PROVIDER` | set to `openai` to use real AI extraction (needs `OPENAI_API_KEY`); `mock` otherwise |
+
+Default host ports (overridable in `.env`):
+
+- **Frontend:** http://localhost:8090  (`FRONTEND_PORT`)
+- **Backend / Swagger UI:** http://localhost:8091/swagger-ui.html  (`BACKEND_PORT`)
+- **MySQL:** localhost:3310  (`MYSQL_PORT`)
+
+### AI features (OpenAI)
+
+Invoice extraction (photo/PDF/CSV → line items), the voice mic (add/remove stock),
+and phone-QR capture all call the OpenAI API. To enable them: set `OPENAI_API_KEY`
+in `.env` and `INVOICE_OCR_PROVIDER=openai`, then `docker compose up -d --build`.
+Without a key the app still runs — invoice upload shows sample data and voice replies
+"not configured". The phone-QR capture requires the phone to reach the server, so the
+device must be on the same LAN (or Tailscale) as the host; see the QR dialog's on-screen note.
 
 ## Common commands
 
