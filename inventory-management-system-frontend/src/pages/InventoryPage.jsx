@@ -55,6 +55,13 @@ const InventoryPage = () => {
   useEffect(() => { loadComponents(); }, []);
   useEffect(() => { fetchHistory(); }, [fetchHistory]);
 
+  // Refresh when a voice command changes stock while this page is open.
+  useEffect(() => {
+    const onChanged = () => { loadComponents(); fetchHistory(); };
+    window.addEventListener('inventory:changed', onChanged);
+    return () => window.removeEventListener('inventory:changed', onChanged);
+  }, [fetchHistory]);
+
   const openDialog = (type) => {
     setDialogType(type);
     setForm({ componentId: '', quantity: 1, remarks: '' });

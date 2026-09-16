@@ -48,6 +48,13 @@ export const fetchInvoiceBlob = async (id) => {
   return { url: URL.createObjectURL(res.data), contentType: type };
 };
 
+/** Fetches the stored file for an extraction (used to preview a phone-captured photo during review). */
+export const fetchExtractionBlob = async (extractionId) => {
+  const res = await axiosClient.get(`/purchases/extraction/${extractionId}/file`, { responseType: 'blob' });
+  const type = res.data?.type || res.headers?.['content-type'] || 'application/octet-stream';
+  return { url: URL.createObjectURL(res.data), contentType: type };
+};
+
 /** Saves the invoice to disk under its original file name. */
 export const downloadInvoice = async (id, filename) => {
   const res = await axiosClient.get(`/purchases/${id}/invoice`, {

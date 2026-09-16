@@ -3,14 +3,40 @@ import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button, Box, Typography,
   TextField, MenuItem, ListSubheader, IconButton, CircularProgress, Chip, Divider, Grid, Alert,
 } from '@mui/material';
-import { UploadCloud, FileText, X, Sparkles, RefreshCw, Check } from 'lucide-react';
-import { extractInvoice, confirmInvoice } from '../../api/purchaseApi';
+import { UploadCloud, FileText, X, Sparkles, RefreshCw, Check, Smartphone } from 'lucide-react';
+import { extractInvoice, confirmInvoice, fetchExtractionBlob } from '../../api/purchaseApi';
 import { getEquipment } from '../../api/equipmentApi';
+import PhoneScanDialog from './PhoneScanDialog';
 import { formatCurrency, CURRENCY_SYMBOL } from '../../utils/currency';
 import { colors } from '../../theme/tokens';
 
-const ACCEPT = '.pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png';
-const isAllowed = (f) => /pdf|jpe?g|png/i.test(f.type) || /\.(pdf|jpe?g|png)$/i.test(f.name);
+const ACCEPT = '.pdf,.jpg,.jpeg,.png,.csv,.txt,application/pdf,image/jpeg,image/png,text/csv';
+const isAllowed = (f) => /pdf|jpe?g|png|csv|text/i.test(f.type) || /\.(pdf|jpe?g|png|csv|txt)$/i.test(f.name);
+const isCsvFile = (f) => /csv|text\/plain|excel/i.test(f.type) || /\.(csv|txt)$/i.test(f.name);
+
+// Shrink large photos before extraction so the AI vision call is fast and doesn't
+// time out. Only touches images; PDFs/CSVs pass through untouched.
+const downscaleImage = async (file, maxDim = 2000, quality = 0.92) => {
+  try {
+    if (!/^image\//i.test(file.type)) return file;
+    const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+    const longest = Math.max(bitmap.width, bitmap.height);
+    const scale = Math.min(1, maxDim / longest);
+    if (scale === 1 && file.size < 1.2 * 1024 * 1024) { bitmap.close?.(); return file; }
+    const w = Math.round(bitmap.width * scale);
+    const h = Math.round(bitmap.height * scale);
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d').drawImage(bitmap, 0, 0, w, h);
+    bitmap.close?.();
+    const blob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', quality));
+    if (!blob) return file;
+    const base = (file.name || 'invoice').replace(/\.[^.]+$/, '');
+    return new File([blob], `${base}.jpg`, { type: 'image/jpeg' });
+  } catch {
+    return file;
+  }
+};
 
 const norm = (s) => String(s || '').trim().toLowerCase();
 const findMatch = (name, list, key) => {
@@ -55,12 +81,15 @@ const InvoiceUploadDialog = ({ open, onClose, components, onCreated }) => {
   const [file, setFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState('');
   const [isPdf, setIsPdf] = useState(false);
+  const [isCsv, setIsCsv] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
   const [header, setHeader] = useState(null);
   const [lines, setLines] = useState([]);
+  const [phoneScanOpen, setPhoneScanOpen] = useState(false);
+  const [capturedOnPhone, setCapturedOnPhone] = useState(false);
 
   // Load equipment once when the dialog opens (for matching against assets).
   useEffect(() => {
@@ -72,52 +101,77 @@ const InvoiceUploadDialog = ({ open, onClose, components, onCreated }) => {
 
   const reset = () => {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
-    setFile(null); setPreviewUrl(''); setIsPdf(false); setLoading(false);
-    setError(''); setResult(null); setHeader(null); setLines([]);
+    setFile(null); setPreviewUrl(''); setIsPdf(false); setIsCsv(false); setLoading(false);
+    setError(''); setResult(null); setHeader(null); setLines([]); setCapturedOnPhone(false);
   };
   const handleClose = () => { reset(); onClose(); };
 
   const handleFile = async (f) => {
     if (!f) return;
-    if (!isAllowed(f)) { setError('Please upload a PDF, JPG, JPEG or PNG file.'); return; }
+    if (!isAllowed(f)) { setError('Please upload a PDF, image (JPG/PNG) or CSV file.'); return; }
     setError('');
     const url = URL.createObjectURL(f);
-    setFile(f); setPreviewUrl(url); setIsPdf(/pdf/i.test(f.type) || /\.pdf$/i.test(f.name));
+    const csv = isCsvFile(f);
+    setFile(f); setPreviewUrl(url); setIsCsv(csv);
+    setIsPdf(/pdf/i.test(f.type) || /\.pdf$/i.test(f.name));
     setLoading(true);
     try {
-      const res = await extractInvoice(f);
-      const d = res.data;
-      setResult({ extractionId: d.extractionId, invoiceFilePath: d.invoiceFilePath, provider: d.provider, mock: d.mock });
-      const ex = d.extracted || {};
-      setHeader({
-        supplierName: ex.supplierName || '', supplierAddress: ex.supplierAddress || '',
-        gstNumber: ex.gstNumber || '', invoiceNumber: ex.invoiceNumber || '', invoiceDate: ex.invoiceDate || '',
-        purchaseOrderNumber: ex.purchaseOrderNumber || '', placeOfSupply: ex.placeOfSupply || '',
-        paymentTerms: ex.paymentTerms || '', currency: ex.currency || 'INR',
-        subTotal: ex.subTotal ?? 0, taxAmount: ex.taxAmount ?? 0, shippingCharges: ex.shippingCharges ?? 0,
-        grandTotal: ex.grandTotal ?? 0, finalInvoiceAmount: ex.finalInvoiceAmount ?? 0,
-      });
-      setLines((ex.items || []).map((it) => {
-        const comp = findMatch(it.description, components, 'componentName');
-        const equip = comp ? null : findMatch(it.description, equipment, 'name');
-        let resolution; let componentId = null; let equipmentId = null;
-        if (comp) { resolution = 'EXISTING_COMPONENT'; componentId = comp.id; }
-        else if (equip) { resolution = 'EXISTING_EQUIPMENT'; equipmentId = equip.id; }
-        else if (it.suggestedType === 'SERVICE') { resolution = 'SKIP'; }
-        else if (it.suggestedType === 'EQUIPMENT') { resolution = 'NEW_EQUIPMENT'; }
-        else { resolution = 'NEW_COMPONENT'; }
-        return {
-          description: it.description || '', supplierItemCode: it.supplierItemCode || '', hsnCode: it.hsnCode || '',
-          category: it.category || '', unit: it.unit || 'pcs', suggestedType: it.suggestedType || 'COMPONENT',
-          quantity: Number(it.quantity) || 0, unitPrice: Number(it.unitPrice) || 0,
-          taxPercentage: Number(it.taxPercentage) || 0, lineTotal: Number(it.lineTotal) || 0,
-          resolution, componentId, equipmentId,
-        };
-      }));
+      const toExtract = await downscaleImage(f);
+      const res = await extractInvoice(toExtract);
+      populateFromResponse(res.data);
     } catch (err) {
       setError(err.response?.data?.message || 'Could not extract invoice data. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Populate the editable review from an extraction response — shared by the file
+  // upload path and the phone-capture path (which already ran extraction server-side).
+  const populateFromResponse = (d) => {
+    setResult({ extractionId: d.extractionId, invoiceFilePath: d.invoiceFilePath, provider: d.provider, mock: d.mock });
+    const ex = d.extracted || {};
+    setHeader({
+      supplierName: ex.supplierName || '', supplierAddress: ex.supplierAddress || '',
+      gstNumber: ex.gstNumber || '', invoiceNumber: ex.invoiceNumber || '', invoiceDate: ex.invoiceDate || '',
+      purchaseOrderNumber: ex.purchaseOrderNumber || '', placeOfSupply: ex.placeOfSupply || '',
+      paymentTerms: ex.paymentTerms || '', currency: ex.currency || 'INR',
+      subTotal: ex.subTotal ?? 0, taxAmount: ex.taxAmount ?? 0, shippingCharges: ex.shippingCharges ?? 0,
+      grandTotal: ex.grandTotal ?? 0, finalInvoiceAmount: ex.finalInvoiceAmount ?? 0,
+    });
+    setLines((ex.items || []).map((it) => {
+      const comp = findMatch(it.description, components, 'componentName');
+      const equip = comp ? null : findMatch(it.description, equipment, 'name');
+      let resolution; let componentId = null; let equipmentId = null;
+      if (comp) { resolution = 'EXISTING_COMPONENT'; componentId = comp.id; }
+      else if (equip) { resolution = 'EXISTING_EQUIPMENT'; equipmentId = equip.id; }
+      else if (it.suggestedType === 'SERVICE') { resolution = 'SKIP'; }
+      else if (it.suggestedType === 'EQUIPMENT') { resolution = 'NEW_EQUIPMENT'; }
+      else { resolution = 'NEW_COMPONENT'; }
+      return {
+        description: it.description || '', supplierItemCode: it.supplierItemCode || '', hsnCode: it.hsnCode || '',
+        category: it.category || '', unit: it.unit || 'pcs', suggestedType: it.suggestedType || 'COMPONENT',
+        quantity: Number(it.quantity) || 0, unitPrice: Number(it.unitPrice) || 0,
+        taxPercentage: Number(it.taxPercentage) || 0, lineTotal: Number(it.lineTotal) || 0,
+        resolution, componentId, equipmentId,
+      };
+    }));
+  };
+
+  // The phone finished capturing + extracting: open the review with its data,
+  // and pull the stored photo back so it shows in the preview pane on the laptop.
+  const handlePhoneResult = async (d) => {
+    setPhoneScanOpen(false);
+    setCapturedOnPhone(true);
+    setError('');
+    populateFromResponse(d);
+    if (d?.extractionId) {
+      try {
+        const { url, contentType } = await fetchExtractionBlob(d.extractionId);
+        setPreviewUrl(url);
+        setIsPdf(/pdf/i.test(contentType));
+        setIsCsv(/csv|text/i.test(contentType));
+      } catch { /* preview is best-effort; the review still works without it */ }
     }
   };
 
@@ -178,8 +232,12 @@ const InvoiceUploadDialog = ({ open, onClose, components, onCreated }) => {
         <Sparkles size={22} color={colors.primary} />
         <Box sx={{ flexGrow: 1 }}>
           Upload Invoice
+          {capturedOnPhone && (
+            <Chip size="small" icon={<Smartphone size={13} />} label="Captured on phone"
+              sx={{ ml: 1.5, bgcolor: colors.primarySoft, color: colors.primary, fontWeight: 600 }} />
+          )}
           {result?.mock && (
-            <Chip size="small" label="Sample data — OCR not yet connected"
+            <Chip size="small" label="Sample data — set OPENAI_API_KEY to enable AI extraction"
               sx={{ ml: 1.5, bgcolor: colors.warningSoft, color: colors.warning, fontWeight: 600 }} />
           )}
         </Box>
@@ -189,8 +247,8 @@ const InvoiceUploadDialog = ({ open, onClose, components, onCreated }) => {
       <DialogContent dividers sx={{ p: 0 }}>
         {error && <Alert severity="error" sx={{ m: 2, mb: 0 }} onClose={() => setError('')}>{error}</Alert>}
 
-        {!file ? (
-          <Box sx={{ p: 4, display: 'grid', placeItems: 'center', minHeight: 320 }}>
+        {(!file && !header) ? (
+          <Box sx={{ p: 4, display: 'grid', placeItems: 'center', minHeight: 320, gap: 2 }}>
             <Box
               onClick={() => fileRef.current?.click()}
               onDragOver={(e) => e.preventDefault()}
@@ -204,9 +262,19 @@ const InvoiceUploadDialog = ({ open, onClose, components, onCreated }) => {
             >
               <UploadCloud size={44} color={colors.primary} />
               <Typography sx={{ fontSize: '1.125rem', fontWeight: 600, mt: 1.5 }}>Drop an invoice here, or click to browse</Typography>
-              <Typography sx={{ color: colors.textMuted, mt: 0.5 }}>PDF, JPG, JPEG or PNG · up to 10&nbsp;MB</Typography>
+              <Typography sx={{ color: colors.textMuted, mt: 0.5 }}>PDF, JPG, PNG or CSV · up to 10&nbsp;MB</Typography>
             </Box>
             <input ref={fileRef} type="file" hidden accept={ACCEPT} onChange={(e) => handleFile(e.target.files?.[0])} />
+
+            {/* Capture on a phone instead */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, width: '100%', maxWidth: 560 }}>
+              <Divider sx={{ flexGrow: 1 }} />
+              <Typography sx={{ fontSize: '0.75rem', color: colors.textMuted }}>or</Typography>
+              <Divider sx={{ flexGrow: 1 }} />
+            </Box>
+            <Button variant="outlined" startIcon={<Smartphone size={18} />} onClick={() => setPhoneScanOpen(true)}>
+              Scan a QR to capture on your phone
+            </Button>
           </Box>
         ) : (
           <Grid container sx={{ height: '100%' }}>
@@ -214,16 +282,23 @@ const InvoiceUploadDialog = ({ open, onClose, components, onCreated }) => {
             <Grid item xs={12} md={5} sx={{ borderRight: { md: `1px solid ${colors.border}` }, bgcolor: '#F4F3F1', display: 'flex', flexDirection: 'column' }}>
               <Box sx={{ px: 2, py: 1.25, display: 'flex', alignItems: 'center', gap: 1 }}>
                 <FileText size={17} color={colors.textSecondary} />
-                <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, flexGrow: 1 }} noWrap>{file.name}</Typography>
+                <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, flexGrow: 1 }} noWrap>
+                  {file ? file.name : 'Captured on phone'}
+                </Typography>
                 <Button size="small" startIcon={<RefreshCw size={15} />} onClick={reset}>Replace</Button>
               </Box>
               <Divider />
-              <Box sx={{ flexGrow: 1, overflow: 'auto', p: 1.5, display: 'grid', placeItems: isPdf ? 'stretch' : 'center' }}>
+              <Box sx={{ flexGrow: 1, overflow: 'auto', p: 1.5, display: 'grid', placeItems: (isPdf || isCsv) ? 'stretch' : 'center' }}>
                 {loading ? (
                   <Box sx={{ display: 'grid', placeItems: 'center', gap: 1.5, alignSelf: 'center', justifySelf: 'center' }}>
                     <CircularProgress /><Typography sx={{ color: colors.textSecondary }}>Reading invoice…</Typography>
                   </Box>
-                ) : isPdf ? (
+                ) : !previewUrl ? (
+                  <Box sx={{ display: 'grid', placeItems: 'center', gap: 1, alignSelf: 'center', justifySelf: 'center', color: colors.textMuted }}>
+                    <Smartphone size={40} color={colors.textSecondary} />
+                    <Typography sx={{ fontSize: '0.875rem' }}>Photo captured on your phone</Typography>
+                  </Box>
+                ) : (isPdf || isCsv) ? (
                   <Box component="iframe" title="Invoice preview" src={previewUrl}
                     sx={{ width: '100%', height: '100%', minHeight: 420, border: 'none', borderRadius: 2, bgcolor: '#fff' }} />
                 ) : (
@@ -355,6 +430,12 @@ const InvoiceUploadDialog = ({ open, onClose, components, onCreated }) => {
           {submitting ? 'Creating…' : 'Confirm Purchase'}
         </Button>
       </DialogActions>
+
+      <PhoneScanDialog
+        open={phoneScanOpen}
+        onClose={() => setPhoneScanOpen(false)}
+        onResult={handlePhoneResult}
+      />
     </Dialog>
   );
 };

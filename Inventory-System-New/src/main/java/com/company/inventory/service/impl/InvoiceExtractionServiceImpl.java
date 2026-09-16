@@ -80,6 +80,23 @@ public class InvoiceExtractionServiceImpl implements InvoiceExtractionService {
     }
 
     @Override
+    public org.springframework.core.io.Resource loadExtractionFile(Long extractionId) {
+        InvoiceExtraction rec = extractionRepository.findById(extractionId)
+                .orElseThrow(() -> new com.company.inventory.exception.ResourceNotFoundException(
+                        "Extraction not found: " + extractionId));
+        return fileStorageService.loadInvoice(rec.getFilePath());
+    }
+
+    @Override
+    public String extractionContentType(Long extractionId) {
+        return extractionRepository.findById(extractionId)
+                .map(r -> (r.getContentType() != null && !r.getContentType().isBlank())
+                        ? r.getContentType()
+                        : fileStorageService.contentTypeOf(r.getFilePath()))
+                .orElse("application/octet-stream");
+    }
+
+    @Override
     public void markConfirmed(Long extractionId, Long purchaseId) {
         if (extractionId == null) {
             return;

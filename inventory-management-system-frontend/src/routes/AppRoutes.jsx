@@ -24,6 +24,9 @@ const NotificationsPage = lazy(() => import('../pages/NotificationsPage'));
 // Module selection (post-login landing).
 const ModuleSelectionPage = lazy(() => import('../pages/ModuleSelectionPage'));
 
+// Public phone-capture page (opened by scanning the desktop QR — no login).
+const MobileCapturePage = lazy(() => import('../pages/MobileCapturePage'));
+
 // Book Management module — its own layout + pages, fully separate from Inventory.
 const LibraryLayout = lazy(() => import('../components/library/LibraryLayout'));
 const LibraryDashboardPage = lazy(() => import('../pages/library/LibraryDashboardPage'));
@@ -52,6 +55,12 @@ const AppRoutes = () => {
       <Route
         path="/login"
         element={isAuthenticated ? <Navigate to="/modules" replace /> : <LoginPage />}
+      />
+
+      {/* Public: phone invoice capture (reached by scanning the desktop QR). No auth. */}
+      <Route
+        path="/m/capture"
+        element={<Suspense fallback={<PageFallback />}><MobileCapturePage /></Suspense>}
       />
 
       {/* Post-login module selection — standalone, outside any module layout */}
