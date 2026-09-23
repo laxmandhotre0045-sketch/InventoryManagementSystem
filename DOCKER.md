@@ -10,17 +10,27 @@ Containerized stack for the Inventory Management System: **MySQL** + **Spring Bo
 | `.env` / `.env.example` | project root | Configuration (ports, DB password, JWT secret) |
 | `Dockerfile` | `Inventory-System-New/` | Multi-stage build for the Spring Boot backend |
 | `.dockerignore` | `Inventory-System-New/` | Excludes build output, uploads, IDE files |
-| `Dockerfile` | `inventory-management-system-frontend/` | Multi-stage build (Vite → Nginx) for the frontend |
+| `Dockerfile` | `inventory-management-system-frontend/` | Nginx image serving the host-built `dist/` (see Quick start) |
+| `Dockerfile.multistage` | `inventory-management-system-frontend/` | Self-contained Vite→Nginx build, for hosts with enough RAM |
 | `nginx.conf` | `inventory-management-system-frontend/` | SPA routing + gzip + asset caching |
-| `.dockerignore` | `inventory-management-system-frontend/` | Excludes node_modules, dist, env files |
+| `.dockerignore` | `inventory-management-system-frontend/` | Excludes node_modules and env files (**not** `dist/` — the image needs it) |
 
 ## Quick start
 
 ```bash
 # From the project root (this folder):
 cp .env.example .env      # then EDIT .env — it is NOT committed (contains secrets)
+
+# Build the frontend bundle ON THE HOST first (needs Node 20+).
+# The frontend image serves this dist/; without it the build fails with
+#   failed to compute cache key: "/dist": not found
+cd inventory-management-system-frontend && npm ci && npm run build && cd ..
+
 docker compose up --build
 ```
+
+Re-run the `npm run build` step whenever you change frontend source — `dist/` is
+git-ignored and is never rebuilt automatically by Compose.
 
 `.env` is intentionally **not** in the repo (it holds secrets). After copying it from
 `.env.example`, set at least these before starting:
@@ -73,15 +83,21 @@ docker compose down -v           # stop and delete database data
   backend uses Spring Boot layered jars on a JRE-Alpine base; the frontend ships
   only static assets on Nginx-Alpine. Both run as non-root.
 
-## Important note about the frontend → backend URL
+## How the frontend reaches the backend
 
-The frontend calls the backend at a **hardcoded absolute URL**
-`http://localhost:8081/api/v1` (see `src/api/axiosClient.js`). Because this call
-runs in the user's **browser**, it hits the backend port published on the host
-(`8081`) — which is why the backend port is exposed and CORS is left open.
-(Port 8081 is used instead of 8080 because Apache/httpd occupies 8080 on this machine.)
+The frontend calls a **relative** path, `/api/v1` — set by `VITE_API_URL` in
+`inventory-management-system-frontend/.env` and read in `src/api/axiosClient.js`.
+The browser therefore always talks to the origin it loaded the page from, and
+nginx reverse-proxies `/api/` to `http://backend:8080` inside the Compose network
+(see `nginx.conf`). No backend host is baked into the bundle, and no CORS is needed.
 
-This works out of the box on your local machine. If you deploy the frontend and
-backend to different hosts, you'll need to point that base URL at the real
-backend address (that's an application code change, which was intentionally left
-untouched here).
+Consequences worth knowing:
+
+- Moving to a VPS or domain needs **no** frontend code change — same-origin either way.
+- The published backend port (`BACKEND_PORT`, default `8091`) is bound to `127.0.0.1`
+  and is only for Swagger/debugging from the host; the app does not use it.
+- `VITE_API_URL` is read at **build time**, so changing it means re-running
+  `npm run build` and rebuilding the frontend image.
+- For a backend on a genuinely different origin (e.g. an ngrok tunnel), create
+  `inventory-management-system-frontend/.env.local` with an absolute
+  `VITE_API_URL=https://.../api/v1` and rebuild — do not edit the committed `.env`.

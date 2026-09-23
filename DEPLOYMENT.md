@@ -7,7 +7,13 @@ called out explicitly.
 
 The stack is three Docker containers — **MySQL 8**, a **Spring Boot** backend, and a
 **React + Nginx** frontend — orchestrated by `docker-compose.yml`. You do **not** install
-Java, Node, or MySQL on the host; Docker builds everything.
+Java or MySQL on the host; Docker builds those.
+
+**Node.js 20+ IS required on the host.** The frontend image serves a bundle you build
+natively (`npm run build` → `dist/`) rather than building it inside Docker, because the
+in-Docker Vite build exhausts memory on a low-RAM host and kills the Docker engine. See
+step 3 — skipping that build makes `docker compose up --build` fail with
+`"/dist": not found`.
 
 ---
 
@@ -89,13 +95,29 @@ strong, and (for AI) `OPENAI_API_KEY` is set with `INVOICE_OCR_PROVIDER=openai`.
 
 ---
 
-## 3. Build and start
+## 3. Build the frontend bundle on the host, then start
+
+The frontend image copies a pre-built `dist/`, so build it **before** Compose (repeat this
+whenever you change frontend source — `dist/` is git-ignored and never auto-rebuilds):
+
+```bash
+cd inventory-management-system-frontend
+npm ci            # first time, or after package.json changes
+npm run build     # produces ./dist
+cd ..
+```
+
+Checkpoint: `inventory-management-system-frontend/dist/index.html` exists. If it does not,
+the next command fails with
+`failed to compute cache key: "/dist": not found`.
+
+Then build and start the stack:
 
 ```bash
 docker compose up -d --build
 ```
 
-First build takes a few minutes (it compiles the backend and builds the frontend). The DB
+First build takes a few minutes (it compiles the backend with Maven). The DB
 schema is created automatically by Hibernate on first boot — **no manual SQL is needed**.
 
 Checkpoint — wait until all three are `healthy`:
