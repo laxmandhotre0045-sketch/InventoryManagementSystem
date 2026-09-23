@@ -47,3 +47,7 @@ Thumbs.db
 # Logs
 # =============================================================================
 *.log
+
+# Local dev/one-off scripts containing credentials — never commit
+update_admin_password.py
+update_pwd.sql

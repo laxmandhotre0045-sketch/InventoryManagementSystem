@@ -142,6 +142,15 @@ const ComponentsPage = () => {
    * chips keep showing the figures from page load and slowly drift out of date.
    */
   const refresh = useCallback(() => { fetchData(); fetchCategories(); }, [fetchData, fetchCategories]);
+
+  // A voice command (from the navbar mic) can add/remove/create stock while this
+  // page is open — reload so the table reflects it without a manual refresh.
+  useEffect(() => {
+    const onChanged = () => refresh();
+    window.addEventListener('inventory:changed', onChanged);
+    return () => window.removeEventListener('inventory:changed', onChanged);
+  }, [refresh]);
+
   // Reset to the first page whenever the (debounced) search term changes.
   useEffect(() => { setPage(0); }, [debouncedKeyword]);
 

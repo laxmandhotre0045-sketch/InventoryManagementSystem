@@ -1,10 +1,18 @@
 package com.company.inventory.service;
 
+import org.springframework.core.io.Resource;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.company.inventory.dto.response.ExtractInvoiceResponse;
 
 public interface InvoiceExtractionService {
+
+    /** Loads the originally stored file for an extraction (for previewing during review). */
+    Resource loadExtractionFile(Long extractionId);
+
+    /** Best-effort MIME type of the stored extraction file. */
+    String extractionContentType(Long extractionId);
+
 
     /**
      * Store an uploaded invoice, run it through the active extraction provider,

@@ -20,7 +20,13 @@ import java.util.UUID;
 public class FileStorageServiceImpl implements FileStorageService {
 
     private static final long MAX_FILE_SIZE = 10 * 1024 * 1024;
-    private static final String[] ALLOWED_TYPES = {"application/pdf", "image/jpeg", "image/jpg", "image/png"};
+    private static final String[] ALLOWED_TYPES = {"application/pdf", "image/jpeg", "image/jpg", "image/png",
+            // CSV / plain-text invoices for the AI importer. Browsers report CSV
+            // inconsistently (text/csv, application/vnd.ms-excel, or even
+            // application/octet-stream), so the extension is also honoured below.
+            "text/csv", "application/csv", "application/vnd.ms-excel", "text/plain"};
+
+    private static final String[] ALLOWED_EXTENSIONS = {"pdf", "jpg", "jpeg", "png", "csv", "txt"};
     private static final Path INVOICE_FOLDER = Paths.get("uploads", "invoices").toAbsolutePath().normalize();
 
     public FileStorageServiceImpl() {
@@ -41,6 +47,9 @@ public class FileStorageServiceImpl implements FileStorageService {
             throw new IllegalArgumentException("File size must be <= 10MB");
         }
 
+        String originalFilename = StringUtils.cleanPath(file.getOriginalFilename());
+        String extension = StringUtils.getFilenameExtension(originalFilename);
+
         String contentType = file.getContentType();
         boolean allowed = false;
         for (String type : ALLOWED_TYPES) {
@@ -49,12 +58,19 @@ public class FileStorageServiceImpl implements FileStorageService {
                 break;
             }
         }
+        // Fall back to the extension when the browser sends a generic MIME type.
+        if (!allowed && extension != null) {
+            for (String ext : ALLOWED_EXTENSIONS) {
+                if (ext.equalsIgnoreCase(extension)) {
+                    allowed = true;
+                    break;
+                }
+            }
+        }
         if (!allowed) {
             throw new IllegalArgumentException("Invalid invoice file type");
         }
 
-        String originalFilename = StringUtils.cleanPath(file.getOriginalFilename());
-        String extension = StringUtils.getFilenameExtension(originalFilename);
         String filename = UUID.randomUUID().toString() + (extension != null ? "." + extension : "");
         Path targetLocation = INVOICE_FOLDER.resolve(filename);
 

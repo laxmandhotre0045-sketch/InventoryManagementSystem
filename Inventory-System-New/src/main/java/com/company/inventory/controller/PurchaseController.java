@@ -128,6 +128,19 @@ public class PurchaseController {
                 .body(resource);
     }
 
+    @Operation(summary = "View the stored file for an extraction (during invoice review)")
+    @GetMapping("/extraction/{extractionId}/file")
+    public ResponseEntity<Resource> getExtractionFile(
+            @Parameter(description = "Extraction identifier", required = true) @PathVariable Long extractionId) {
+        Resource resource = invoiceExtractionService.loadExtractionFile(extractionId);
+        String contentType = invoiceExtractionService.extractionContentType(extractionId);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(contentType))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline")
+                .header(HttpHeaders.CACHE_CONTROL, "private, max-age=0, must-revalidate")
+                .body(resource);
+    }
+
     @Operation(summary = "Get purchase by id")
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<PurchaseResponse>> getPurchaseById(

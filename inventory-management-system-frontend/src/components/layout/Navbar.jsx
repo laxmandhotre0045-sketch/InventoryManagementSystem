@@ -9,6 +9,7 @@ import { useAuth } from '../../auth/AuthContext';
 import { roleLabel } from '../../utils/roleUtils';
 import SearchBar from '../ui/SearchBar';
 import NotificationBell from '../common/NotificationBell';
+import VoiceCommandButton from '../voice/VoiceCommandButton';
 import { colors, layout } from '../../theme/tokens';
 
 const ROUTE_TITLES = {
@@ -94,6 +95,9 @@ const Navbar = ({ onMenuClick, onToggleCollapse, collapsed, sidebarWidth }) => {
             inputProps={{ 'aria-label': 'Search components' }}
           />
         )}
+
+        {/* Voice command — add/remove stock hands-free */}
+        <VoiceCommandButton />
 
         {/* Notifications — dynamic bell */}
         <NotificationBell />

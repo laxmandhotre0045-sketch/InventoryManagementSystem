@@ -60,6 +60,13 @@ public class SecurityConfig {
                                 "/swagger-resources/**",
                                 "/webjars/**"
                         ).permitAll()
+                        // Phone-capture handoff: the phone that scans the QR is not
+                        // logged in, so these two are public. The unguessable, 15-min
+                        // session id (created by an authenticated desktop) is the
+                        // capability; creating a session and reading the result still
+                        // require ADMIN via the catch-all rule below.
+                        .requestMatchers(HttpMethod.POST, api + "/mobile-capture/*/upload").permitAll()
+                        .requestMatchers(HttpMethod.GET, api + "/mobile-capture/*/status").permitAll()
                         .requestMatchers(HttpMethod.GET,
                                 api + "/equipment/**",
                                 api + "/components/**",
