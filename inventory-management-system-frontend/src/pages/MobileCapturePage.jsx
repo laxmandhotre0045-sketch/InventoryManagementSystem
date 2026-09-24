@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Box, Button, Typography, CircularProgress, Alert } from '@mui/material';
-import { Camera, Upload, CheckCircle2, RefreshCw } from 'lucide-react';
+import { Box, Button, Typography, CircularProgress, Alert, Fade } from '@mui/material';
+import { Camera, Upload, CheckCircle2, RefreshCw, Images, Sun, Crop, Smartphone } from 'lucide-react';
 import { uploadCaptureImage, getCaptureStatus } from '../api/mobileCaptureApi';
 import { colors } from '../theme/tokens';
 
@@ -34,18 +34,39 @@ const downscaleImage = async (file, maxDim = 2000, quality = 0.92) => {
   }
 };
 
+// The phone's own viewport height. 100vh is wrong on mobile browsers — it counts
+// the space behind the retracting address bar, so a bottom bar sits off-screen.
+const FULL_HEIGHT = '100dvh';
+// Respect the notch and the home indicator rather than tucking controls under them.
+const SAFE_TOP = 'env(safe-area-inset-top, 0px)';
+const SAFE_BOTTOM = 'env(safe-area-inset-bottom, 0px)';
+
+// Comfortable thumb target. Anything smaller is a miss on a phone held one-handed.
+const TAP_HEIGHT = 52;
+
+const SHOT_TIPS = [
+  { icon: Crop, text: 'Fit all four corners in the frame' },
+  { icon: Sun, text: 'Bright, even light — avoid shadow across the page' },
+  { icon: Smartphone, text: 'Hold straight above, flatten any folds' },
+];
+
 /**
  * Phone-facing page opened by scanning the desktop's QR code. It is public (no
  * login) — the session id in the URL is the capability.
  *
+ * Laid out for a phone held in one hand: the photo fills the screen and the
+ * actions sit in a fixed bar at the bottom, within thumb reach, rather than
+ * flowing off the end of a scrolling page.
+ *
  * Uses a file input with capture="environment" rather than getUserMedia, because
- * the app is typically served over plain HTTP on the LAN, where getUserMedia is
- * blocked but the native camera file-picker still works.
+ * the app may be served over plain HTTP on the LAN, where getUserMedia is blocked
+ * but the native camera file-picker still works.
  */
 const MobileCapturePage = () => {
   const [params] = useSearchParams();
   const sessionId = params.get('s') || params.get('session') || '';
   const fileRef = useRef(null);
+  const galleryRef = useRef(null);
 
   const [file, setFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState('');
@@ -67,6 +88,9 @@ const MobileCapturePage = () => {
       })
       .catch(() => { /* transient — allow the upload to surface any real error */ });
   }, [sessionId]);
+
+  // Release the object URL when the component goes away.
+  useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
 
   const onPick = (f) => {
     if (!f) return;
@@ -90,7 +114,9 @@ const MobileCapturePage = () => {
       await uploadCaptureImage(sessionId, toSend);
       setPhase('done');
     } catch (err) {
-      setError(err.response?.data?.message || 'Upload failed. Please try again.');
+      // The server distinguishes "unreadable photo" from "not an invoice"; both
+      // messages are written for the person holding the phone, so show them as-is.
+      setError(err.response?.data?.message || 'Upload failed. Please check your connection and try again.');
       setPhase('pick');
     }
   };
@@ -101,86 +127,168 @@ const MobileCapturePage = () => {
   };
 
   const invalidSession = useMemo(() => !sessionId || sessionDead, [sessionId, sessionDead]);
+  const busy = phase === 'uploading';
 
+  // ---------------------------------------------------------------- success
+  if (phase === 'done') {
+    return (
+      <Box sx={{ minHeight: FULL_HEIGHT, bgcolor: colors.canvas, display: 'grid', placeItems: 'center',
+        px: 3, pt: `calc(${SAFE_TOP} + 24px)`, pb: `calc(${SAFE_BOTTOM} + 24px)` }}>
+        <Fade in>
+          <Box sx={{ textAlign: 'center', maxWidth: 420 }}>
+            <Box sx={{ width: 96, height: 96, borderRadius: '50%', bgcolor: colors.successSoft,
+              display: 'grid', placeItems: 'center', mx: 'auto', mb: 2.5 }}>
+              <CheckCircle2 size={52} color={colors.success} />
+            </Box>
+            <Typography sx={{ fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
+              Sent to your computer
+            </Typography>
+            <Typography sx={{ color: colors.textSecondary, mt: 1, fontSize: '1rem', lineHeight: 1.5 }}>
+              The invoice is open for review on the desktop. Check the items there and confirm
+              the purchase.
+            </Typography>
+            <Typography sx={{ color: colors.textMuted, mt: 2, fontSize: '0.85rem' }}>
+              You can close this tab.
+            </Typography>
+            <Button
+              onClick={retake}
+              startIcon={<Camera size={18} />}
+              sx={{ mt: 3, height: TAP_HEIGHT, px: 3, borderRadius: 99, fontWeight: 700 }}
+            >
+              Capture another
+            </Button>
+          </Box>
+        </Fade>
+      </Box>
+    );
+  }
+
+  // ---------------------------------------------------------------- capture
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: colors.canvas, display: 'flex', flexDirection: 'column',
-      alignItems: 'center', p: 2.5, gap: 2 }}>
-      <Box sx={{ width: '100%', maxWidth: 460, textAlign: 'center', mt: 2 }}>
-        <Typography sx={{ fontSize: '1.35rem', fontWeight: 800, letterSpacing: '-0.01em' }}>
-          Capture Invoice
-        </Typography>
-        <Typography sx={{ color: colors.textSecondary, mt: 0.5, fontSize: '0.9rem' }}>
-          Take a clear photo of the invoice. It uploads to your inventory system for review.
+    <Box sx={{ minHeight: FULL_HEIGHT, bgcolor: colors.canvas, display: 'flex', flexDirection: 'column' }}>
+      {/* Header — compact, so the photo gets the screen. */}
+      <Box sx={{ px: 2.5, pt: `calc(${SAFE_TOP} + 20px)`, pb: 1.5, textAlign: 'center' }}>
+        <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+          <Camera size={20} color={colors.primary} />
+          <Typography sx={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
+            Capture Invoice
+          </Typography>
+        </Box>
+        <Typography sx={{ color: colors.textSecondary, fontSize: '0.9rem', lineHeight: 1.45 }}>
+          {previewUrl
+            ? 'Check the whole invoice is readable, then send it.'
+            : 'Take a photo — it opens on your computer for review.'}
         </Typography>
       </Box>
 
       {!sessionId && (
-        <Alert severity="error" sx={{ width: '100%', maxWidth: 460 }}>
+        <Alert severity="error" sx={{ mx: 2, borderRadius: 2.5 }}>
           This link is missing its session. Scan the QR code on your computer again.
         </Alert>
       )}
-      {error && <Alert severity="error" sx={{ width: '100%', maxWidth: 460 }} onClose={() => setError('')}>{error}</Alert>}
+      {error && (
+        <Alert severity="error" sx={{ mx: 2, borderRadius: 2.5 }} onClose={() => setError('')}>
+          {error}
+        </Alert>
+      )}
 
-      {phase === 'done' ? (
-        <Box sx={{ width: '100%', maxWidth: 460, textAlign: 'center', mt: 4, display: 'grid', placeItems: 'center', gap: 1.5 }}>
-          <CheckCircle2 size={64} color={colors.success} />
-          <Typography sx={{ fontSize: '1.1rem', fontWeight: 700 }}>Sent!</Typography>
-          <Typography sx={{ color: colors.textSecondary }}>
-            Go back to your computer to review the extracted items and confirm.
-          </Typography>
-          <Button sx={{ mt: 1 }} startIcon={<Camera size={18} />} onClick={retake}>Capture another</Button>
-        </Box>
-      ) : (
-        <Box sx={{ width: '100%', maxWidth: 460, display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {/* Native camera capture — works over HTTP on the LAN. */}
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            hidden
-            onChange={(e) => onPick(e.target.files?.[0])}
-          />
+      {/* Body — the photo, or the invitation to take one. */}
+      <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center',
+        px: 2, py: 2, minHeight: 0 }}>
+        <input ref={fileRef} type="file" accept="image/*" capture="environment" hidden
+          onChange={(e) => { onPick(e.target.files?.[0]); e.target.value = ''; }} />
+        <input ref={galleryRef} type="file" accept="image/*" hidden
+          onChange={(e) => { onPick(e.target.files?.[0]); e.target.value = ''; }} />
 
-          {previewUrl ? (
+        {previewUrl ? (
+          <Box component="img" src={previewUrl} alt="The invoice you photographed"
+            sx={{ width: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: 3,
+              bgcolor: '#fff', boxShadow: '0 6px 28px rgba(0,0,0,0.16)' }} />
+        ) : (
+          <>
             <Box
-              component="img"
-              src={previewUrl}
-              alt="Invoice"
-              sx={{ width: '100%', borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', maxHeight: '58vh', objectFit: 'contain', bgcolor: '#fff' }}
-            />
-          ) : (
-            <Box
+              role="button"
+              tabIndex={invalidSession ? -1 : 0}
               onClick={() => !invalidSession && fileRef.current?.click()}
+              onKeyDown={(e) => { if (!invalidSession && (e.key === 'Enter' || e.key === ' ')) fileRef.current?.click(); }}
               sx={{
-                border: `2px dashed ${colors.borderStrong}`, borderRadius: 4, p: 5, textAlign: 'center',
-                bgcolor: colors.paper, cursor: invalidSession ? 'not-allowed' : 'pointer', opacity: invalidSession ? 0.5 : 1,
+                border: `2px dashed ${colors.borderStrong}`, borderRadius: 4, py: 6, px: 3,
+                textAlign: 'center', bgcolor: colors.paper,
+                cursor: invalidSession ? 'not-allowed' : 'pointer',
+                opacity: invalidSession ? 0.5 : 1,
+                // A clear press response matters more on touch than hover ever did.
+                transition: 'transform .12s ease, background-color .12s ease',
+                '&:active': invalidSession ? {} : { transform: 'scale(0.985)', bgcolor: colors.primarySoft },
               }}
             >
-              <Camera size={52} color={colors.primary} />
-              <Typography sx={{ fontWeight: 700, mt: 1.5, fontSize: '1.05rem' }}>Tap to open camera</Typography>
-              <Typography sx={{ color: colors.textMuted, mt: 0.5, fontSize: '0.85rem' }}>or choose an existing photo</Typography>
+              <Box sx={{ width: 84, height: 84, borderRadius: '50%', bgcolor: colors.primarySoft,
+                display: 'grid', placeItems: 'center', mx: 'auto', mb: 2 }}>
+                <Camera size={40} color={colors.primary} />
+              </Box>
+              <Typography sx={{ fontWeight: 800, fontSize: '1.1rem' }}>Tap to open the camera</Typography>
+              <Typography sx={{ color: colors.textMuted, mt: 0.5, fontSize: '0.875rem' }}>
+                Point at the invoice and take the shot
+              </Typography>
             </Box>
-          )}
 
-          {previewUrl && phase !== 'uploading' && (
-            <Box sx={{ display: 'flex', gap: 1.5 }}>
-              <Button fullWidth variant="outlined" startIcon={<RefreshCw size={18} />} onClick={retake}>
-                Retake
-              </Button>
-              <Button fullWidth variant="contained" startIcon={<Upload size={18} />} onClick={upload} disabled={invalidSession}>
-                Upload
-              </Button>
+            <Box sx={{ mt: 3, px: 0.5 }}>
+              <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: colors.textMuted,
+                letterSpacing: '0.06em', textTransform: 'uppercase', mb: 1.25 }}>
+                For an accurate read
+              </Typography>
+              {SHOT_TIPS.map(({ icon: Icon, text }) => (
+                <Box key={text} sx={{ display: 'flex', alignItems: 'center', gap: 1.25, mb: 1 }}>
+                  <Icon size={16} color={colors.textSecondary} style={{ flexShrink: 0 }} />
+                  <Typography sx={{ fontSize: '0.875rem', color: colors.textSecondary, lineHeight: 1.4 }}>
+                    {text}
+                  </Typography>
+                </Box>
+              ))}
             </Box>
-          )}
+          </>
+        )}
+      </Box>
 
-          {phase === 'uploading' && (
-            <Button fullWidth variant="contained" disabled startIcon={<CircularProgress size={18} color="inherit" />}>
-              Uploading & reading…
+      {/* Action bar — pinned to the bottom, where the thumb already is. */}
+      <Box sx={{
+        position: 'sticky', bottom: 0, bgcolor: colors.paper,
+        borderTop: `1px solid ${colors.border}`,
+        px: 2, pt: 1.75, pb: `calc(${SAFE_BOTTOM} + 14px)`,
+        boxShadow: '0 -4px 20px rgba(0,0,0,0.06)',
+      }}>
+        {busy ? (
+          <Button fullWidth variant="contained" disabled
+            startIcon={<CircularProgress size={18} color="inherit" />}
+            sx={{ height: TAP_HEIGHT, borderRadius: 3, fontWeight: 700, fontSize: '1rem' }}>
+            Sending & reading…
+          </Button>
+        ) : previewUrl ? (
+          <Box sx={{ display: 'flex', gap: 1.25 }}>
+            <Button variant="outlined" onClick={retake} startIcon={<RefreshCw size={18} />}
+              sx={{ height: TAP_HEIGHT, borderRadius: 3, fontWeight: 700, flex: '0 0 40%' }}>
+              Retake
             </Button>
-          )}
-        </Box>
-      )}
+            <Button variant="contained" onClick={upload} disabled={invalidSession}
+              startIcon={<Upload size={18} />}
+              sx={{ height: TAP_HEIGHT, borderRadius: 3, fontWeight: 700, fontSize: '1rem', flexGrow: 1 }}>
+              Send
+            </Button>
+          </Box>
+        ) : (
+          <Box sx={{ display: 'flex', gap: 1.25 }}>
+            <Button variant="contained" onClick={() => fileRef.current?.click()} disabled={invalidSession}
+              startIcon={<Camera size={19} />}
+              sx={{ height: TAP_HEIGHT, borderRadius: 3, fontWeight: 700, fontSize: '1rem', flexGrow: 1 }}>
+              Take photo
+            </Button>
+            <Button variant="outlined" onClick={() => galleryRef.current?.click()} disabled={invalidSession}
+              aria-label="Choose an existing photo"
+              sx={{ height: TAP_HEIGHT, minWidth: TAP_HEIGHT, borderRadius: 3, px: 0 }}>
+              <Images size={20} />
+            </Button>
+          </Box>
+        )}
+      </Box>
     </Box>
   );
 };

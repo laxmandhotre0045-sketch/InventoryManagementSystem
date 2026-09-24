@@ -100,6 +100,10 @@ public class PurchaseServiceImpl implements PurchaseService {
 
         BigDecimal totalAmount = BigDecimal.ZERO;
         List<PurchaseItem> items = new java.util.ArrayList<>();
+        // Equipment is registered as an asset rather than stocked, so it produces no
+        // PurchaseItem. It is still something the invoice was paid for, so it counts
+        // towards the purchase total and towards "this invoice had something on it".
+        int equipmentLines = 0;
 
         // Seed running item-code counters from the current maxima and increment
         // locally per newly created item. This assigns C####/E#### codes to items
@@ -126,12 +130,16 @@ public class PurchaseServiceImpl implements PurchaseService {
                         .manufacturer(line.getManufacturer())
                         .status("ACTIVE")
                         .build());
+                equipmentLines++;
+                totalAmount = totalAmount.add(lineValue(line));
                 continue;
             }
             if (res == com.company.inventory.dto.request.ItemResolution.EXISTING_EQUIPMENT) {
                 if (line.getEquipmentId() == null || !equipmentRepository.existsById(line.getEquipmentId())) {
                     throw new ResourceNotFoundException("Equipment not found with id: " + line.getEquipmentId());
                 }
+                equipmentLines++;
+                totalAmount = totalAmount.add(lineValue(line));
                 continue;
             }
 
@@ -196,8 +204,14 @@ public class PurchaseServiceImpl implements PurchaseService {
                     .build());
         }
 
-        if (items.isEmpty()) {
-            throw new IllegalArgumentException("At least one component line is required to create a purchase");
+        // An invoice can legitimately contain no stockable components at all — buying a
+        // single instrument, for example. Requiring a component line here rejected those
+        // outright, with the equipment already registered and then rolled back. What must
+        // not be accepted is an invoice where every line was skipped.
+        if (items.isEmpty() && equipmentLines == 0) {
+            throw new IllegalArgumentException(
+                    "Resolve at least one line to a component or equipment before confirming — "
+                    + "every line is currently set to skip.");
         }
 
         purchase.setTotalAmount(totalAmount);
@@ -205,6 +219,14 @@ public class PurchaseServiceImpl implements PurchaseService {
         Purchase saved = purchaseRepository.save(purchase);
         invoiceExtractionService.markConfirmed(request.getExtractionId(), saved.getId());
         return purchaseMapper.toResponse(saved);
+    }
+
+    /** A line's money value, tolerating the blanks an equipment line may carry. */
+    private BigDecimal lineValue(com.company.inventory.dto.request.ConfirmInvoiceItemRequest line) {
+        if (line.getUnitPrice() == null || line.getQuantity() == null || line.getQuantity() <= 0) {
+            return BigDecimal.ZERO;
+        }
+        return line.getUnitPrice().multiply(BigDecimal.valueOf(line.getQuantity()));
     }
 
     private String requireName(com.company.inventory.dto.request.ConfirmInvoiceItemRequest line, String action) {

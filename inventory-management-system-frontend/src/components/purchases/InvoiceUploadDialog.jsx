@@ -65,6 +65,11 @@ const decode = (v) => {
 };
 
 const isComponentRes = (r) => r === 'EXISTING_COMPONENT' || r === 'NEW_COMPONENT';
+const isEquipmentRes = (r) => r === 'EXISTING_EQUIPMENT' || r === 'NEW_EQUIPMENT';
+// Anything that isn't skipped creates something on confirm. Equipment is registered
+// as an asset rather than stocked, but it is still a real outcome — an invoice for a
+// single instrument has no component lines at all and must still be confirmable.
+const isActionableRes = (r) => isComponentRes(r) || isEquipmentRes(r);
 const labelSx = { fontSize: '0.8125rem', fontWeight: 600, color: colors.textSecondary, mb: 0.5 };
 
 const TotalRow = ({ label, value, strong }) => (
@@ -212,7 +217,8 @@ const InvoiceUploadDialog = ({ open, onClose, components, onCreated }) => {
   const newCount = lines.filter((l) => l.resolution === 'NEW_COMPONENT' || l.resolution === 'NEW_EQUIPMENT').length;
   const equipCount = lines.filter((l) => l.resolution === 'EXISTING_EQUIPMENT' || l.resolution === 'NEW_EQUIPMENT').length;
   const skipCount = lines.filter((l) => l.resolution === 'SKIP').length;
-  const canConfirm = header?.supplierName && header?.invoiceNumber && componentLines.length > 0 && !submitting;
+  const actionableLines = lines.filter((l) => isActionableRes(l.resolution));
+  const canConfirm = header?.supplierName && header?.invoiceNumber && actionableLines.length > 0 && !submitting;
 
   const handleConfirm = async () => {
     setSubmitting(true); setError('');
@@ -238,10 +244,12 @@ const InvoiceUploadDialog = ({ open, onClose, components, onCreated }) => {
         })),
       };
       await confirmInvoice(payload);
-      const parts = [`${componentLines.length} component line(s)`];
+      const parts = [];
+      if (componentLines.length) parts.push(`${componentLines.length} component line(s)`);
+      if (equipCount) parts.push(`${equipCount} equipment registered`);
       if (newCount) parts.push(`${newCount} new item(s) created`);
-      if (equipCount) parts.push(`${equipCount} equipment`);
-      onCreated?.(`Purchase created from invoice — ${parts.join(', ')}. Stock updated.`);
+      onCreated?.(`Purchase created from invoice — ${parts.join(', ')}.`
+        + (componentLines.length ? ' Stock updated.' : ''));
       handleClose();
     } catch (err) {
       // Backend is transactional: on failure nothing was created.
@@ -424,7 +432,7 @@ const InvoiceUploadDialog = ({ open, onClose, components, onCreated }) => {
 
                   {lines.map((l, i) => {
                     const b = badgeFor(l);
-                    const isComp = isComponentRes(l.resolution);
+                    const isActionable = isActionableRes(l.resolution);
                     return (
                       <Box key={i} sx={{ p: 1.75, mb: 1.25, border: `1px solid ${colors.border}`, borderRadius: 2.5,
                         bgcolor: l.resolution === 'SKIP' ? colors.canvas : colors.paper, opacity: l.resolution === 'SKIP' ? 0.75 : 1 }}>
@@ -460,15 +468,15 @@ const InvoiceUploadDialog = ({ open, onClose, components, onCreated }) => {
                           </Grid>
                           <Grid item xs={4} sm={2}>
                             <TextField fullWidth size="small" label="Qty" type="number" value={l.quantity}
-                              onChange={(e) => setLine(i, { quantity: e.target.value })} disabled={!isComp} />
+                              onChange={(e) => setLine(i, { quantity: e.target.value })} disabled={!isActionable} />
                           </Grid>
                           <Grid item xs={4} sm={2.5}>
                             <TextField fullWidth size="small" label={`Unit Price (${CURRENCY_SYMBOL})`} type="number" value={l.unitPrice}
-                              onChange={(e) => setLine(i, { unitPrice: e.target.value })} disabled={!isComp} />
+                              onChange={(e) => setLine(i, { unitPrice: e.target.value })} disabled={!isActionable} />
                           </Grid>
                           <Grid item xs={4} sm={2.5}>
-                            <Typography sx={{ fontSize: '0.9375rem', fontWeight: 700, textAlign: 'right', color: isComp ? colors.textPrimary : colors.textMuted }}>
-                              {isComp ? formatCurrency(Number(l.quantity || 0) * Number(l.unitPrice || 0)) : '—'}
+                            <Typography sx={{ fontSize: '0.9375rem', fontWeight: 700, textAlign: 'right', color: isActionable ? colors.textPrimary : colors.textMuted }}>
+                              {isActionable ? formatCurrency(Number(l.quantity || 0) * Number(l.unitPrice || 0)) : '—'}
                             </Typography>
                           </Grid>
                         </Grid>

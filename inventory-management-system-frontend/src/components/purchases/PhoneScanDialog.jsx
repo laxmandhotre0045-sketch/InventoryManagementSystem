@@ -21,6 +21,8 @@ const PhoneScanDialog = ({ open, onClose, onResult }) => {
   const [error, setError] = useState('');
   const [phase, setPhase] = useState('idle'); // idle | waiting | processing | done | error
   const [baseInput, setBaseInput] = useState(() => readSavedBase() || defaultBase());
+  // Only surfaced when there is nothing sensible to default to, or on request.
+  const [addressOpen, setAddressOpen] = useState(() => !(readSavedBase() || defaultBase()));
   const pollRef = useRef(null);
 
   const base = normalizeBase(baseInput);
@@ -94,21 +96,25 @@ const PhoneScanDialog = ({ open, onClose, onResult }) => {
       <DialogContent dividers sx={{ textAlign: 'center' }}>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-        <Alert severity={baseClass.level === 'error' ? 'warning' : 'info'} sx={{ mb: 2, textAlign: 'left' }}>
-          {baseClass.note || 'Enter the address your phone should open.'}
-        </Alert>
+        {(addressOpen || baseClass.level === 'error') && (
+          <>
+            <Alert severity={baseClass.level === 'error' ? 'warning' : 'info'} sx={{ mb: 2, textAlign: 'left' }}>
+              {baseClass.note || 'Enter the address your phone should open.'}
+            </Alert>
 
-        <TextField
-          fullWidth size="small" sx={{ mb: 0.5 }}
-          label="Address your phone will open"
-          placeholder="192.168.1.44:8090"
-          value={baseInput}
-          onChange={(e) => updateBase(e.target.value)}
-          error={Boolean(baseInput) && baseClass.level === 'error'}
-        />
-        <Typography sx={{ color: colors.textMuted, fontSize: '0.72rem', textAlign: 'left', mb: 1.5 }}>
-          Include the port for a Wi-Fi address (e.g. <code>192.168.1.44:8090</code>).
-        </Typography>
+            <TextField
+              fullWidth size="small" sx={{ mb: 0.5 }}
+              label="Address your phone will open"
+              placeholder="192.168.1.44:8090"
+              value={baseInput}
+              onChange={(e) => updateBase(e.target.value)}
+              error={Boolean(baseInput) && baseClass.level === 'error'}
+            />
+            <Typography sx={{ color: colors.textMuted, fontSize: '0.72rem', textAlign: 'left', mb: 1.5 }}>
+              Include the port for a Wi-Fi address (e.g. <code>192.168.1.44:8090</code>).
+            </Typography>
+          </>
+        )}
 
         <Typography sx={{ color: colors.textSecondary, mb: 2, fontSize: '0.9rem' }}>
           Scan this with your phone camera, then take a photo of the invoice.
@@ -128,10 +134,11 @@ const PhoneScanDialog = ({ open, onClose, onResult }) => {
           )}
         </Box>
 
-        {url && (
-          <Typography sx={{ mt: 1.5, fontSize: '0.7rem', color: colors.textMuted, wordBreak: 'break-all' }}>
-            {url}
-          </Typography>
+        {!addressOpen && baseClass.level !== 'error' && (
+          <Button size="small" onClick={() => setAddressOpen(true)}
+            sx={{ mt: 1, fontSize: '0.75rem', color: colors.textMuted, textTransform: 'none' }}>
+            Phone can't open it? Use a Wi-Fi address
+          </Button>
         )}
 
         <Box sx={{ mt: 2 }}>
