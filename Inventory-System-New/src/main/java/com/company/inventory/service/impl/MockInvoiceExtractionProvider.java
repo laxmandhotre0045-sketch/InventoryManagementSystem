@@ -41,6 +41,7 @@ public class MockInvoiceExtractionProvider implements InvoiceExtractionProvider 
     @Override
     public ExtractedInvoice extract(byte[] content, String contentType, String originalFilename) {
         ExtractedInvoice inv = new ExtractedInvoice();
+        inv.setIsInvoice(true);
         inv.setSupplierName("MACFOS LIMITED (Robu.in)");
         inv.setSupplierAddress("Sumant Building, Dynamic Logistics Trade Park, Survey No. 78/1 Dighi, "
                 + "Bhosari Alandi Road, Pune 411015, Maharashtra, India");

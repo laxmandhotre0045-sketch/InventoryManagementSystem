@@ -1,5 +1,7 @@
 package com.company.inventory.service.impl;
 
+import java.util.List;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -8,10 +10,13 @@ import com.company.inventory.dto.response.ExtractInvoiceResponse;
 import com.company.inventory.dto.response.ExtractedInvoice;
 import com.company.inventory.entity.ExtractionStatus;
 import com.company.inventory.entity.InvoiceExtraction;
+import com.company.inventory.exception.InvoiceExtractionException;
+import com.company.inventory.exception.NotAnInvoiceException;
 import com.company.inventory.repository.InvoiceExtractionRepository;
 import com.company.inventory.service.FileStorageService;
 import com.company.inventory.service.InvoiceExtractionProvider;
 import com.company.inventory.service.InvoiceExtractionService;
+import com.company.inventory.service.InvoiceTotalsReconciler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -30,15 +35,18 @@ public class InvoiceExtractionServiceImpl implements InvoiceExtractionService {
     private final FileStorageService fileStorageService;
     private final InvoiceExtractionProvider extractionProvider;
     private final InvoiceExtractionRepository extractionRepository;
+    private final InvoiceTotalsReconciler totalsReconciler;
     private final ObjectMapper objectMapper;
 
     public InvoiceExtractionServiceImpl(FileStorageService fileStorageService,
                                         InvoiceExtractionProvider extractionProvider,
                                         InvoiceExtractionRepository extractionRepository,
+                                        InvoiceTotalsReconciler totalsReconciler,
                                         ObjectMapper objectMapper) {
         this.fileStorageService = fileStorageService;
         this.extractionProvider = extractionProvider;
         this.extractionRepository = extractionRepository;
+        this.totalsReconciler = totalsReconciler;
         this.objectMapper = objectMapper;
     }
 
@@ -51,9 +59,24 @@ public class InvoiceExtractionServiceImpl implements InvoiceExtractionService {
         ExtractedInvoice extracted;
         try {
             extracted = extractionProvider.extract(readBytes(file), file.getContentType(), file.getOriginalFilename());
+        } catch (NotAnInvoiceException | InvoiceExtractionException ex) {
+            // These already carry a message written for the operator ("this isn't an
+            // invoice", "retake the photo"). Replacing it with a generic one here is
+            // what made every failure look like a server error.
+            throw ex;
         } catch (Exception ex) {
             log.error("Invoice extraction failed via provider '{}': {}", extractionProvider.name(), ex.getMessage());
-            throw new IllegalStateException("Failed to extract invoice data");
+            throw new InvoiceExtractionException("Failed to extract invoice data", ex);
+        }
+
+        // 2b. Cross-check the arithmetic. A vision model can misplace a decimal point,
+        // which is invisible on the line but silently changes the purchase value; the
+        // reconciler repairs what the invoice's own totals prove wrong and reports the rest.
+        List<String> warnings = new java.util.ArrayList<>(totalsReconciler.reconcile(extracted));
+        // Anything the extractor itself flagged (a figure it read two different ways)
+        // belongs in front of the reviewer alongside the arithmetic findings.
+        if (extracted.getReadingNotes() != null) {
+            warnings.addAll(extracted.getReadingNotes());
         }
 
         // 3. Persist an audit record with the raw structured output.
@@ -76,6 +99,8 @@ public class InvoiceExtractionServiceImpl implements InvoiceExtractionService {
         response.setProvider(extractionProvider.name());
         response.setMock(extractionProvider.isMock());
         response.setExtracted(extracted);
+        response.setWarnings(warnings);
+        response.setTotalsBalanced(warnings.isEmpty());
         return response;
     }
 

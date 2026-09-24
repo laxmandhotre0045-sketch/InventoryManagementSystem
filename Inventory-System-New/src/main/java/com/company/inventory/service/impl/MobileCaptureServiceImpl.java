@@ -9,6 +9,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.company.inventory.dto.response.ExtractInvoiceResponse;
+import com.company.inventory.exception.InvoiceExtractionException;
+import com.company.inventory.exception.NotAnInvoiceException;
 import com.company.inventory.service.InvoiceExtractionService;
 import com.company.inventory.service.MobileCaptureService;
 
@@ -88,12 +90,26 @@ public class MobileCaptureServiceImpl implements MobileCaptureService {
             s.result = extracted;
             s.status = "READY";
             return s.status;
-        } catch (Exception ex) {
-            log.error("Mobile capture extraction failed for session {}: {}", sessionId, ex.getMessage());
+        } catch (NotAnInvoiceException | InvoiceExtractionException ex) {
+            // The phone is the only screen the person is looking at, so it must show the
+            // real reason ("this isn't an invoice") rather than a generic retake prompt
+            // that would have them photograph the same wrong document again.
+            log.info("Mobile capture rejected for session {}: {}", sessionId, ex.getMessage());
             s.error = ex.getMessage();
             s.status = "ERROR";
-            throw new IllegalStateException("Could not read the invoice image. Please try again with a clearer photo.");
+            throw ex;
+        } catch (Exception ex) {
+            log.error("Mobile capture extraction failed for session {}: {}", sessionId, ex.getMessage());
+            s.error = "Could not read the invoice image. Please try again with a clearer photo.";
+            s.status = "ERROR";
+            throw new InvoiceExtractionException(s.error);
         }
+    }
+
+    @Override
+    public String error(String sessionId) {
+        Session s = sessions.get(sessionId);
+        return s == null ? null : s.error;
     }
 
     @Override

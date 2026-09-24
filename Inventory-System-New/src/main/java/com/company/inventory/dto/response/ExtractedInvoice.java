@@ -19,6 +19,18 @@ import lombok.Data;
 @Data
 public class ExtractedInvoice {
 
+    // ---- Document classification ----
+    // Answered by the extractor before any field is read. A Boolean (not a boolean)
+    // so "the provider never said" stays distinguishable from an explicit "no", and
+    // so the JSON property keeps its "isInvoice" name.
+
+    @Schema(description = "False when the uploaded file is not an invoice at all", example = "true")
+    private Boolean isInvoice;
+
+    @Schema(description = "What the document appears to be, when it is not an invoice",
+            example = "a photograph of a circuit board")
+    private String documentType;
+
     // ---- Supplier ----
     private String supplierName;
     private String supplierAddress;
@@ -45,4 +57,12 @@ public class ExtractedInvoice {
 
     @Schema(description = "Final payable amount after tax, shipping and other charges")
     private BigDecimal finalInvoiceAmount;
+
+    /**
+     * Notes the extractor wants the reviewer to see — e.g. a figure two readings of the
+     * document disagreed on. Not part of the AI's output contract; filled in by the
+     * provider and folded into the response's warnings.
+     */
+    @Schema(description = "Extractor notes about figures that could not be read with confidence")
+    private List<String> readingNotes = new ArrayList<>();
 }

@@ -30,4 +30,12 @@ public class ExtractInvoiceResponse {
 
     @Schema(description = "Structured, editable invoice data")
     private ExtractedInvoice extracted;
+
+    @Schema(description = "Arithmetic corrections applied and discrepancies still outstanding. "
+            + "Empty when every line and total reconciled cleanly.")
+    private java.util.List<String> warnings = new java.util.ArrayList<>();
+
+    @Schema(description = "True when the extracted lines add up to the invoice's printed grand total",
+            example = "true")
+    private boolean totalsBalanced = true;
 }

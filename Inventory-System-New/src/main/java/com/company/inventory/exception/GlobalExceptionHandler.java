@@ -40,6 +40,26 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(ApiResponse.failure(ex.getMessage(), null), HttpStatus.CONFLICT);
     }
 
+    /**
+     * The file was read fine, it just isn't an invoice. 422 rather than 400: the
+     * request was well-formed, the content simply can't be processed as one.
+     */
+    @ExceptionHandler(NotAnInvoiceException.class)
+    public ResponseEntity<ApiResponse<Object>> handleNotAnInvoice(NotAnInvoiceException ex) {
+        return new ResponseEntity<>(ApiResponse.failure(ex.getMessage(), null), HttpStatus.UNPROCESSABLE_ENTITY);
+    }
+
+    /**
+     * Extraction genuinely failed. The message is written for the operator
+     * ("retake a clearer photo"), so it is passed through rather than replaced
+     * by the generic handler's text.
+     */
+    @ExceptionHandler(InvoiceExtractionException.class)
+    public ResponseEntity<ApiResponse<Object>> handleInvoiceExtractionFailure(InvoiceExtractionException ex) {
+        log.error("Invoice extraction failed: {}", ex.getMessage());
+        return new ResponseEntity<>(ApiResponse.failure(ex.getMessage(), null), HttpStatus.UNPROCESSABLE_ENTITY);
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiResponse<Object>> handleIllegalArgument(IllegalArgumentException ex) {
         return new ResponseEntity<>(ApiResponse.failure(ex.getMessage(), null), HttpStatus.BAD_REQUEST);

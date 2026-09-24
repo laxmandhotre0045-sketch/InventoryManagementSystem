@@ -67,6 +67,19 @@ const decode = (v) => {
 const isComponentRes = (r) => r === 'EXISTING_COMPONENT' || r === 'NEW_COMPONENT';
 const labelSx = { fontSize: '0.8125rem', fontWeight: 600, color: colors.textSecondary, mb: 0.5 };
 
+const TotalRow = ({ label, value, strong }) => (
+  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 2, py: 0.25 }}>
+    <Typography sx={{ fontSize: strong ? '0.875rem' : '0.8125rem', fontWeight: strong ? 700 : 500,
+      color: strong ? colors.textPrimary : colors.textSecondary }}>
+      {label}
+    </Typography>
+    <Typography sx={{ fontSize: strong ? '0.9375rem' : '0.8125rem', fontWeight: strong ? 700 : 500,
+      fontVariantNumeric: 'tabular-nums' }}>
+      {formatCurrency(value)}
+    </Typography>
+  </Box>
+);
+
 const badgeFor = (l) => {
   if (l.resolution === 'SKIP') return { label: 'Skipped', fg: colors.textSecondary, bg: '#F2F1EE' };
   if (l.resolution === 'NEW_COMPONENT') return { label: 'New Component', fg: colors.warning, bg: colors.warningSoft };
@@ -88,6 +101,7 @@ const InvoiceUploadDialog = ({ open, onClose, components, onCreated }) => {
   const [result, setResult] = useState(null);
   const [header, setHeader] = useState(null);
   const [lines, setLines] = useState([]);
+  const [warnings, setWarnings] = useState([]);
   const [phoneScanOpen, setPhoneScanOpen] = useState(false);
   const [capturedOnPhone, setCapturedOnPhone] = useState(false);
 
@@ -102,7 +116,7 @@ const InvoiceUploadDialog = ({ open, onClose, components, onCreated }) => {
   const reset = () => {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setFile(null); setPreviewUrl(''); setIsPdf(false); setIsCsv(false); setLoading(false);
-    setError(''); setResult(null); setHeader(null); setLines([]); setCapturedOnPhone(false);
+    setError(''); setResult(null); setHeader(null); setLines([]); setWarnings([]); setCapturedOnPhone(false);
   };
   const handleClose = () => { reset(); onClose(); };
 
@@ -120,7 +134,12 @@ const InvoiceUploadDialog = ({ open, onClose, components, onCreated }) => {
       const res = await extractInvoice(toExtract);
       populateFromResponse(res.data);
     } catch (err) {
-      setError(err.response?.data?.message || 'Could not extract invoice data. Please try again.');
+      // A rejected file (not an invoice, unreadable) must leave nothing behind to
+      // review or confirm — drop back to the drop zone carrying only the reason.
+      const message = err.response?.data?.message || 'Could not extract invoice data. Please try again.';
+      URL.revokeObjectURL(url);
+      reset();
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -129,20 +148,25 @@ const InvoiceUploadDialog = ({ open, onClose, components, onCreated }) => {
   // Populate the editable review from an extraction response — shared by the file
   // upload path and the phone-capture path (which already ran extraction server-side).
   const populateFromResponse = (d) => {
-    setResult({ extractionId: d.extractionId, invoiceFilePath: d.invoiceFilePath, provider: d.provider, mock: d.mock });
     const ex = d.extracted || {};
-    // If the AI found nothing invoice-like (e.g. someone uploaded notes/a random doc),
-    // say so clearly instead of showing an empty form the user can't act on.
+    // A file with no line items and no invoice identity isn't an invoice. The server
+    // rejects these outright; this catches the same case on the phone-capture path,
+    // and refuses to populate a review the operator could confirm into real stock.
     const itemCount = (ex.items || []).length;
     if (!d.mock && itemCount === 0 && !ex.supplierName && !ex.invoiceNumber) {
+      reset();
       setError('No invoice data was found in this file — it doesn’t look like an invoice. Please upload a clear photo or PDF of an actual invoice.');
+      return;
     }
+    setResult({ extractionId: d.extractionId, invoiceFilePath: d.invoiceFilePath, provider: d.provider, mock: d.mock });
+    setWarnings(d.warnings || []);
     setHeader({
       supplierName: ex.supplierName || '', supplierAddress: ex.supplierAddress || '',
       gstNumber: ex.gstNumber || '', invoiceNumber: ex.invoiceNumber || '', invoiceDate: ex.invoiceDate || '',
       purchaseOrderNumber: ex.purchaseOrderNumber || '', placeOfSupply: ex.placeOfSupply || '',
       paymentTerms: ex.paymentTerms || '', currency: ex.currency || 'INR',
       subTotal: ex.subTotal ?? 0, taxAmount: ex.taxAmount ?? 0, shippingCharges: ex.shippingCharges ?? 0,
+      discountTotal: ex.discountTotal ?? 0, otherCharges: ex.otherCharges ?? 0,
       grandTotal: ex.grandTotal ?? 0, finalInvoiceAmount: ex.finalInvoiceAmount ?? 0,
     });
     setLines((ex.items || []).map((it) => {
@@ -158,6 +182,7 @@ const InvoiceUploadDialog = ({ open, onClose, components, onCreated }) => {
         description: it.description || '', supplierItemCode: it.supplierItemCode || '', hsnCode: it.hsnCode || '',
         category: it.category || '', unit: it.unit || 'pcs', suggestedType: it.suggestedType || 'COMPONENT',
         quantity: Number(it.quantity) || 0, unitPrice: Number(it.unitPrice) || 0,
+        discount: Number(it.discount) || 0, taxAmount: Number(it.taxAmount) || 0,
         taxPercentage: Number(it.taxPercentage) || 0, lineTotal: Number(it.lineTotal) || 0,
         resolution, componentId, equipmentId,
       };
@@ -230,6 +255,28 @@ const InvoiceUploadDialog = ({ open, onClose, components, onCreated }) => {
     () => componentLines.reduce((s, l) => s + Number(l.quantity || 0) * Number(l.unitPrice || 0), 0),
     [componentLines]
   );
+
+  // What the reviewed lines add up to, against what the invoice says it totals.
+  // These must agree before the purchase is worth confirming: a decimal point read
+  // one place out is invisible on the line but shows up here immediately.
+  const totals = useMemo(() => {
+    if (!header) return null;
+    const net = lines.reduce(
+      (s, l) => s + Number(l.quantity || 0) * Number(l.unitPrice || 0) - Number(l.discount || 0), 0);
+    const lineTax = lines.reduce((s, l) => s + Number(l.taxAmount || 0), 0);
+    const tax = Number(header.taxAmount) || lineTax;
+    const shipping = Number(header.shippingCharges) || 0;
+    const other = Number(header.otherCharges) || 0;
+    // An invoice-level discount only counts when the lines didn't already carry it.
+    const discount = lines.some((l) => Number(l.discount)) ? 0 : Number(header.discountTotal) || 0;
+    const computed = net + tax + shipping + other - discount;
+    const printed = Number(header.grandTotal) || Number(header.finalInvoiceAmount) || 0;
+    const difference = computed - printed;
+    return {
+      net, tax, shipping, other, discount, computed, printed, difference,
+      matches: printed ? Math.abs(difference) <= Math.max(0.05, printed * 0.005) : null,
+    };
+  }, [header, lines]);
 
   return (
     <Dialog open={open} onClose={submitting ? undefined : handleClose} maxWidth="lg" fullWidth
@@ -358,6 +405,19 @@ const InvoiceUploadDialog = ({ open, onClose, components, onCreated }) => {
                     </Grid>
                   </Grid>
 
+                  {warnings.length > 0 && (
+                    <Alert severity="warning" sx={{ mt: 2.5, textAlign: 'left' }}>
+                      <Typography sx={{ fontWeight: 700, fontSize: '0.875rem', mb: 0.5 }}>
+                        Figures checked against the invoice
+                      </Typography>
+                      <Box component="ul" sx={{ m: 0, pl: 2.25 }}>
+                        {warnings.map((w, i) => (
+                          <Typography key={i} component="li" sx={{ fontSize: '0.8125rem' }}>{w}</Typography>
+                        ))}
+                      </Box>
+                    </Alert>
+                  )}
+
                   <Typography sx={{ fontSize: '0.9375rem', fontWeight: 700, mt: 3, mb: 1 }}>
                     Line Items · resolve each to a Component or Equipment
                   </Typography>
@@ -416,11 +476,54 @@ const InvoiceUploadDialog = ({ open, onClose, components, onCreated }) => {
                     );
                   })}
 
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'baseline', gap: 1, mt: 1.5, pt: 1.5, borderTop: `1px solid ${colors.border}` }}>
-                    <Typography sx={{ fontSize: '0.875rem', color: colors.textMuted }}>
+                  <Box sx={{ mt: 1.5, pt: 1.5, borderTop: `1px solid ${colors.border}` }}>
+                    <Typography sx={{ fontSize: '0.875rem', color: colors.textMuted, mb: 1.25 }}>
                       {componentLines.length} stock line(s){newCount ? ` · ${newCount} new` : ''}{equipCount ? ` · ${equipCount} equipment` : ''}{skipCount ? ` · ${skipCount} skipped` : ''}
                     </Typography>
-                    <Typography sx={{ fontSize: '1.0625rem', fontWeight: 700 }}>Stock total {formatCurrency(linesTotal)}</Typography>
+
+                    {totals && (
+                      <Box sx={{ p: 1.75, borderRadius: 2.5, bgcolor: colors.canvas, border: `1px solid ${colors.border}` }}>
+                        <TotalRow label="Line items (net)" value={totals.net} />
+                        {Boolean(totals.discount) && <TotalRow label="Discount" value={-totals.discount} />}
+                        {Boolean(totals.tax) && <TotalRow label="Tax" value={totals.tax} />}
+                        {Boolean(totals.shipping) && <TotalRow label="Shipping" value={totals.shipping} />}
+                        {Boolean(totals.other) && <TotalRow label="Other charges" value={totals.other} />}
+                        <Divider sx={{ my: 1 }} />
+                        <TotalRow label="Extracted lines add up to" value={totals.computed} strong />
+                        {Boolean(totals.printed) && (
+                          <TotalRow label="Grand total printed on the invoice" value={totals.printed} strong />
+                        )}
+
+                        {totals.matches === true && (
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 1 }}>
+                            <Check size={16} color={colors.success} />
+                            <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600, color: colors.success }}>
+                              Matches the invoice total exactly.
+                            </Typography>
+                          </Box>
+                        )}
+                        {totals.matches === false && (
+                          <Alert severity="warning" sx={{ mt: 1, py: 0.5 }}>
+                            <Typography sx={{ fontSize: '0.8125rem' }}>
+                              Off by {formatCurrency(Math.abs(totals.difference))} against the invoice.
+                              Check the quantity and unit price on each line before confirming.
+                            </Typography>
+                          </Alert>
+                        )}
+                        {totals.matches === null && (
+                          <Typography sx={{ fontSize: '0.78rem', color: colors.textMuted, mt: 1 }}>
+                            No grand total was printed on this invoice, so there is nothing to check against.
+                          </Typography>
+                        )}
+                      </Box>
+                    )}
+
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'baseline', gap: 1, mt: 1.5 }}>
+                      <Typography sx={{ fontSize: '0.8125rem', color: colors.textMuted }}>
+                        Value of the stock being added (component lines only)
+                      </Typography>
+                      <Typography sx={{ fontSize: '1.0625rem', fontWeight: 700 }}>{formatCurrency(linesTotal)}</Typography>
+                    </Box>
                   </Box>
                 </Box>
               )}

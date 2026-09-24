@@ -7,39 +7,12 @@ import {
 import { X, Smartphone, RefreshCw } from 'lucide-react';
 import { createCaptureSession, getCaptureStatus, getCaptureResult } from '../../api/mobileCaptureApi';
 import { colors } from '../../theme/tokens';
+import { normalizeBase, classifyBase, defaultBase, buildCaptureUrl } from '../../utils/phoneCaptureUrl';
 
-const HOST_STORAGE_KEY = 'mobileCaptureHost';
+const BASE_STORAGE_KEY = 'mobileCaptureBase';
 
-// A phone on the same Wi-Fi needs a private LAN IP. Flag the addresses that
-// famously don't work: localhost, APIPA (169.254), Tailscale/CGNAT (100.64/10),
-// and anything that isn't a private range.
-// level: 'ok' (valid), 'info' (usable but conditional, e.g. Tailscale), 'error' (won't work)
-const classifyHost = (h) => {
-  if (!h) return { level: 'error', warn: '' };
-  if (h === 'localhost' || h === '127.0.0.1' || h === '::1') {
-    return { level: 'error', warn: 'localhost can’t be reached from a phone. Use your PC’s Wi-Fi IP, e.g. 192.168.x.x.' };
-  }
-  if (/^169\.254\./.test(h)) {
-    return { level: 'error', warn: 'That’s an auto-config address that won’t work. Use your PC’s Wi-Fi IP (192.168.x.x).' };
-  }
-  if (/^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(h)) {
-    return { level: 'info', warn: 'Tailscale/VPN address — works from anywhere, but only if your phone also has Tailscale installed and connected to the same account.' };
-  }
-  if (/^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(h)) {
-    return { level: 'ok', warn: '' };
-  }
-  return { level: 'error', warn: 'Use your PC’s local Wi-Fi IP (192.168.x.x or 10.x.x.x), with the phone on the same Wi-Fi.' };
-};
-
-const readSavedHost = () => {
-  try { return localStorage.getItem(HOST_STORAGE_KEY) || ''; } catch { return ''; }
-};
-
-const buildUrl = (sessionId, host) => {
-  if (!sessionId || !host) return '';
-  const { protocol, port } = window.location;
-  const p = port ? `:${port}` : '';
-  return `${protocol}//${host}${p}/m/capture?s=${sessionId}`;
+const readSavedBase = () => {
+  try { return localStorage.getItem(BASE_STORAGE_KEY) || ''; } catch { return ''; }
 };
 
 const PhoneScanDialog = ({ open, onClose, onResult }) => {
@@ -47,17 +20,16 @@ const PhoneScanDialog = ({ open, onClose, onResult }) => {
   const [qr, setQr] = useState('');
   const [error, setError] = useState('');
   const [phase, setPhase] = useState('idle'); // idle | waiting | processing | done | error
-  const detectedHost = window.location.hostname;
-  const [host, setHost] = useState(() => readSavedHost()
-    || (classifyHost(detectedHost).level !== 'error' ? detectedHost : ''));
+  const [baseInput, setBaseInput] = useState(() => readSavedBase() || defaultBase());
   const pollRef = useRef(null);
-  const hostClass = classifyHost(host);
-  const url = buildUrl(sessionId, host);
 
-  const updateHost = (v) => {
-    const val = v.trim();
-    setHost(val);
-    try { localStorage.setItem(HOST_STORAGE_KEY, val); } catch { /* ignore */ }
+  const base = normalizeBase(baseInput);
+  const baseClass = classifyBase(base);
+  const url = buildCaptureUrl(sessionId, base);
+
+  const updateBase = (v) => {
+    setBaseInput(v);
+    try { localStorage.setItem(BASE_STORAGE_KEY, v.trim()); } catch { /* ignore */ }
   };
 
   const stopPoll = () => { if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; } };
@@ -87,7 +59,8 @@ const PhoneScanDialog = ({ open, onClose, onResult }) => {
     stopPoll();
     pollRef.current = setInterval(async () => {
       try {
-        const s = (await getCaptureStatus(sessionId)).data?.status;
+        const d = (await getCaptureStatus(sessionId)).data;
+        const s = d?.status;
         if (s === 'PROCESSING') setPhase('processing');
         else if (s === 'READY') {
           stopPoll();
@@ -99,7 +72,11 @@ const PhoneScanDialog = ({ open, onClose, onResult }) => {
         } else if (s === 'EXPIRED' || s === 'NOT_FOUND') {
           stopPoll(); setError('This code expired. Close and try again.'); setPhase('error');
         } else if (s === 'ERROR') {
-          stopPoll(); setError('The phone photo could not be read. Ask them to retake it.'); setPhase('error');
+          // The server knows whether the photo was unreadable or simply wasn't an
+          // invoice — two problems with different fixes, so show the real one.
+          stopPoll();
+          setError(d?.error || 'The phone photo could not be read. Ask them to retake it.');
+          setPhase('error');
         }
       } catch { /* transient — keep polling */ }
     }, 2000);
@@ -117,31 +94,21 @@ const PhoneScanDialog = ({ open, onClose, onResult }) => {
       <DialogContent dividers sx={{ textAlign: 'center' }}>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-        <Alert severity="info" sx={{ mb: 2, textAlign: 'left' }}>
-          Your <b>phone must be on the same Wi-Fi</b> as this computer (not mobile data),
-          and this must be your PC’s <b>Wi-Fi IP</b> — usually <code>192.168.x.x</code>.
-          Find it with <code>ipconfig</code> → IPv4 Address. Avoid Tailscale/VPN addresses.
+        <Alert severity={baseClass.level === 'error' ? 'warning' : 'info'} sx={{ mb: 2, textAlign: 'left' }}>
+          {baseClass.note || 'Enter the address your phone should open.'}
         </Alert>
 
         <TextField
           fullWidth size="small" sx={{ mb: 0.5 }}
-          label="Computer’s Wi-Fi IP address"
-          placeholder="192.168.1.40"
-          value={host}
-          onChange={(e) => updateHost(e.target.value)}
-          error={Boolean(host) && hostClass.level === 'error'}
+          label="Address your phone will open"
+          placeholder="192.168.1.44:8090"
+          value={baseInput}
+          onChange={(e) => updateBase(e.target.value)}
+          error={Boolean(baseInput) && baseClass.level === 'error'}
         />
-        {host && hostClass.warn && (
-          <Typography sx={{ color: hostClass.level === 'error' ? colors.danger : colors.textSecondary,
-            fontSize: '0.75rem', textAlign: 'left', mb: 1.5 }}>
-            {hostClass.warn}
-          </Typography>
-        )}
-        {(!host || !hostClass.warn) && (
-          <Typography sx={{ color: colors.textMuted, fontSize: '0.72rem', textAlign: 'left', mb: 1.5 }}>
-            Detected this page’s host: <code>{detectedHost}</code>
-          </Typography>
-        )}
+        <Typography sx={{ color: colors.textMuted, fontSize: '0.72rem', textAlign: 'left', mb: 1.5 }}>
+          Include the port for a Wi-Fi address (e.g. <code>192.168.1.44:8090</code>).
+        </Typography>
 
         <Typography sx={{ color: colors.textSecondary, mb: 2, fontSize: '0.9rem' }}>
           Scan this with your phone camera, then take a photo of the invoice.
@@ -155,7 +122,7 @@ const PhoneScanDialog = ({ open, onClose, onResult }) => {
             <Box sx={{ display: 'grid', placeItems: 'center', gap: 1.5 }}>
               <CircularProgress />
               <Typography sx={{ color: colors.textMuted, fontSize: '0.85rem' }}>
-                {!host ? 'Enter your Wi-Fi IP above to show the code' : 'Preparing code…'}
+                {!base ? 'Enter an address above to show the code' : 'Preparing code…'}
               </Typography>
             </Box>
           )}

@@ -80,6 +80,23 @@ public class DataInitializer implements CommandLineRunner {
             return;
         }
 
+        // Seeding was asked for but there is nothing to seed with. On a fresh database
+        // that leaves a running application with no account able to sign in, and the
+        // operator has no way to tell from the outside — so say so loudly rather than
+        // skipping it quietly at debug level.
+        if (isBlank(adminEmail) || isBlank(adminPassword)) {
+            log.warn("""
+
+                    ***********************************************************************
+                    * SEED_DEFAULT_USERS is true but SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD
+                    * are not both set, so NO admin account was created.{}
+                    * Set both in .env and restart:  docker compose up -d backend
+                    ***********************************************************************""",
+                    userRepository.count() == 0
+                            ? " The database has no users at all — nobody can sign in."
+                            : "");
+        }
+
         // Seeding is a convenience, never a startup requirement. A failure here must not
         // stop the application: the existing accounts in the database are still valid and
         // users must be able to sign in with them.
@@ -162,6 +179,10 @@ public class DataInitializer implements CommandLineRunner {
         } catch (Exception ex) {
             log.debug("DISCONTINUED to INACTIVE migration skipped: {}", ex.getMessage());
         }
+    }
+
+    private static boolean isBlank(String s) {
+        return s == null || s.isBlank();
     }
 
     private void seedUser(String email, String password, Role role) {

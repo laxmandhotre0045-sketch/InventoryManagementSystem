@@ -50,8 +50,15 @@ public class MobileCaptureController {
     @Operation(summary = "Session status (public — polled by phone and desktop)")
     @GetMapping("/{sessionId}/status")
     public ResponseEntity<ApiResponse<Map<String, String>>> status(@PathVariable String sessionId) {
-        return ResponseEntity.ok(ApiResponse.success("OK",
-                Map.of("status", mobileCaptureService.status(sessionId))));
+        Map<String, String> body = new java.util.HashMap<>();
+        body.put("status", mobileCaptureService.status(sessionId));
+        // Carries the real reason on ERROR so the desktop can say "that wasn't an
+        // invoice" instead of sending the operator off to retake a fine photo.
+        String error = mobileCaptureService.error(sessionId);
+        if (error != null) {
+            body.put("error", error);
+        }
+        return ResponseEntity.ok(ApiResponse.success("OK", body));
     }
 
     @Operation(summary = "Upload a phone-captured invoice image (public, session-scoped)")

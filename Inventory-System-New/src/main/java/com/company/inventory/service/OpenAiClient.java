@@ -64,15 +64,36 @@ public class OpenAiClient {
      * @param jsonMode       when true, requests a strict JSON object response
      * @return the assistant's message content as a String (JSON text when jsonMode)
      */
+    /**
+     * True for the GPT-4 generation (gpt-4o, gpt-4.1, gpt-4-turbo...), which takes
+     * {@code max_tokens} and an explicit temperature. Anything else is treated as the
+     * newer generation, so a model released after this code was written works without
+     * an edit here.
+     */
+    private static boolean isGpt4Family(String model) {
+        String m = model == null ? "" : model.toLowerCase(java.util.Locale.ROOT);
+        return m.startsWith("gpt-4") || m.startsWith("gpt-3");
+    }
+
     public String chat(String systemPrompt, Object userContent, boolean jsonMode) {
         if (!isConfigured()) {
             throw new IllegalStateException("OpenAI is not configured (set OPENAI_API_KEY)");
         }
 
         Map<String, Object> body = new java.util.HashMap<>();
-        body.put("model", props.getModel());
-        body.put("temperature", 0);
-        body.put("max_tokens", 4096);
+        String model = props.getModel();
+        body.put("model", model);
+        // The two model families take different parameters, and sending the wrong ones
+        // is a hard 400 rather than something ignored: GPT-4-era models want
+        // "max_tokens" and accept an explicit temperature, while GPT-5-era models
+        // require "max_completion_tokens" and reject any temperature but the default.
+        // Keeping both shapes here is what lets OPENAI_MODEL be switched in .env alone.
+        if (isGpt4Family(model)) {
+            body.put("temperature", 0);
+            body.put("max_tokens", 4096);
+        } else {
+            body.put("max_completion_tokens", 8192);
+        }
         if (jsonMode) {
             body.put("response_format", Map.of("type", "json_object"));
         }

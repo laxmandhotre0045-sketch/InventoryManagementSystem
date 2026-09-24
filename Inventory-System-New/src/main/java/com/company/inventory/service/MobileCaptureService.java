@@ -29,4 +29,13 @@ public interface MobileCaptureService {
 
     /** The extracted invoice once status is READY, else null. */
     ExtractInvoiceResponse result(String sessionId);
+
+    /**
+     * Why the session failed, once status is ERROR; null otherwise.
+     *
+     * <p>The desktop is polling status and has no other way to learn whether the phone
+     * sent an unreadable photo or something that simply wasn't an invoice — two
+     * problems with very different fixes.</p>
+     */
+    String error(String sessionId);
 }

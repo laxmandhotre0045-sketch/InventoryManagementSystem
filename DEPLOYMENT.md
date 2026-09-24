@@ -67,12 +67,28 @@ stack will not start or will be insecure.
 | `JWT_SECRET` | **REQUIRED** — a long random string | the backend **refuses to boot** under `prod` with the placeholder value. Generate one: `openssl rand -base64 48` |
 | `OPENAI_API_KEY` | your `sk-...` key | leave blank to deploy without AI |
 | `INVOICE_OCR_PROVIDER` | `openai` (if key set) else `mock` | turns real AI extraction on/off |
-| `OPENAI_MODEL` | `gpt-4o` | vision model for invoices/voice intent (default is fine) |
+| `OPENAI_MODEL` | `gpt-5.4` | **decides extraction accuracy** — see the note below the table |
 | `OPENAI_TRANSCRIBE_MODEL` | `gpt-4o-mini-transcribe` | voice speech‑to‑text (default is fine) |
 | `FRONTEND_PORT` | `8090` | host port for the web app |
 | `BACKEND_PORT` | `8091` | bound to `127.0.0.1` only (reached via the frontend's nginx) |
 | `MYSQL_PORT` | `3310` | bound to `127.0.0.1` only |
-| `CORS_ALLOWED_ORIGINS` | `*` locally, or your domain in prod | e.g. `https://inventory.example.com` |
+| `CORS_ALLOWED_ORIGINS` | every address the app is reached on | see the CORS note below — getting this wrong breaks **login**, not just cross-origin calls |
+
+**About `OPENAI_MODEL`.** This is not a cosmetic default. `gpt-4o` and `gpt-4.1` misplace
+decimal points when reading narrow invoice columns — a rate printed `30.51` comes back as
+`305.1`, or `1.50` as `1.30` — which silently multiplies stock value. `gpt-5.4` reads them
+correctly and is what this deployment is tested on. The backend cross-checks the arithmetic
+either way (see §6) and flags what it can't prove, but the model is the first line of defence.
+
+**About `CORS_ALLOWED_ORIGINS`.** Browsers attach an `Origin` header to POST requests *even
+when they are same-origin*, so this list is checked on every sign-in. If the address people
+actually use isn't listed, login fails with `403 Invalid CORS request` — which looks like a
+rejected password but never reaches authentication at all. List every address the app is
+opened on, comma-separated, including the LAN address the phone-QR feature uses:
+
+```dotenv
+CORS_ALLOWED_ORIGINS=https://inventory.example.com,http://192.168.1.44:8090
+```
 
 **First‑boot admin account (do this on a brand‑new, empty database so you can log in).**
 Set these three for the *first* start only, then turn seeding back off (step 5):
@@ -147,6 +163,15 @@ curl -s -X POST http://localhost:8090/api/v1/auth/login \
 Then open **http://localhost:8090** (or `http://<server-ip>:8090`) and log in with the
 `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` you set in step 2.
 
+If you reach the app through a domain or reverse proxy, verify login through *that* address
+too — it is the one `CORS_ALLOWED_ORIGINS` has to list:
+
+```bash
+curl -s -o /dev/null -w "%{http_code}
+" -X POST https://your-domain/api/v1/auth/login   -H "Content-Type: application/json" -H "Origin: https://your-domain"   -d '{"email":"x@x.x","password":"x"}'
+# 401 = CORS accepted, credentials rejected (correct).  403 = the origin isn't allowed.
+```
+
 Swagger API docs: **http://localhost:8091/swagger-ui.html** (backend is localhost‑only).
 
 ---
@@ -177,12 +202,30 @@ docker compose up -d --build backend frontend
 - **Invoice extraction:** in the app, **Purchases → Upload Invoice** → drop a PDF/JPG/PNG/CSV
   or use **Scan a QR to capture on your phone**. The AI fills editable line items; review and
   **Confirm Purchase** to add stock. If you see a "sample data" chip, the key is missing.
+
+  Every extraction is arithmetic-checked before you see it. An invoice states quantity, rate
+  *and* amount, so any two verify the third: a rate whose decimal point was misread breaks
+  `qty x rate = amount` by an exact power of ten and is corrected automatically. Anything that
+  cannot be proved wrong is never silently "fixed" — it is listed above the line items, and the
+  totals panel shows what the lines add up to against the invoice's printed grand total, with a
+  green tick only when they agree. **Treat an amber total as a real discrepancy to check.**
+
+- **Uploading something that isn't an invoice** (a photo of the wrong thing, notes, a
+  screenshot) is refused with `422` and a message naming what the file looks like. No line
+  items are suggested, so there is nothing to confirm into stock by accident.
 - **Voice:** the 🎤 mic in the top bar (Chrome/Edge). Speak "add 50 ESP32", review, confirm.
-- **Phone‑QR capture networking:** the phone must be able to reach the server. It needs to be
-  on the **same LAN** as the host and use the host's **LAN IP** (e.g. `192.168.x.x`) — the QR
-  dialog lets you enter it. Public/guest/5G routers that isolate clients will block this; a
-  VPN like Tailscale on both devices, or deploying behind a real domain with HTTPS, avoids it.
-  Ensure the host firewall allows inbound TCP on `FRONTEND_PORT` (8090) from the LAN.
+- **Phone‑QR capture networking:** the QR encodes the address the phone should open, shown
+  under the code so you can check it before scanning.
+
+  - **Deployed behind a domain** (the easy case): the dialog offers that domain by default and
+    the phone can scan from any network, including mobile data. Nothing else to configure.
+  - **Reached only over the LAN:** enter the host's Wi-Fi IP **with the port**, e.g.
+    `192.168.1.44:8090`. The phone must be on the same Wi-Fi, the firewall must allow inbound
+    TCP on `FRONTEND_PORT`, and guest/client-isolating routers will block it regardless.
+
+  A LAN address is always opened over plain `http://` — the LAN server has no TLS — so a bare
+  IP never inherits the `https` of a proxied page. `localhost` is rejected outright: it means
+  "this computer" and can never be reached from a phone.
 
 Cost note: each extraction/voice/transcription call bills the OpenAI account.
 
@@ -220,7 +263,11 @@ Persistent data lives in Docker volumes: `mysql_data` (database) and `backend_up
 | Invoice upload shows a "sample data" chip | `OPENAI_API_KEY` is blank or `INVOICE_OCR_PROVIDER` isn't `openai`. Fix `.env`, `docker compose up -d --build backend`. |
 | Voice says "not configured" | Same as above — set the OpenAI key. |
 | Voice mic does nothing | Use Chrome or Edge; allow microphone permission; the page must be `localhost` or HTTPS. |
-| Phone "site can't be reached" when scanning QR | Phone not on the same network, wrong IP (used a VPN/localhost address), or host firewall blocking 8090. See §6. |
+| Phone "site can't be reached" when scanning QR | Check the URL printed under the QR. For a LAN address it must include the port (`192.168.1.44:8090`) and use `http://`. Otherwise: phone on another network, a VPN/localhost address, or the firewall blocking `FRONTEND_PORT`. See §6. |
+| Login fails with **403** (not 401) | The address you're using isn't in `CORS_ALLOWED_ORIGINS`. Add it, then `docker compose up -d backend`. The backend logs the active list at startup: `CorsConfig : CORS allowed origins: [...]`. |
+| Extracted prices are off by a factor of 10 | `OPENAI_MODEL` is a GPT-4-era model. Set `OPENAI_MODEL=gpt-5.4` and `docker compose up -d backend`. See §2. |
+| Invoice upload returns 422 | The file wasn't recognised as an invoice, or couldn't be read. The message says which. This is the intended refusal, not a fault. |
+| Totals panel shows "Off by ..." | The lines genuinely don't reconcile with the invoice's printed total. Check the flagged lines against the document before confirming — do not confirm a mismatch. |
 | AI extraction is slow or times out | Large photos — the app already downscales; ensure a stable connection. `OPENAI_TIMEOUT_MS` can be raised in `.env`. |
 
 ---
@@ -231,11 +278,55 @@ Persistent data lives in Docker volumes: `mysql_data` (database) and `backend_up
 - [ ] `MYSQL_ROOT_PASSWORD` is strong and unique.
 - [ ] `SEED_DEFAULT_USERS=false` after the first admin is created.
 - [ ] `OPENAI_API_KEY` is set only in `.env` on the host — **never committed**.
-- [ ] `CORS_ALLOWED_ORIGINS` restricted to your real domain in production.
+- [ ] `CORS_ALLOWED_ORIGINS` lists your real addresses and not `*` — and you have signed in
+      through each one to confirm (a missing origin gives 403, not 401).
 - [ ] Backend (`8091`) and MySQL (`3310`) stay bound to `127.0.0.1` (already the default).
 - [ ] **Rotate secrets:** earlier git history contains a previous `.env`. Rotate the DB
       password and `JWT_SECRET` on the server so any leaked historical values are useless.
 - [ ] Put the frontend behind HTTPS (reverse proxy / domain) for internet exposure.
+- [ ] A database dump has been taken **and restored into a throwaway container to prove it
+      works** (§10). An unverified backup is not a backup.
+- [ ] The historical dump committed at `backups/inventory-backup-20260817-134342.sql`
+      contains a real account and its password hash. It is public in git history, so that
+      account's password must be changed in the app — deleting the file does not undo it.
+
+---
+
+## 10. Backing up the database
+
+Take a dump before any upgrade, and on a schedule once there is real data in it. The
+volume survives `docker compose down`, but not `down -v`, and not a lost disk.
+
+```bash
+# reads MYSQL_ROOT_PASSWORD from .env
+set -a && . ./.env && set +a
+docker exec inventory-mysql mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD"   --single-transaction --routines --triggers --databases inventory   > "backups/inventory-backup-$(date +%Y%m%d-%H%M%S).sql"
+```
+
+`--single-transaction` takes a consistent snapshot without locking the app out.
+
+**Verify the dump rather than trusting it** — restore it into a throwaway container, which
+never touches the live database:
+
+```bash
+docker run -d --name restore-test -e MYSQL_ROOT_PASSWORD=verifyonly mysql:8.0
+# wait for it to accept connections, then:
+docker exec -i restore-test mysql -uroot -pverifyonly < backups/<your-dump>.sql
+docker exec restore-test mysql -uroot -pverifyonly -e   "SELECT COUNT(*) FROM inventory.components; SELECT COUNT(*) FROM inventory.users;"
+docker rm -f restore-test
+```
+
+Dumps are git-ignored (`backups/*.sql`): they contain user rows and password hashes and
+must never be committed.
+
+To restore over the live database, stop the backend first so nothing writes mid-restore:
+
+```bash
+docker compose stop backend
+set -a && . ./.env && set +a
+docker exec -i inventory-mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" < backups/<your-dump>.sql
+docker compose start backend
+```
 
 ---
 

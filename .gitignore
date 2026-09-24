@@ -8,6 +8,13 @@
 # so the committed default is allowed; local/tunnel overrides go in .env.local.
 !inventory-management-system-frontend/.env
 
+# Database dumps — they contain user rows and password hashes. Never commit a new
+# one. (The single historical dump already in git is referenced by DEPLOYMENT.md's
+# restore path; rotate the credentials it contains rather than relying on secrecy.)
+backups/*.sql
+db-backups/*.sql
+*.sql.gz
+
 # =============================================================================
 # Backend (Maven / Java)
 # =============================================================================
