@@ -95,6 +95,46 @@ const completionOf = (p) => {
   return 0;
 };
 
+// ---- Bright, light-filled look for this page ---------------------------------------
+// Panels read as frosted glass lifted off a softly lit backdrop: near-white, a hairline
+// white rim, and a faint cool glow underneath instead of a grey drop shadow.
+const brightPanelSx = {
+  background: 'linear-gradient(180deg, rgba(255,255,255,0.97) 0%, rgba(255,255,255,0.88) 100%)',
+  backdropFilter: 'blur(8px)',
+  border: '1px solid rgba(255,255,255,0.95)',
+  boxShadow: '0 1px 0 rgba(255,255,255,1) inset, 0 0 0 1px rgba(34,73,127,0.06), 0 16px 40px -22px rgba(44,92,158,0.35)',
+  transition: 'box-shadow .25s ease',
+  '&:hover': {
+    boxShadow: '0 1px 0 rgba(255,255,255,1) inset, 0 0 0 1px rgba(34,73,127,0.08), 0 22px 48px -22px rgba(44,92,158,0.45)',
+  },
+};
+
+// Soft pools of light behind the content — sky blue top-left, warm sun top-right,
+// mint lower down — so the page itself glows rather than sitting on flat beige.
+const lightBackdropSx = {
+  position: 'relative',
+  isolation: 'isolate',
+  '&::before': {
+    content: '""', position: 'absolute', zIndex: -1, pointerEvents: 'none',
+    inset: { xs: '-16px', md: '-24px' },
+    borderRadius: 4,
+    background: [
+      'radial-gradient(900px 420px at 0% 0%, rgba(147,197,253,0.38), transparent 60%)',
+      'radial-gradient(700px 380px at 100% 0%, rgba(253,224,171,0.45), transparent 60%)',
+      'radial-gradient(800px 420px at 55% 85%, rgba(167,243,208,0.30), transparent 65%)',
+      'linear-gradient(180deg, #FFFFFF 0%, #FAFBFD 100%)',
+    ].join(', '),
+  },
+};
+
+// A glowing fill for progress bars, in the bar's own colour.
+const glowBar = (color) => ({
+  borderRadius: 999,
+  bgcolor: color,
+  backgroundImage: 'linear-gradient(90deg, rgba(255,255,255,0.35), rgba(255,255,255,0) 60%)',
+  boxShadow: `0 0 10px ${color}66`,
+});
+
 const DashboardPage = () => {
   const { role, email } = useAuth();
   const navigate = useNavigate();
@@ -212,7 +252,7 @@ const DashboardPage = () => {
     : `${low} low-stock and ${out} out-of-stock item${attention === 1 ? '' : 's'} need attention.`;
 
   return (
-    <Box>
+    <Box sx={lightBackdropSx}>
       {/* Header */}
       <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: 2, mb: 2.5 }}>
         <Box>
@@ -238,7 +278,16 @@ const DashboardPage = () => {
               </span>
             </Tooltip>
             <Tooltip title="Record a stock in or stock out movement">
-              <Button variant="contained" startIcon={<Boxes size={16} />} onClick={() => navigate('/inventory')}>Record Movement</Button>
+              <Button
+                variant="contained" startIcon={<Boxes size={16} />} onClick={() => navigate('/inventory')}
+                sx={{
+                  backgroundImage: 'linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0))',
+                  boxShadow: '0 8px 22px -8px rgba(34,73,127,0.65), 0 0 0 1px rgba(255,255,255,0.12) inset',
+                  '&:hover': { boxShadow: '0 12px 28px -8px rgba(34,73,127,0.75), 0 0 0 1px rgba(255,255,255,0.16) inset' },
+                }}
+              >
+                Record Movement
+              </Button>
             </Tooltip>
           </Box>
         )}
@@ -253,11 +302,11 @@ const DashboardPage = () => {
             {m?.tip ? (
               <Tooltip title={m.tip} placement="top" arrow>
                 <Box sx={{ height: '100%' }}>
-                  <MetricCard loading={loading} icon={m.icon} title={m.title} value={m.value} caption={m.caption} tone={m.tone} />
+                  <MetricCard loading={loading} icon={m.icon} title={m.title} value={m.value} caption={m.caption} tone={m.tone} glow />
                 </Box>
               </Tooltip>
             ) : (
-              <MetricCard loading={loading} icon={m?.icon} title={m?.title} value={m?.value} caption={m?.caption} tone={m?.tone} />
+              <MetricCard loading={loading} icon={m?.icon} title={m?.title} value={m?.value} caption={m?.caption} tone={m?.tone} glow />
             )}
           </Grid>
         ))}
@@ -266,12 +315,12 @@ const DashboardPage = () => {
       {/* Stock health + low stock alerts */}
       <Grid container spacing={2} sx={{ mb: 2 }}>
         <Grid item xs={12} lg={5}>
-          <ChartCard title="Stock Health" subtitle="Components by stock status">
+          <ChartCard title="Stock Health" subtitle="Components by stock status" sx={brightPanelSx}>
             {stockStatus.length === 0 ? (
               <EmptyState dense icon={Boxes} title="No stock data" description="Component status will appear here once components exist." />
             ) : (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 3.5, flexWrap: 'wrap' }}>
-                <Box sx={{ position: 'relative', width: 168, height: 168, flexShrink: 0 }}>
+                <Box sx={{ position: 'relative', width: 168, height: 168, flexShrink: 0, filter: 'drop-shadow(0 8px 18px rgba(60,140,106,0.30))' }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
@@ -345,6 +394,7 @@ const DashboardPage = () => {
 
         <Grid item xs={12} lg={7}>
           <ChartCard
+            sx={brightPanelSx}
             title="Low Stock Alerts"
             subtitle="Components at or below their reorder point"
             action={admin && lowStock.length > 0 ? (
@@ -388,7 +438,7 @@ const DashboardPage = () => {
                       <Tooltip title={`On hand is ${pct}% of the reorder level`} placement="bottom-start">
                         <LinearProgress
                           variant="determinate" value={pct}
-                          sx={{ height: 7, borderRadius: 999, bgcolor: colors.hover, '& .MuiLinearProgress-bar': { borderRadius: 999, bgcolor: isOut ? colors.danger : colors.warning } }}
+                          sx={{ height: 7, borderRadius: 999, bgcolor: colors.hover, '& .MuiLinearProgress-bar': glowBar(isOut ? colors.danger : colors.warning) }}
                         />
                       </Tooltip>
                     </Box>
@@ -404,6 +454,7 @@ const DashboardPage = () => {
       <Grid container spacing={2}>
         <Grid item xs={12} lg={7}>
           <ChartCard
+            sx={brightPanelSx}
             title="Recent Activity"
             subtitle="Latest stock movements"
             action={<Button variant="text" size="small" onClick={() => navigate('/inventory')}>View all</Button>}
@@ -447,6 +498,7 @@ const DashboardPage = () => {
 
         <Grid item xs={12} lg={5}>
           <ChartCard
+            sx={brightPanelSx}
             title="Projects"
             subtitle="Timeline progress and ownership"
             action={<Button variant="text" size="small" onClick={() => navigate('/projects')}>View all</Button>}
@@ -484,7 +536,7 @@ const DashboardPage = () => {
                         <Tooltip title={onHold ? 'Paused — no timeline progress' : `${pct}% of the schedule elapsed`} placement="bottom-start" sx={{ flexGrow: 1 }}>
                           <LinearProgress
                             variant="determinate" value={onHold ? 0 : pct}
-                            sx={{ flexGrow: 1, height: 10, borderRadius: 999, bgcolor: colors.hover, '& .MuiLinearProgress-bar': { borderRadius: 999, bgcolor: p.status === 'COMPLETED' ? colors.success : colors.primary } }}
+                            sx={{ flexGrow: 1, height: 10, borderRadius: 999, bgcolor: colors.hover, '& .MuiLinearProgress-bar': glowBar(p.status === 'COMPLETED' ? colors.success : colors.primary) }}
                           />
                         </Tooltip>
                         <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: onHold ? colors.textMuted : colors.textPrimary, minWidth: 34, textAlign: 'right' }}>
