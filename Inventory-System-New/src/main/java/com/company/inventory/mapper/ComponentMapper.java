@@ -29,6 +29,8 @@ public class ComponentMapper {
                 .unit(request.getUnit())
                 .location(request.getLocation())
                 .rackNo(request.getRackNo())
+                .type(trimToNull(request.getType()))
+                .value(trimToNull(request.getValue()))
                 .description(request.getDescription())
                 // Null is fine: @PrePersist defaults a new component to ACTIVE.
                 .status(request.getStatus())
@@ -60,11 +62,22 @@ public class ComponentMapper {
         response.setUnit(item.getUnit());
         response.setLocation(item.getLocation());
         response.setRackNo(item.getRackNo());
+        response.setType(item.getType());
+        response.setValue(item.getValue());
         response.setStatus(item.getStatus() != null ? item.getStatus().name() : null);
         response.setDescription(item.getDescription());
         response.setCreatedAt(item.getCreatedAt());
         response.setUpdatedAt(item.getUpdatedAt());
         return response;
+    }
+
+    /** Blank and whitespace-only strings collapse to null so they are stored uniformly. */
+    private static String trimToNull(String s) {
+        if (s == null) {
+            return null;
+        }
+        String t = s.trim();
+        return t.isEmpty() ? null : t;
     }
 
     public void updateEntity(ComponentRequest request, ComponentItem item, ComponentCategory category) {
@@ -84,6 +97,15 @@ public class ComponentMapper {
         item.setUnit(request.getUnit());
         item.setLocation(request.getLocation());
         item.setRackNo(request.getRackNo());
+        // Overwritten only when the client sends a non-blank value, so an API caller that
+        // omits the field cannot wipe an existing type/value. The UI always sends both
+        // (they are required there), so edits through the app keep them in step.
+        if (trimToNull(request.getType()) != null) {
+            item.setType(request.getType().trim());
+        }
+        if (trimToNull(request.getValue()) != null) {
+            item.setValue(request.getValue().trim());
+        }
         item.setDescription(request.getDescription());
         // Only overwrite when the client actually sends a status, so existing
         // callers that omit it (and the archive/restore flow) keep working.

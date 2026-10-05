@@ -4,7 +4,7 @@ import {
   Box, Button, Card, Dialog, DialogActions, DialogContent, DialogTitle,
   IconButton, TextField, MenuItem, Snackbar, Alert, Grid, Tooltip, Chip, InputAdornment, Typography,
 } from '@mui/material';
-import { Plus, Pencil, Trash2, RotateCcw, Filter, X, AlertTriangle, CircuitBoard, Search, Layers } from 'lucide-react';
+import { Plus, Pencil, Trash2, RotateCcw, Filter, X, AlertTriangle, CircuitBoard, Search } from 'lucide-react';
 import {
   getComponents, createComponent, updateComponent, deleteComponent, restoreComponent, getLowStockComponents,
 } from '../api/componentApi';
@@ -19,31 +19,13 @@ import { formatCurrency as currency, CURRENCY_SYMBOL } from '../utils/currency';
 import { colors } from '../theme/tokens';
 
 const emptyForm = {
-  componentName: '', categoryId: '', quantity: 0, minimumQuantity: 0, unitPrice: '',
+  componentName: '', categoryId: '', type: '', value: '', quantity: 0, minimumQuantity: 0, unitPrice: '',
   location: '', rackNo: '', status: 'ACTIVE', description: '',
 };
 
 // Sentinel value for the "create a new category" row in the category dropdown.
 // Not a valid id, so it can never be mistaken for a real selection.
 const NEW_CATEGORY = '__new__';
-
-/**
- * Selected category reads as a filled brand pill; the rest stay quiet outlines.
- * Selection has to survive a glance across a dozen chips, so it carries colour,
- * weight and border together rather than relying on any one of them.
- */
-const chipSx = (selected) => ({
-  fontWeight: selected ? 700 : 500,
-  fontSize: '0.75rem',
-  cursor: 'pointer',
-  bgcolor: selected ? colors.primary : colors.paper,
-  color: selected ? colors.textInverse : colors.textSecondary,
-  border: `1px solid ${selected ? colors.primary : colors.border}`,
-  '&:hover': { bgcolor: selected ? colors.primaryHover : colors.primarySoft },
-});
-
-/** "Resistor (4)", or just "Resistor" until the count has loaded. */
-const categoryLabel = (c) => (c.componentCount == null ? c.name : `${c.name} (${c.componentCount})`);
 
 // Two states only. ARCHIVED still exists in the data model to back the soft delete,
 // but it is set by the archive/restore actions — never chosen from this list.
@@ -175,50 +157,26 @@ const ComponentsPage = () => {
   const createInCategoryId = routerLocation.state?.createInCategoryId;
   useEffect(() => {
     if (!createInCategoryId) return;
-    setCategoryId(createInCategoryId);
-    setPage(0);
+    // Only preselect the category in the create form — the page itself no longer
+    // filters by category (the rail is gone), so the list keeps showing everything.
     setEditId(null);
     setForm({ ...emptyForm, categoryId: createInCategoryId });
     setDialogOpen(true);
     navigate(routerLocation.pathname, { replace: true, state: null });
   }, [createInCategoryId, navigate, routerLocation.pathname]);
 
-  /** The category currently being browsed, or null when showing all. */
-  const activeCategory = categories.find((c) => c.id === categoryId) || null;
-
-  // Sum of the per-category counts rather than the page's total: it has to stay
-  // right while a category filter is narrowing the list below it.
-  const totalInCategories = categories.reduce((sum, c) => sum + (c.componentCount || 0), 0);
-
   /** The category the open form will save into. */
   const formCategory = categories.find((c) => c.id === Number(form.categoryId)) || null;
 
-  // Says which of the three states the field is in: nothing chosen yet, carried in
-  // from the category being browsed, or picked deliberately. The inherited case is
-  // called out because it is the one the user did not type — it should be obvious
-  // it can be changed, not something noticed only after saving.
+  // Either nothing is chosen yet, or a category has been picked in the form.
   let categoryHelperText = ' ';
   if (form.categoryId === '') {
     categoryHelperText = 'Required — choose the category this component belongs to.';
-  } else if (!editId && activeCategory && Number(form.categoryId) === activeCategory.id) {
-    categoryHelperText = `From the ${activeCategory.name} category you are viewing. Change it here if needed.`;
   }
 
-  const selectCategory = (value) => { setCategoryId(value); setPage(0); };
-
-  /**
-   * A new component inherits the category being browsed.
-   *
-   * <p>Adding a resistor is almost always something you do while looking at the
-   * resistors, so pre-selecting the filtered category saves the step and stops a
-   * component from quietly landing in the wrong place. It is a default, not a
-   * constraint — the form still shows the field and it can be changed before saving.
-   * With "All Categories" selected there is nothing to inherit, so the field starts
-   * empty and must be filled in.</p>
-   */
   const openCreate = () => {
     setEditId(null);
-    setForm({ ...emptyForm, categoryId: activeCategory ? activeCategory.id : '' });
+    setForm({ ...emptyForm });
     setDialogOpen(true);
   };
   const openEdit = (row) => {
@@ -228,6 +186,7 @@ const ComponentsPage = () => {
       // handleSave has something to strip; it is simply no longer shown.
       itemCode: row.itemCode || '',
       componentName: row.componentName || '', categoryId: row.categoryId ?? '',
+      type: row.type || '', value: row.value || '',
       quantity: row.quantity ?? 0, minimumQuantity: row.minimumQuantity ?? 0,
       unitPrice: row.unitPrice ?? '', location: row.location || '',
       rackNo: row.rackNo || '',
@@ -278,6 +237,16 @@ const ComponentsPage = () => {
     // form rather than a validation error after a round trip.
     if (form.categoryId === '' || form.categoryId == null) {
       setSnack({ open: true, message: 'Please select a category', severity: 'error' });
+      return;
+    }
+    // Type and Value complete the Category → Type → Value structure and are required
+    // for every component entered through the app.
+    if (!form.type.trim()) {
+      setSnack({ open: true, message: 'Please enter a Type (e.g. SMD, axial)', severity: 'error' });
+      return;
+    }
+    if (!form.value.trim()) {
+      setSnack({ open: true, message: 'Please enter a Value (e.g. 4.7kΩ, 100µF)', severity: 'error' });
       return;
     }
     try {
@@ -352,6 +321,8 @@ const ComponentsPage = () => {
         : <Box component="span" sx={{ color: colors.textMuted }}>—</Box>),
     },
     { field: 'category', headerName: 'Category', render: (row) => row.category || <Box component="span" sx={{ color: colors.textMuted }}>—</Box> },
+    { field: 'type', headerName: 'Type', render: (row) => row.type || <Box component="span" sx={{ color: colors.textMuted }}>—</Box> },
+    { field: 'value', headerName: 'Value', render: (row) => row.value || <Box component="span" sx={{ color: colors.textMuted }}>—</Box> },
     {
       field: 'quantity', headerName: 'Quantity', align: 'right',
       render: (row) => (
@@ -415,53 +386,14 @@ const ComponentsPage = () => {
         }
       />
 
-      {/* The category rail sits above the other filters because it is the primary way
-          the catalogue is navigated — one click, no dropdown to open, and the current
-          selection is legible at a glance rather than hidden inside a closed control. */}
-      <Card sx={{ p: 2, mb: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5, flexWrap: 'wrap' }}>
-          <Layers size={16} color={colors.textMuted} />
-          <Typography sx={{ fontSize: '0.8125rem', fontWeight: 650 }}>Categories</Typography>
-          <Typography sx={{ fontSize: '0.75rem', color: colors.textMuted }}>
-            {activeCategory
-              ? `Showing ${activeCategory.name} only`
-              : 'Showing every category'}
-          </Typography>
-          <Box sx={{ flexGrow: 1 }} />
-          {writeAccess && (
-            <Button size="small" variant="text" startIcon={<Plus size={15} />}
-              onClick={() => { setNewCategoryName(''); setNewCategoryOpen(true); }}>
-              New Category
-            </Button>
-          )}
-        </Box>
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-          <Chip
-            label={`All Categories (${totalInCategories})`}
-            onClick={() => selectCategory('')}
-            sx={chipSx(categoryId === '')}
-          />
-          {categories.map((c) => (
-            <Chip
-              key={c.id}
-              label={categoryLabel(c)}
-              onClick={() => selectCategory(c.id)}
-              sx={chipSx(categoryId === c.id)}
-            />
-          ))}
-          {categories.length === 0 && (
-            <Typography sx={{ fontSize: '0.8125rem', color: colors.textMuted }}>
-              No categories yet. Create one to start organising components.
-            </Typography>
-          )}
-        </Box>
-      </Card>
+      {/* The category rail was removed: category browsing now lives on the dedicated
+          Component Categories page, which drills Category → Type → Value. */}
 
       <Card sx={{ p: 2, mb: 2.5 }}>
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} sm={6} md={4.5}>
             <TextField label="Search components" size="small" fullWidth value={keyword}
-              placeholder="Name, rack no, category, location…"
+              placeholder="Any words — name, type, value, category, rack…"
               onChange={(e) => setKeyword(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && fetchData()}
               InputProps={{ startAdornment: <InputAdornment position="start"><Search size={17} color={colors.textMuted} /></InputAdornment> }} />
           </Grid>
@@ -562,6 +494,26 @@ const ComponentsPage = () => {
                   </MenuItem>
                 )}
               </TextField>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Type" fullWidth required
+                placeholder="e.g. SMD, axial, ceramic"
+                inputProps={{ maxLength: 100 }}
+                error={form.type.trim() === ''}
+                helperText="The sub-type within the category (Category → Type → Value)."
+                value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Value" fullWidth required
+                placeholder="e.g. 4.7kΩ, 100µF, 16MHz"
+                inputProps={{ maxLength: 100 }}
+                error={form.value.trim() === ''}
+                helperText="The specific value within the type."
+                value={form.value} onChange={(e) => setForm({ ...form, value: e.target.value })}
+              />
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField

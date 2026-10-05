@@ -28,6 +28,26 @@ public class ComponentRequest {
     @NotNull(message = "Category is required")
     private Long categoryId;
 
+    /**
+     * The sub-type within the category — e.g. "SMD" or "axial" for a resistor. Required
+     * on every create/update so the Category → Type → Value structure is always complete
+     * for anything entered through the app. Components that predate this field keep a null
+     * value in the database until they are next edited, at which point it becomes required.
+     */
+    @Schema(description = "Sub-type within the category", example = "SMD")
+    @NotBlank(message = "Type is required")
+    @Size(max = 100, message = "Type must be at most 100 characters")
+    private String type;
+
+    /**
+     * The specific value within the type — e.g. "4.7kΩ", "100µF". Required alongside
+     * {@link #type}; see that field for why existing rows may still be null.
+     */
+    @Schema(description = "Specific value within the type", example = "4.7kΩ")
+    @NotBlank(message = "Value is required")
+    @Size(max = 100, message = "Value must be at most 100 characters")
+    private String value;
+
     @Schema(description = "Quantity available in stock", example = "20")
     @NotNull(message = "Quantity is required")
     @Min(value = 0, message = "Quantity cannot be negative")
