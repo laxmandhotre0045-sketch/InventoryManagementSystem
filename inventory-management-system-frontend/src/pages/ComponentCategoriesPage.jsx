@@ -20,6 +20,7 @@ import ConfirmDialog from '../components/common/ConfirmDialog';
 import { PageHeader, SearchBar, EmptyState } from '../components/ui';
 import useDebouncedValue from '../hooks/useDebouncedValue';
 import { colors } from '../theme/tokens';
+import { compareValues, compareLabels } from '../utils/valueSort';
 
 const emptyCategoryForm = { name: '', description: '' };
 
@@ -130,13 +131,13 @@ const ComponentCategoriesPage = () => {
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key).push(c);
     });
-    const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+    const valueOf = (c) => (c.value && c.value.trim()) || UNSPECIFIED_VALUE;
     return [...groups.entries()]
-      .sort((a, b) => collator.compare(a[0], b[0]))
+      .sort((a, b) => compareLabels(a[0], b[0], UNSPECIFIED_TYPE))
       .map(([type, rows]) => [
         type,
-        [...rows].sort((x, y) => collator.compare(String(x.value || ''), String(y.value || ''))
-          || collator.compare(x.componentName || '', y.componentName || '')),
+        [...rows].sort((x, y) => compareValues(valueOf(x), valueOf(y), UNSPECIFIED_VALUE)
+          || compareLabels(x.componentName, y.componentName)),
       ]);
   }, [components]);
 
@@ -165,9 +166,8 @@ const ComponentCategoriesPage = () => {
       if (!map.has(key)) map.set(key, []);
       map.get(key).push(c);
     });
-    const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
     return [...map.entries()]
-      .sort((a, b) => collator.compare(a[0], b[0]))
+      .sort((a, b) => compareValues(a[0], b[0], UNSPECIFIED_VALUE))
       .map(([value, rows]) => ({
         key: value,
         label: value,
@@ -178,8 +178,9 @@ const ComponentCategoriesPage = () => {
   // Level 3 — the components at the selected Category → Type → Value.
   const leafComponents = useMemo(() => {
     if (selectedValue == null) return [];
-    return rowsOfSelectedType.filter(
-      (c) => ((c.value && c.value.trim()) || UNSPECIFIED_VALUE) === selectedValue);
+    return rowsOfSelectedType
+      .filter((c) => ((c.value && c.value.trim()) || UNSPECIFIED_VALUE) === selectedValue)
+      .sort((x, y) => compareLabels(x.componentName, y.componentName));
   }, [rowsOfSelectedType, selectedValue]);
 
   const openType = (type) => { setSelectedType(type); setSelectedValue(null); };
@@ -190,8 +191,9 @@ const ComponentCategoriesPage = () => {
 
   const visibleCategories = useMemo(() => {
     const q = debouncedKeyword.trim().toLowerCase();
-    if (!q) return categories;
-    return categories.filter((c) => [c.name, c.description]
+    const sorted = [...categories].sort((a, b) => compareLabels(a.name, b.name));
+    if (!q) return sorted;
+    return sorted.filter((c) => [c.name, c.description]
       .some((field) => String(field || '').toLowerCase().includes(q)));
   }, [categories, debouncedKeyword]);
 
