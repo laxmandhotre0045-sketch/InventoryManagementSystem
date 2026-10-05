@@ -115,6 +115,34 @@ public class ComponentItem {
     @Column(name = "rack_no", length = 50)
     private String rackNo;
 
+    /**
+     * The sub-classification within a category, the first level below it — e.g. a
+     * Resistor's {@code SMD} or {@code axial}, a Capacitor's {@code ceramic} or
+     * {@code electrolytic}. Together with {@link #value} this gives the
+     * Category → Type → Value structure the catalogue is organised by.
+     *
+     * <p>Columns named {@code component_type}/{@code component_value} rather than
+     * {@code type}/{@code value} because both bare words are reserved in SQL and would
+     * need quoting on every generated statement.</p>
+     *
+     * <p>Nullable at the database level on purpose: the column is added to a table that
+     * already holds real components, and forcing NOT NULL would reject that existing
+     * data. New and edited components are required to set it (enforced in
+     * {@code ComponentRequest}), so the gap only ever exists on rows that predate the
+     * field, and closes as each one is next edited.</p>
+     */
+    @Column(name = "component_type", length = 100)
+    private String type;
+
+    /**
+     * The specific value within a type — e.g. {@code 4.7kΩ} for a resistor,
+     * {@code 100µF} for a capacitor. The deepest level of the
+     * Category → Type → Value structure. Nullable for the same migration-safety
+     * reason as {@link #type}.
+     */
+    @Column(name = "component_value", length = 100)
+    private String value;
+
     @Column(columnDefinition = "TEXT")
     private String description;
 

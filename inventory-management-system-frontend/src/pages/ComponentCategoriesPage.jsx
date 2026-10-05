@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Alert, Box, Button, Card, CardActionArea, Chip, CircularProgress, Dialog,
-  DialogActions, DialogContent, DialogTitle, Grid, IconButton, Snackbar,
+  Alert, Box, Breadcrumbs, Button, Card, CardActionArea, Chip, CircularProgress, Dialog,
+  DialogActions, DialogContent, DialogTitle, Grid, IconButton, Link, Snackbar,
   TextField, Tooltip, Typography,
 } from '@mui/material';
 import {
-  ArrowLeft, CircuitBoard, LayoutGrid, Package, Pencil, Plus, Trash2,
+  ArrowLeft, ChevronRight, CircuitBoard, Layers, LayoutGrid, Package, Pencil, Plus, Tag, Trash2,
 } from 'lucide-react';
 import {
   createComponentCategory, deleteComponentCategory, getComponentCategories,
@@ -22,6 +22,11 @@ import useDebouncedValue from '../hooks/useDebouncedValue';
 import { colors } from '../theme/tokens';
 
 const emptyCategoryForm = { name: '', description: '' };
+
+// Labels for components entered before Type/Value existed (null), so they still appear
+// in the drill-down instead of silently dropping out of the tree.
+const UNSPECIFIED_TYPE = 'Unspecified type';
+const UNSPECIFIED_VALUE = 'Unspecified value';
 
 /**
  * Component categories, and the components inside them.
@@ -48,8 +53,14 @@ const ComponentCategoriesPage = () => {
   const [keyword, setKeyword] = useState('');
   const debouncedKeyword = useDebouncedValue(keyword, 300);
 
-  // Null means "showing the category grid"; a category object means "showing its contents".
+  // Drill-down position inside the category section:
+  //   selected === null                          → the category grid
+  //   selected set, selectedType === null        → the Types in that category
+  //   selectedType set, selectedValue === null   → the Values of that type
+  //   selectedValue set                          → the components at that Category→Type→Value
   const [selected, setSelected] = useState(null);
+  const [selectedType, setSelectedType] = useState(null);
+  const [selectedValue, setSelectedValue] = useState(null);
   const [components, setComponents] = useState([]);
   const [componentsLoading, setComponentsLoading] = useState(false);
   const [page, setPage] = useState(0);
@@ -90,8 +101,10 @@ const ComponentCategoriesPage = () => {
     if (!selected) return;
     setComponentsLoading(true);
     try {
+      // Fetch the whole category in one request so it can be grouped Type → Value below.
+      // A category holds at most a few hundred parts, so 500 covers it without paging.
       const res = await getComponents({
-        categoryId: selected.id, page, size, sortBy: 'componentName', sortDir: 'asc',
+        categoryId: selected.id, page: 0, size: 500, sortBy: 'componentName', sortDir: 'asc',
       });
       setComponents(res.data?.content || []);
       setTotal(res.data?.totalElements || 0);
@@ -100,9 +113,80 @@ const ComponentCategoriesPage = () => {
     } finally {
       setComponentsLoading(false);
     }
-  }, [selected, page, size]);
+  }, [selected]);
 
   useEffect(() => { fetchComponents(); }, [fetchComponents]);
+
+  /**
+   * Category → Type → Value. The selected category's components, grouped by Type and,
+   * within each type, ordered by Value then Name. Components entered before Type/Value
+   * existed (null) gather under "Unspecified type" so the real data already in the system
+   * stays visible rather than disappearing from the view.
+   */
+  const groupedByType = useMemo(() => {
+    const groups = new Map();
+    components.forEach((c) => {
+      const key = (c.type && c.type.trim()) || UNSPECIFIED_TYPE;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(c);
+    });
+    const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+    return [...groups.entries()]
+      .sort((a, b) => collator.compare(a[0], b[0]))
+      .map(([type, rows]) => [
+        type,
+        [...rows].sort((x, y) => collator.compare(String(x.value || ''), String(y.value || ''))
+          || collator.compare(x.componentName || '', y.componentName || '')),
+      ]);
+  }, [components]);
+
+  // The rows of the type currently drilled into (empty until one is picked).
+  const rowsOfSelectedType = useMemo(() => {
+    if (selectedType == null) return [];
+    const entry = groupedByType.find(([t]) => t === selectedType);
+    return entry ? entry[1] : [];
+  }, [groupedByType, selectedType]);
+
+  // Level 1 — the Types in the selected category, each with its value/item counts.
+  const typeCards = useMemo(() => groupedByType.map(([type, rows]) => {
+    const values = new Set(rows.map((c) => (c.value && c.value.trim()) || UNSPECIFIED_VALUE));
+    return {
+      key: type,
+      label: type,
+      subtitle: `${values.size} value${values.size === 1 ? '' : 's'} · ${rows.length} item${rows.length === 1 ? '' : 's'}`,
+    };
+  }), [groupedByType]);
+
+  // Level 2 — the Values of the drilled-into type, each with its item count.
+  const valueCards = useMemo(() => {
+    const map = new Map();
+    rowsOfSelectedType.forEach((c) => {
+      const key = (c.value && c.value.trim()) || UNSPECIFIED_VALUE;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(c);
+    });
+    const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+    return [...map.entries()]
+      .sort((a, b) => collator.compare(a[0], b[0]))
+      .map(([value, rows]) => ({
+        key: value,
+        label: value,
+        subtitle: `${rows.length} item${rows.length === 1 ? '' : 's'}`,
+      }));
+  }, [rowsOfSelectedType]);
+
+  // Level 3 — the components at the selected Category → Type → Value.
+  const leafComponents = useMemo(() => {
+    if (selectedValue == null) return [];
+    return rowsOfSelectedType.filter(
+      (c) => ((c.value && c.value.trim()) || UNSPECIFIED_VALUE) === selectedValue);
+  }, [rowsOfSelectedType, selectedValue]);
+
+  const openType = (type) => { setSelectedType(type); setSelectedValue(null); };
+  const openValue = (value) => setSelectedValue(value);
+  const backToCategories = () => { setSelected(null); setSelectedType(null); setSelectedValue(null); };
+  const backToTypes = () => { setSelectedType(null); setSelectedValue(null); };
+  const backToValues = () => setSelectedValue(null);
 
   const visibleCategories = useMemo(() => {
     const q = debouncedKeyword.trim().toLowerCase();
@@ -166,10 +250,14 @@ const ComponentCategoriesPage = () => {
 
   const openCategory = (category) => {
     setSelected(category);
+    setSelectedType(null);
+    setSelectedValue(null);
     setPage(0);
   };
 
-  const componentColumns = [
+  // Columns for the leaf table (one Category → Type → Value). Value and Type are both
+  // in the breadcrumb path above, so the table itself need not repeat them.
+  const leafColumns = [
     { field: 'componentName', headerName: 'Name' },
     {
       field: 'rackNo', headerName: 'Rack No',
@@ -189,26 +277,83 @@ const ComponentCategoriesPage = () => {
     { field: 'location', headerName: 'Location', render: (row) => row.location || '—' },
   ];
 
-  // ---- Category contents -------------------------------------------------------------
+  // ---- Category → Type → Value drill-down --------------------------------------------
   if (selected) {
+    // Where we are in the drill decides the heading, the Back target, and the content.
+    const atValue = selectedValue != null;
+    const atType = selectedType != null;
+    const title = atValue ? selectedValue : atType ? selectedType : selected.name;
+    const subtitle = atValue
+      ? `${selected.name} › ${selectedType}`
+      : atType
+        ? `Values of ${selectedType} — pick one to see its components.`
+        : (selected.description || 'Pick a type to drill in: Type → Value → components.');
+    const back = atValue
+      ? { label: 'Back to values', onClick: backToValues }
+      : atType
+        ? { label: 'Back to types', onClick: backToTypes }
+        : { label: 'All categories', onClick: backToCategories };
+
+    const crumbLink = (label, onClick) => (
+      <Link
+        component="button" type="button" onClick={onClick} underline="hover"
+        sx={{ color: colors.textMuted, fontSize: '0.8125rem', fontWeight: 500 }}
+      >
+        {label}
+      </Link>
+    );
+    const crumbCurrent = (label) => (
+      <Typography sx={{ color: colors.textSecondary, fontSize: '0.8125rem', fontWeight: 600 }}>{label}</Typography>
+    );
+
+    // A grid of clickable cards — reused for the Types level and the Values level.
+    const drillGrid = (items, onOpen, Icon) => (
+      <Grid container spacing={2}>
+        {items.map((it) => (
+          <Grid item xs={12} sm={6} md={4} lg={3} key={it.key}>
+            <Card
+              variant="outlined"
+              sx={{
+                height: '100%', transition: 'border-color .2s, box-shadow .2s',
+                '&:hover': { borderColor: colors.primary, boxShadow: '0 4px 14px rgba(0,0,0,.06)' },
+              }}
+            >
+              <CardActionArea
+                onClick={() => onOpen(it.key)}
+                sx={{ p: 2, height: '100%', alignItems: 'flex-start', textAlign: 'left' }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, mb: 1 }}>
+                  <Box sx={{
+                    width: 34, height: 34, borderRadius: '9px', display: 'grid', placeItems: 'center',
+                    bgcolor: colors.primarySoft, color: colors.primary, flexShrink: 0,
+                  }}
+                  >
+                    <Icon size={17} />
+                  </Box>
+                  <Typography sx={{ fontWeight: 650, fontSize: '0.9375rem', minWidth: 0 }} noWrap>{it.label}</Typography>
+                </Box>
+                <Chip
+                  size="small" label={it.subtitle}
+                  sx={{ bgcolor: '#F2F1EE', color: colors.textSecondary, fontWeight: 600 }}
+                />
+              </CardActionArea>
+            </Card>
+          </Grid>
+        ))}
+      </Grid>
+    );
+
     return (
       <Box>
         <PageHeader
-          title={selected.name}
-          subtitle={selected.description || 'Components filed under this category.'}
+          title={title}
+          subtitle={subtitle}
           icon={CircuitBoard}
-          breadcrumbs={[
-            { label: 'Manage' },
-            { label: 'Component Categories' },
-            { label: selected.name },
-          ]}
+          breadcrumbs={[{ label: 'Manage' }, { label: 'Component Categories' }]}
           actions={(
             <>
-              <Button
-                variant="text" startIcon={<ArrowLeft size={16} />}
-                onClick={() => setSelected(null)}
-              >
-                All categories
+              <Button variant="text" startIcon={<ArrowLeft size={16} />} onClick={back.onClick}>
+                {back.label}
               </Button>
               {writeAccess && (
                 <Button variant="contained" startIcon={<Plus size={16} />} onClick={addComponentToCategory}>
@@ -219,25 +364,36 @@ const ComponentCategoriesPage = () => {
           )}
         />
 
-        <DataTable
-          columns={componentColumns}
-          rows={components}
-          loading={componentsLoading}
-          page={page}
-          rowsPerPage={size}
-          totalElements={total}
-          onPageChange={setPage}
-          onRowsPerPageChange={(s) => { setSize(s); setPage(0); }}
-          emptyState={{
-            icon: Package,
-            title: `No components in ${selected.name}`,
-            description: writeAccess
+        {/* Clickable path: every level above the current one jumps straight back to it. */}
+        <Breadcrumbs separator={<ChevronRight size={12} color={colors.textMuted} />} sx={{ mb: 2 }}>
+          {crumbLink('All categories', backToCategories)}
+          {atType ? crumbLink(selected.name, backToTypes) : crumbCurrent(selected.name)}
+          {atType && (atValue ? crumbLink(selectedType, backToValues) : crumbCurrent(selectedType))}
+          {atValue && crumbCurrent(selectedValue)}
+        </Breadcrumbs>
+
+        {componentsLoading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress size={26} /></Box>
+        ) : components.length === 0 ? (
+          <EmptyState
+            icon={Package}
+            title={`No components in ${selected.name}`}
+            description={writeAccess
               ? 'Add the first component to this category.'
-              : 'Nothing has been filed under this category yet.',
-            actionLabel: writeAccess ? 'Add Component' : undefined,
-            onAction: writeAccess ? addComponentToCategory : undefined,
-          }}
-        />
+              : 'Nothing has been filed under this category yet.'}
+            actionLabel={writeAccess ? 'Add Component' : undefined}
+            onAction={writeAccess ? addComponentToCategory : undefined}
+          />
+        ) : !atType ? (
+          // Level 1 — Types in this category.
+          drillGrid(typeCards, openType, Layers)
+        ) : !atValue ? (
+          // Level 2 — Values of the chosen type.
+          drillGrid(valueCards, openValue, Tag)
+        ) : (
+          // Level 3 — components at this Category → Type → Value.
+          <DataTable columns={leafColumns} rows={leafComponents} rowKey="id" minWidth={560} />
+        )}
       </Box>
     );
   }

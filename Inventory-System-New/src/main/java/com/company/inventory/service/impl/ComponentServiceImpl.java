@@ -59,7 +59,7 @@ public class ComponentServiceImpl implements ComponentService {
     public ComponentResponse createComponent(ComponentRequest request) {
         componentRepository.findByComponentName(request.getComponentName())
                 .ifPresent(existing -> {
-                    throw new IllegalArgumentException("Component name must be unique");
+                    throw new IllegalArgumentException(duplicateMessage(existing));
                 });
 
         // Resolved before the insert, so an unknown category id fails the request
@@ -80,7 +80,7 @@ public class ComponentServiceImpl implements ComponentService {
         componentRepository.findByComponentName(request.getComponentName())
                 .filter(component -> !component.getId().equals(id))
                 .ifPresent(component -> {
-                    throw new IllegalArgumentException("Component name must be unique");
+                    throw new IllegalArgumentException(duplicateMessage(component));
                 });
 
         ComponentCategory category = categoryService.requireById(request.getCategoryId());
@@ -142,8 +142,8 @@ public class ComponentServiceImpl implements ComponentService {
 
     /** Sort fields a client may request; anything else falls back to the item code. */
     private static final java.util.Set<String> SORTABLE = java.util.Set.of(
-            "itemCode", "componentName", "category", "quantity", "minimumQuantity",
-            "unitPrice", "location", "status", "createdAt", "updatedAt", "id");
+            "itemCode", "componentName", "category", "type", "value", "quantity",
+            "minimumQuantity", "unitPrice", "location", "status", "createdAt", "updatedAt", "id");
 
     /**
      * Builds the page ordering, defaulting to item code ascending.
@@ -268,28 +268,55 @@ public class ComponentServiceImpl implements ComponentService {
         return response;
     }
 
+    /**
+     * A clear, actionable message for a duplicate component name, naming the component
+     * that already exists and its code so the user can go straight to it instead of
+     * reading a generic "name must be unique". Matching is case-insensitive at the
+     * database level, so this also fires for a differently-cased spelling of the name.
+     */
+    private static String duplicateMessage(ComponentItem existing) {
+        String code = existing.getItemCode() != null ? existing.getItemCode() : "no code";
+        return String.format(
+                "A component named \"%s\" already exists (%s, %d in stock). "
+                        + "Open that component to add stock or edit it, instead of creating a duplicate.",
+                existing.getComponentName(), code,
+                existing.getQuantity() != null ? existing.getQuantity() : 0);
+    }
+
     private Specification<ComponentItem> buildComponentSpecification(String keyword, Long categoryId, String category,
                                                                      String status, String stockStatus) {
         return (root, query, cb) -> {
         	List<jakarta.persistence.criteria.Predicate> predicates = new ArrayList<>();
 
             if (keyword != null && !keyword.isBlank()) {
-                String pattern = "%" + keyword.toLowerCase().trim() + "%";
-                // One search box matches every text field of a component:
-                // item code (part number), name, category, unit, location, rack, description.
-                // The category term now reads through the join, so searching "resistor"
-                // still finds every resistor exactly as it did when it was a text column.
-                // itemCode stays searchable even though the UI no longer displays it —
-                // anyone who knows a part number can still type it and get a hit.
-                predicates.add(cb.or(
-                        cb.like(cb.lower(root.get("itemCode")), pattern),
-                        cb.like(cb.lower(root.get("componentName")), pattern),
-                        cb.like(cb.lower(categoryJoin(root).get("name")), pattern),
-                        cb.like(cb.lower(root.get("unit")), pattern),
-                        cb.like(cb.lower(root.get("location")), pattern),
-                        cb.like(cb.lower(root.get("rackNo")), pattern),
-                        cb.like(cb.lower(root.get("description")), pattern)
-                ));
+                // Multi-word search: each whitespace-separated word must appear in at least
+                // one text field (OR across fields), and every word must match (AND across
+                // words). So "bc456" finds "IC BC456", and "resistor 10k" finds a resistor
+                // whose value is 10k — order and position within the name do not matter.
+                //
+                // Fields covered: item code (part number), name, category, type, value,
+                // unit, location, rack, description. The category term reads through the
+                // join, so "resistor" still finds every resistor. itemCode stays searchable
+                // even though the UI no longer shows it — anyone who knows a part number
+                // can still type it and get a hit.
+                jakarta.persistence.criteria.Join<?, ?> cat = categoryJoin(root);
+                for (String word : keyword.trim().toLowerCase().split("\\s+")) {
+                    if (word.isEmpty()) {
+                        continue;
+                    }
+                    String pattern = "%" + word + "%";
+                    predicates.add(cb.or(
+                            cb.like(cb.lower(root.get("itemCode")), pattern),
+                            cb.like(cb.lower(root.get("componentName")), pattern),
+                            cb.like(cb.lower(cat.get("name")), pattern),
+                            cb.like(cb.lower(root.get("type")), pattern),
+                            cb.like(cb.lower(root.get("value")), pattern),
+                            cb.like(cb.lower(root.get("unit")), pattern),
+                            cb.like(cb.lower(root.get("location")), pattern),
+                            cb.like(cb.lower(root.get("rackNo")), pattern),
+                            cb.like(cb.lower(root.get("description")), pattern)
+                    ));
+                }
             }
 
             // Id is the precise filter the dropdown sends. The name form is kept for API

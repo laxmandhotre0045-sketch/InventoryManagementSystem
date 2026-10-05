@@ -38,6 +38,12 @@ public class ComponentResponse {
     @Schema(description = "Id of the component's category", example = "1")
     private Long categoryId;
 
+    @Schema(description = "Sub-type within the category", example = "SMD")
+    private String type;
+
+    @Schema(description = "Specific value within the type", example = "4.7kΩ")
+    private String value;
+
     @Schema(description = "Quantity available in stock", example = "20")
     private Integer quantity;
 
