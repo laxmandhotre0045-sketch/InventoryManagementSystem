@@ -16,10 +16,17 @@ public class AuthResponse {
     private String tokenType = "Bearer";
     private String email;
     private String role;
+    /** The account's name, so the UI can greet a person rather than an email address. */
+    private String username;
 
     public AuthResponse(String token, String email, String role) {
         this.token = token;
         this.email = email;
         this.role = role;
+    }
+
+    public AuthResponse(String token, String email, String role, String username) {
+        this(token, email, role);
+        this.username = username;
     }
 }

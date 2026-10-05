@@ -27,6 +27,9 @@ public class RecentTransactionResponse {
     @Schema(description = "User who recorded the movement", example = "admin")
     private String createdBy;
 
+    /** Name of the account behind createdBy (an email), when that account exists. */
+    private String createdByName;
+
     @Schema(description = "Exact time the movement was recorded")
     private LocalDateTime createdAt;
 

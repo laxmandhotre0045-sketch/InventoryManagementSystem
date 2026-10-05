@@ -1,17 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, Grid, Alert, Button, Typography, LinearProgress, Tooltip, Avatar, CircularProgress } from '@mui/material';
+import { Box, Grid, Alert, Button, Typography, LinearProgress, Tooltip, Avatar, CircularProgress, Skeleton } from '@mui/material';
 import {
-  CircuitBoard, DollarSign, AlertTriangle, FolderKanban,
-  ArrowDownLeft, ArrowUpRight, Download, Boxes, RotateCcw, MapPin, Truck, CalendarDays, UserRound,
+  CircuitBoard, DollarSign, AlertTriangle, FolderKanban, ChevronRight, Layers, PackagePlus,
+  ArrowDownLeft, ArrowUpRight, Download, Boxes, RotateCcw, MapPin, Truck, Clock, UserRound,
 } from 'lucide-react';
-import { PieChart, Pie, Cell, Sector, Tooltip as RTooltip, ResponsiveContainer } from 'recharts';
-import useCountUp from '../hooks/useCountUp';
 import { getDashboardSummary, getLowStock, getRecentTransactions } from '../api/dashboardApi';
 import { getProjects } from '../api/projectApi';
 import { getComponents } from '../api/componentApi';
+import { getComponentCategories } from '../api/componentCategoryApi';
 import { useAuth } from '../auth/AuthContext';
 import { isAdmin } from '../utils/roleUtils';
+import { displayName } from '../utils/displayName';
 import { MetricCard, ChartCard, StatusBadge, EmptyState } from '../components/ui';
 import { colors } from '../theme/tokens';
 
@@ -22,6 +22,70 @@ const num = (n) => Number(n || 0).toLocaleString();
 const dateLabel = (d) => (d ? new Date(d).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' }) : '—');
 const timeLabel = (iso) => (iso ? new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '');
 
+// Calendar-day key in local time, so "today" means the viewer's today, not UTC's.
+const dayKey = (d) => {
+  const x = new Date(d);
+  return `${x.getFullYear()}-${x.getMonth()}-${x.getDate()}`;
+};
+
+/** "Today", "Yesterday", or "Sat, Oct 3" — the heading a group of activity sits under. */
+const dayHeading = (d) => {
+  if (!d) return 'Earlier';
+  const now = new Date();
+  const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
+  if (dayKey(d) === dayKey(now)) return 'Today';
+  if (dayKey(d) === dayKey(yesterday)) return 'Yesterday';
+  return new Date(d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+};
+
+/** "3 days ago" for anything recent, a date beyond a fortnight. */
+const ago = (iso) => {
+  if (!iso) return '';
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+  if (days <= 0) return 'Today';
+  if (days === 1) return 'Yesterday';
+  if (days < 14) return `${days} days ago`;
+  return dateLabel(iso);
+};
+
+// "View all" that never wraps onto two lines, however narrow the card header gets.
+const ViewAll = ({ onClick }) => (
+  <Button variant="text" size="small" onClick={onClick} endIcon={<ChevronRight size={15} />}
+    sx={{ whiteSpace: 'nowrap', flexShrink: 0, '& .MuiButton-endIcon': { ml: 0.25 } }}>
+    View all
+  </Button>
+);
+
+// Placeholder rows while a panel loads, instead of flashing "No activity yet" first.
+const PanelSkeleton = ({ rows = 4 }) => (
+  <Box>
+    {Array.from({ length: rows }).map((_, i) => (
+      <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: 1.25 }}>
+        <Skeleton variant="rounded" width={34} height={34} sx={{ borderRadius: '9px', flexShrink: 0 }} />
+        <Box sx={{ flexGrow: 1 }}>
+          <Skeleton variant="text" width="62%" height={18} />
+          <Skeleton variant="text" width="38%" height={14} />
+        </Box>
+        <Skeleton variant="text" width={36} height={18} />
+      </Box>
+    ))}
+  </Box>
+);
+
+// Small heading that separates groups inside a panel ("Today", "Yesterday").
+const groupLabelSx = {
+  display: 'flex', alignItems: 'center', gap: 1, mt: 1.5, mb: 0.25,
+  fontSize: '0.6875rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
+  color: colors.textMuted,
+  '&::after': { content: '""', flexGrow: 1, height: '1px', bgcolor: colors.border },
+};
+
+// How many categories the Stock by Category panel lists before "+ N more".
+const TOP_CATEGORIES = 8;
+
+// KPI figures step down on a phone, where the cards sit two to a row.
+const metricValueSize = { xs: '1.3rem', sm: '1.75rem' };
+
 // Row treatment shared by every list section — consistent spacing + hover.
 const rowSx = {
   py: 1.25, px: 1.25, mx: -1.25, borderRadius: 1.5,
@@ -30,36 +94,6 @@ const rowSx = {
 };
 
 const metaSx = { display: 'inline-flex', alignItems: 'center', gap: 0.5, fontSize: '0.75rem', color: colors.textMuted };
-
-const ChartTooltip = ({ active, payload, total }) => {
-  if (!active || !payload?.length) return null;
-  const p = payload[0];
-  const pct = total ? Math.round((p.value / total) * 100) : 0;
-  return (
-    <Box sx={{ bgcolor: colors.textPrimary, color: '#fff', px: 1.25, py: 0.875, borderRadius: 1.5, boxShadow: '0 8px 24px rgba(0,0,0,0.25)' }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
-        <Box sx={{ width: 8, height: 8, borderRadius: '2px', bgcolor: p.payload?.color }} />
-        <Typography sx={{ fontSize: '0.75rem', fontWeight: 600 }}>{p.name}</Typography>
-      </Box>
-      <Typography sx={{ fontSize: '0.6875rem', color: '#D1D5DB' }}>
-        {num(p.value)} components · {pct}%
-      </Typography>
-    </Box>
-  );
-};
-
-/** Hovered slice grows slightly — a restrained lift, no bounce. */
-const renderActiveSlice = (props) => {
-  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
-  return (
-    <Sector
-      cx={cx} cy={cy}
-      innerRadius={innerRadius} outerRadius={outerRadius + 6}
-      startAngle={startAngle} endAngle={endAngle}
-      cornerRadius={2} fill={fill}
-    />
-  );
-};
 
 // RFC 4180 quoting so names containing commas, quotes or newlines survive Excel.
 const csvCell = (value) => {
@@ -136,7 +170,7 @@ const glowBar = (color) => ({
 });
 
 const DashboardPage = () => {
-  const { role, email } = useAuth();
+  const { role, email, username } = useAuth();
   const navigate = useNavigate();
   const admin = isAdmin(role);
   const [loading, setLoading] = useState(true);
@@ -145,7 +179,8 @@ const DashboardPage = () => {
   const [lowStock, setLowStock] = useState([]);
   const [recentTransactions, setRecentTransactions] = useState([]);
   const [projects, setProjects] = useState([]);
-  const [activeSlice, setActiveSlice] = useState(null);
+  const [categories, setCategories] = useState([]);
+  const [recentParts, setRecentParts] = useState([]);
   const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
@@ -153,16 +188,22 @@ const DashboardPage = () => {
       setLoading(true);
       setError('');
       try {
-        const [s, ls, ts, proj] = await Promise.all([
+        // The two panels added later are best-effort: if either call fails, the rest
+        // of the dashboard still loads and that panel shows its empty state.
+        const [s, ls, ts, proj, cats, parts] = await Promise.all([
           getDashboardSummary(),
           getLowStock(),
           getRecentTransactions(6),
           getProjects({ page: 0, size: 6, sortBy: 'startDate', sortDir: 'desc' }),
+          getComponentCategories().catch(() => null),
+          getComponents({ page: 0, size: 5, sortBy: 'createdAt', sortDir: 'desc' }).catch(() => null),
         ]);
         setSummary(s);
         setLowStock(ls || []);
         setRecentTransactions(ts || []);
         setProjects(proj?.data?.content || []);
+        setCategories(cats?.data || []);
+        setRecentParts(parts?.data?.content || []);
       } catch (err) {
         setError(err.response?.data?.message || 'Failed to load dashboard');
       } finally {
@@ -207,22 +248,56 @@ const DashboardPage = () => {
   const out = summary?.outOfStockComponents || 0;
   const healthy = Math.max(totalComponents - low - out, 0);
   const unpriced = summary?.componentsWithoutPrice || 0;
-  // Memoised so the array identity only changes when the numbers actually do.
-  // Without this a new array is created on every render (e.g. hovering a slice),
-  // which makes Recharts restart/interrupt the draw animation.
-  const stockStatus = useMemo(
-    () => [
-      { name: 'In stock', value: healthy, color: colors.success },
-      { name: 'Low stock', value: low, color: colors.warning },
-      { name: 'Out of stock', value: out, color: colors.danger },
-    ].filter((d) => d.value > 0),
-    [healthy, low, out]
-  );
+  // Stock status, kept as a compact strip above the category breakdown.
+  const stockStatus = [
+    { name: 'In stock', value: healthy, color: colors.success },
+    { name: 'Low', value: low, color: colors.warning },
+    { name: 'Out', value: out, color: colors.danger },
+  ];
 
-  // Centre figure counts up on load and tweens on refresh.
-  const animatedTotal = useCountUp(totalComponents, 1100);
-  // Re-runs the staggered legend entrance whenever the distribution changes.
-  const legendKey = useMemo(() => stockStatus.map((d) => `${d.name}:${d.value}`).join('|'), [stockStatus]);
+  // Categories ranked by how many parts they hold; empty ones are left off the chart.
+  const rankedCategories = useMemo(
+    () => categories
+      .filter((c) => Number(c.componentCount) > 0)
+      .sort((a, b) => Number(b.componentCount) - Number(a.componentCount) || a.name.localeCompare(b.name)),
+    [categories]
+  );
+  const topCategories = rankedCategories.slice(0, TOP_CATEGORIES);
+  const moreCategories = rankedCategories.length - topCategories.length;
+  const largestCategory = Number(topCategories[0]?.componentCount) || 1;
+  const partsInCategories = rankedCategories.reduce((s, c) => s + Number(c.componentCount), 0);
+
+  // One line under the alerts instead of "No supplier on file · Unassigned" on every row.
+  // Rows are shorter without that line, so the panel has room for six rather than four.
+  const shownLowStock = lowStock.slice(0, 6);
+  const lowStockGapNote = useMemo(() => {
+    const n = shownLowStock.length;
+    if (!n) return '';
+    const noSupplier = shownLowStock.filter((r) => !r.supplier).length;
+    const noLocation = shownLowStock.filter((r) => !r.location).length;
+    if (noSupplier === n && noLocation === n) {
+      return n === 1
+        ? 'This part has no supplier or storage location on file.'
+        : `None of these ${n} has a supplier or a storage location on file.`;
+    }
+    const bits = [];
+    if (noSupplier) bits.push(`${noSupplier} of ${n} ${noSupplier === 1 ? 'has' : 'have'} no supplier`);
+    if (noLocation) bits.push(`${noLocation} of ${n} ${noLocation === 1 ? 'has' : 'have'} no storage location`);
+    return bits.length ? `${bits.join(' · ')} on file.` : '';
+  }, [shownLowStock]);
+
+  // Recent activity grouped under Today / Yesterday / a date, newest first.
+  const activityGroups = useMemo(() => {
+    const groups = [];
+    recentTransactions.forEach((row) => {
+      const when = row.createdAt || row.transactionDate;
+      const heading = dayHeading(when);
+      const last = groups[groups.length - 1];
+      if (last && last.heading === heading) last.rows.push(row);
+      else groups.push({ heading, rows: [row] });
+    });
+    return groups;
+  }, [recentTransactions]);
 
   const metrics = [
     {
@@ -242,7 +317,7 @@ const DashboardPage = () => {
     { title: 'Active Projects', value: num(summary?.activeProjects), icon: FolderKanban, tone: 'purple', caption: 'Currently in progress', tip: 'Projects with status ACTIVE' },
   ];
 
-  const firstName = (email?.split('@')[0] || 'there').replace(/\b\w/, (c) => c.toUpperCase());
+  const firstName = displayName(username, email);
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
@@ -260,7 +335,10 @@ const DashboardPage = () => {
             {greeting}, {firstName}
           </Typography>
           <Typography sx={{ fontSize: '0.875rem', color: colors.textSecondary }}>
-            {today} · {statusLine}
+            {/* The top bar shows the date from the lg breakpoint up; below it the top
+                bar hides it, so this is the one place the date appears there. */}
+            <Box component="span" sx={{ display: { xs: 'inline', lg: 'none' } }}>{today} · </Box>
+            {statusLine}
           </Typography>
         </Box>
         {admin && (
@@ -298,95 +376,89 @@ const DashboardPage = () => {
       {/* KPIs */}
       <Grid container spacing={2} sx={{ mb: 2 }}>
         {(loading ? Array.from({ length: 4 }) : metrics).map((m, i) => (
-          <Grid item xs={12} sm={6} lg={3} key={m?.title || i}>
+          // Two per row on a phone, so all four are visible at once without scrolling.
+          <Grid item xs={6} lg={3} key={m?.title || i}>
             {m?.tip ? (
               <Tooltip title={m.tip} placement="top" arrow>
                 <Box sx={{ height: '100%' }}>
-                  <MetricCard loading={loading} icon={m.icon} title={m.title} value={m.value} caption={m.caption} tone={m.tone} glow />
+                  <MetricCard loading={loading} icon={m.icon} title={m.title} value={m.value} caption={m.caption} tone={m.tone} glow valueSize={metricValueSize} />
                 </Box>
               </Tooltip>
             ) : (
-              <MetricCard loading={loading} icon={m?.icon} title={m?.title} value={m?.value} caption={m?.caption} tone={m?.tone} glow />
+              <MetricCard loading={loading} icon={m?.icon} title={m?.title} value={m?.value} caption={m?.caption} tone={m?.tone} glow valueSize={metricValueSize} />
             )}
           </Grid>
         ))}
       </Grid>
 
-      {/* Stock health + low stock alerts */}
+      {/* Stock by category + low stock alerts */}
       <Grid container spacing={2} sx={{ mb: 2 }}>
         <Grid item xs={12} lg={5}>
-          <ChartCard title="Stock Health" subtitle="Components by stock status" sx={brightPanelSx}>
-            {stockStatus.length === 0 ? (
-              <EmptyState dense icon={Boxes} title="No stock data" description="Component status will appear here once components exist." />
-            ) : (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 3.5, flexWrap: 'wrap' }}>
-                <Box sx={{ position: 'relative', width: 168, height: 168, flexShrink: 0, filter: 'drop-shadow(0 8px 18px rgba(60,140,106,0.30))' }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={stockStatus} dataKey="value" nameKey="name" cx="50%" cy="50%"
-                        innerRadius={50} outerRadius={78} paddingAngle={2.5} stroke="none"
-                        // Sweep clockwise from 12 o'clock on load, and tween
-                        // between values when the data refreshes.
-                        startAngle={90} endAngle={-270}
-                        isAnimationActive
-                        animationBegin={120}
-                        animationDuration={1000}
-                        animationEasing="ease-out"
-                        activeIndex={activeSlice ?? undefined}
-                        activeShape={renderActiveSlice}
-                        onMouseEnter={(_, index) => setActiveSlice(index)}
-                        onMouseLeave={() => setActiveSlice(null)}
-                      >
-                        {stockStatus.map((d) => <Cell key={d.name} fill={d.color} />)}
-                      </Pie>
-                      <RTooltip content={<ChartTooltip total={totalComponents} />} cursor={false} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <Box sx={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', pointerEvents: 'none' }}>
-                    <Box sx={{ textAlign: 'center' }}>
-                      <Typography sx={{ fontSize: '1.75rem', fontWeight: 650, lineHeight: 1.1, letterSpacing: '-0.022em', fontVariantNumeric: 'tabular-nums' }}>
-                        {num(animatedTotal)}
-                      </Typography>
-                      <Typography sx={{ fontSize: '0.9375rem', color: colors.textMuted, mt: 0.5 }}>Components</Typography>
-                    </Box>
+          <ChartCard
+            sx={brightPanelSx}
+            title="Stock by Category"
+            subtitle={rankedCategories.length
+              ? `${num(partsInCategories)} parts across ${rankedCategories.length} categories`
+              : 'Parts in each category'}
+            action={<ViewAll onClick={() => navigate('/categories')} />}
+          >
+            {/* Stock status, compact: the donut it replaces was one colour at 98%. */}
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+              {stockStatus.map((d) => (
+                <Tooltip key={d.name} title={`${num(d.value)} component${d.value === 1 ? '' : 's'} ${d.name === 'In stock' ? 'above their reorder point' : d.name === 'Low' ? 'at or below their reorder point' : 'with no stock'}`}>
+                  <Box sx={{
+                    display: 'inline-flex', alignItems: 'center', gap: 0.75, px: 1.25, py: 0.5, borderRadius: 999,
+                    bgcolor: `${d.color}14`, border: `1px solid ${d.color}2E`,
+                  }}>
+                    <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: d.color, boxShadow: `0 0 6px ${d.color}` }} />
+                    <Typography sx={{ fontSize: '0.75rem', color: colors.textSecondary }}>{d.name}</Typography>
+                    <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{num(d.value)}</Typography>
                   </Box>
-                </Box>
-                <Box key={legendKey} sx={{ display: 'flex', flexDirection: 'column', gap: 2, flexGrow: 1, minWidth: 160 }}>
-                  {stockStatus.map((d, i) => {
-                    const pct = totalComponents ? Math.round((d.value / totalComponents) * 100) : 0;
-                    const isActive = activeSlice === i;
-                    return (
+                </Tooltip>
+              ))}
+            </Box>
+
+            {loading ? (
+              <PanelSkeleton rows={5} />
+            ) : topCategories.length === 0 ? (
+              <EmptyState dense icon={Layers} title="No categories yet" description="Parts will be counted here once they are filed into categories." />
+            ) : (
+              <Box>
+                {topCategories.map((c, i) => {
+                  const count = Number(c.componentCount);
+                  const width = Math.max(4, Math.round((count / largestCategory) * 100));
+                  return (
+                    <Tooltip key={c.id} title={`Open categories — ${c.name}`} placement="top-start">
                       <Box
-                        key={d.name}
-                        onMouseEnter={() => setActiveSlice(i)}
-                        onMouseLeave={() => setActiveSlice(null)}
-                        sx={{
-                          display: 'flex', alignItems: 'center', gap: 1.5, cursor: 'default',
-                          px: 1, mx: -1, py: 0.5, borderRadius: 1.5,
-                          bgcolor: isActive ? colors.hover : 'transparent',
-                          transition: 'background-color .18s ease',
-                          // Staggered fade-up as the chart finishes drawing.
-                          opacity: 0,
-                          animation: 'svLegendIn .45s cubic-bezier(.4,0,.2,1) forwards',
-                          animationDelay: `${420 + i * 90}ms`,
-                          '@keyframes svLegendIn': {
-                            from: { opacity: 0, transform: 'translateY(6px)' },
-                            to: { opacity: 1, transform: 'translateY(0)' },
-                          },
-                          '@media (prefers-reduced-motion: reduce)': {
-                            opacity: 1, animation: 'none',
-                          },
-                        }}
+                        role="button" tabIndex={0}
+                        onClick={() => navigate('/categories')}
+                        onKeyDown={(e) => { if (e.key === 'Enter') navigate('/categories'); }}
+                        sx={{ ...rowSx, py: 0.875, cursor: 'pointer' }}
                       >
-                        <Box sx={{ width: 12, height: 12, borderRadius: '3px', bgcolor: d.color, flexShrink: 0 }} />
-                        <Typography sx={{ fontSize: '0.8125rem', flexGrow: 1, color: colors.textSecondary }}>{d.name}</Typography>
-                        <Typography sx={{ fontSize: '0.9375rem', color: colors.textMuted }}>{pct}%</Typography>
-                        <Typography sx={{ fontSize: '0.8125rem', fontWeight: 700, minWidth: 28, textAlign: 'right' }}>{num(d.value)}</Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mb: 0.5 }}>
+                          <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600, flexGrow: 1 }} noWrap>{c.name}</Typography>
+                          <Typography sx={{ fontSize: '0.8125rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{num(count)}</Typography>
+                        </Box>
+                        <Box sx={{ height: 7, borderRadius: 999, bgcolor: colors.hover, overflow: 'hidden' }}>
+                          <Box sx={{
+                            height: '100%', width: `${width}%`, ...glowBar(colors.primary),
+                            // Bars grow in one after another as the panel appears.
+                            transformOrigin: 'left center',
+                            animation: 'svBarGrow .7s cubic-bezier(.4,0,.2,1) both',
+                            animationDelay: `${120 + i * 60}ms`,
+                            '@keyframes svBarGrow': { from: { transform: 'scaleX(0)' }, to: { transform: 'scaleX(1)' } },
+                            '@media (prefers-reduced-motion: reduce)': { animation: 'none' },
+                          }} />
+                        </Box>
                       </Box>
-                    );
-                  })}
-                </Box>
+                    </Tooltip>
+                  );
+                })}
+                {moreCategories > 0 && (
+                  <Button variant="text" size="small" onClick={() => navigate('/categories')} sx={{ mt: 0.75, ml: -0.75 }}>
+                    + {moreCategories} more categor{moreCategories === 1 ? 'y' : 'ies'}
+                  </Button>
+                )}
               </Box>
             )}
           </ChartCard>
@@ -397,30 +469,34 @@ const DashboardPage = () => {
             sx={brightPanelSx}
             title="Low Stock Alerts"
             subtitle="Components at or below their reorder point"
-            action={admin && lowStock.length > 0 ? (
-              <Button variant="text" size="small" onClick={() => navigate('/components')}>View all</Button>
-            ) : null}
+            action={admin && lowStock.length > 0 ? <ViewAll onClick={() => navigate('/components')} /> : null}
           >
-            {lowStock.length === 0 ? (
+            {loading ? (
+              <PanelSkeleton rows={4} />
+            ) : lowStock.length === 0 ? (
               <EmptyState dense icon={AlertTriangle} title="All stocked up" description="No components are below their minimum quantity." />
             ) : (
               <Box>
-                {lowStock.slice(0, 4).map((row) => {
+                {shownLowStock.map((row) => {
                   const isOut = row.quantity === 0;
                   const pct = Math.min(100, Math.round((row.quantity / Math.max(row.minimumQuantity, 1)) * 100));
                   const shortfall = Math.max(row.minimumQuantity - row.quantity, 0);
+                  const hasMeta = row.supplier || row.location;
                   return (
                     <Box key={row.id} sx={rowSx}>
-                      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, mb: 1.25 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
                         <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                          <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600, mb: 0.25 }} noWrap>{row.componentName}</Typography>
-                          <Box sx={{ display: 'flex', flexWrap: 'wrap', columnGap: 2, rowGap: 0.5 }}>
-                            <Tooltip title="Preferred supplier"><Box component="span" sx={metaSx}><Truck size={13} />{row.supplier || 'No supplier on file'}</Box></Tooltip>
-                            <Tooltip title="Warehouse location"><Box component="span" sx={metaSx}><MapPin size={13} />{row.location || 'Unassigned'}</Box></Tooltip>
-                          </Box>
+                          <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600 }} noWrap>{row.componentName}</Typography>
+                          {/* Only what is actually on file — the gaps are summarised once below. */}
+                          {hasMeta && (
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', columnGap: 2, rowGap: 0.5, mt: 0.25 }}>
+                              {row.supplier && <Tooltip title="Preferred supplier"><Box component="span" sx={metaSx}><Truck size={13} />{row.supplier}</Box></Tooltip>}
+                              {row.location && <Tooltip title="Warehouse location"><Box component="span" sx={metaSx}><MapPin size={13} />{row.location}</Box></Tooltip>}
+                            </Box>
+                          )}
                         </Box>
                         <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
-                          <Typography sx={{ fontSize: '0.8125rem', fontWeight: 700, color: isOut ? colors.danger : colors.warning }}>
+                          <Typography sx={{ fontSize: '0.8125rem', fontWeight: 700, color: isOut ? colors.danger : colors.warning, fontVariantNumeric: 'tabular-nums' }}>
                             {num(row.quantity)} / {num(row.minimumQuantity)}
                           </Typography>
                           <Typography sx={{ fontSize: '0.6875rem', color: colors.textMuted }}>
@@ -429,7 +505,7 @@ const DashboardPage = () => {
                         </Box>
                         {admin && (
                           <Tooltip title="Raise a purchase order">
-                            <Button variant="outlined" size="small" startIcon={<RotateCcw size={16} />} onClick={() => navigate('/purchases')} sx={{ flexShrink: 0, mt: 0.25 }}>
+                            <Button variant="outlined" size="small" startIcon={<RotateCcw size={16} />} onClick={() => navigate('/purchases')} sx={{ flexShrink: 0 }}>
                               Reorder
                             </Button>
                           </Tooltip>
@@ -444,111 +520,164 @@ const DashboardPage = () => {
                     </Box>
                   );
                 })}
+                {lowStockGapNote && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 1.25, pt: 1.25, borderTop: `1px dashed ${colors.border}` }}>
+                    <Truck size={14} color={colors.textMuted} style={{ flexShrink: 0 }} />
+                    <Typography sx={{ fontSize: '0.75rem', color: colors.textMuted }}>{lowStockGapNote}</Typography>
+                  </Box>
+                )}
               </Box>
             )}
           </ChartCard>
         </Grid>
       </Grid>
 
-      {/* Recent activity + projects */}
+      {/* Recent activity + (projects, recently added) */}
       <Grid container spacing={2}>
         <Grid item xs={12} lg={7}>
           <ChartCard
             sx={brightPanelSx}
             title="Recent Activity"
             subtitle="Latest stock movements"
-            action={<Button variant="text" size="small" onClick={() => navigate('/inventory')}>View all</Button>}
+            action={<ViewAll onClick={() => navigate('/inventory')} />}
           >
-            {recentTransactions.length === 0 ? (
+            {loading ? (
+              <PanelSkeleton rows={6} />
+            ) : recentTransactions.length === 0 ? (
               <EmptyState dense icon={Boxes} title="No activity yet" description="Stock in and stock out movements will show here." />
             ) : (
               <Box>
-                {recentTransactions.map((row) => {
-                  const isIn = row.transactionType === 'STOCK_IN';
-                  const time = timeLabel(row.createdAt);
-                  return (
-                    <Box key={row.id} sx={{ ...rowSx, display: 'flex', alignItems: 'center', gap: 2 }}>
-                      <Tooltip title={isIn ? 'Stock received' : 'Stock issued'}>
-                        <Box sx={{ width: 34, height: 34, borderRadius: '9px', display: 'grid', placeItems: 'center', bgcolor: isIn ? colors.successSoft : colors.warningSoft, color: isIn ? colors.success : colors.warning, flexShrink: 0 }}>
-                          {isIn ? <ArrowDownLeft size={16} /> : <ArrowUpRight size={16} />}
-                        </Box>
-                      </Tooltip>
-                      <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                        <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600, mb: 0.25 }} noWrap>{row.componentName}</Typography>
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', columnGap: 2, rowGap: 0.5 }}>
-                          <Tooltip title="Recorded by"><Box component="span" sx={metaSx}><UserRound size={13} />{row.createdBy || 'system'}</Box></Tooltip>
-                          <Box component="span" sx={metaSx}>
-                            <CalendarDays size={13} />{dateLabel(row.transactionDate)}{time ? ` · ${time}` : ''}
+                {activityGroups.map((group, gi) => (
+                  <Box key={`${group.heading}-${gi}`}>
+                    <Typography component="div" sx={{ ...groupLabelSx, mt: gi === 0 ? 0 : 1.75 }}>{group.heading}</Typography>
+                    {group.rows.map((row) => {
+                      const isIn = row.transactionType === 'STOCK_IN';
+                      const time = timeLabel(row.createdAt);
+                      const who = row.createdBy ? displayName(row.createdByName, row.createdBy) : 'System';
+                      return (
+                        <Box key={row.id} sx={{ ...rowSx, display: 'flex', alignItems: 'center', gap: 2 }}>
+                          <Tooltip title={isIn ? 'Stock received' : 'Stock issued'}>
+                            <Box sx={{ width: 34, height: 34, borderRadius: '9px', display: 'grid', placeItems: 'center', bgcolor: isIn ? colors.successSoft : colors.warningSoft, color: isIn ? colors.success : colors.warning, flexShrink: 0 }}>
+                              {isIn ? <ArrowDownLeft size={16} /> : <ArrowUpRight size={16} />}
+                            </Box>
+                          </Tooltip>
+                          <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                            <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600, mb: 0.25 }} noWrap>{row.componentName}</Typography>
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', columnGap: 2, rowGap: 0.5 }}>
+                              <Tooltip title={row.createdBy || 'Recorded by the system'}>
+                                <Box component="span" sx={metaSx}><UserRound size={13} />{who}</Box>
+                              </Tooltip>
+                              {time && <Box component="span" sx={metaSx}><Clock size={13} />{time}</Box>}
+                            </Box>
+                          </Box>
+                          <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
+                            <Typography sx={{ fontSize: '0.9375rem', fontWeight: 700, color: isIn ? colors.success : colors.warning, mb: 0.25, fontVariantNumeric: 'tabular-nums' }}>
+                              {isIn ? '+' : '−'}{num(row.quantity)}
+                            </Typography>
+                            <StatusBadge status={isIn ? 'stock_in' : 'stock_out'} />
                           </Box>
                         </Box>
-                      </Box>
-                      <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
-                        <Typography sx={{ fontSize: '0.9375rem', fontWeight: 700, color: isIn ? colors.success : colors.warning, mb: 0.25 }}>
-                          {isIn ? '+' : '−'}{num(row.quantity)}
-                        </Typography>
-                        <StatusBadge status={isIn ? 'stock_in' : 'stock_out'} />
-                      </Box>
-                    </Box>
-                  );
-                })}
+                      );
+                    })}
+                  </Box>
+                ))}
               </Box>
             )}
           </ChartCard>
         </Grid>
 
         <Grid item xs={12} lg={5}>
-          <ChartCard
-            sx={brightPanelSx}
-            title="Projects"
-            subtitle="Timeline progress and ownership"
-            action={<Button variant="text" size="small" onClick={() => navigate('/projects')}>View all</Button>}
-          >
-            {projects.length === 0 ? (
-              <EmptyState dense icon={FolderKanban} title="No projects yet" description="Active projects will appear here." />
-            ) : (
-              <Box>
-                {projects.slice(0, 5).map((p) => {
-                  const pct = completionOf(p);
-                  const onHold = pct === null;
-                  return (
-                    <Box key={p.id} sx={{ ...rowSx, py: 2 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.75 }}>
-                        <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600, flexGrow: 1 }} noWrap>{p.projectName}</Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, height: '100%' }}>
+            {/* Projects, one line each: a whole panel for one project left it mostly empty. */}
+            <ChartCard
+              sx={{ ...brightPanelSx, height: 'auto', flexShrink: 0 }}
+              title="Projects"
+              subtitle={projects.length ? `${projects.length} project${projects.length === 1 ? '' : 's'}` : undefined}
+              action={<ViewAll onClick={() => navigate('/projects')} />}
+            >
+              {loading ? (
+                <PanelSkeleton rows={1} />
+              ) : projects.length === 0 ? (
+                <Typography sx={{ fontSize: '0.8125rem', color: colors.textMuted }}>No projects yet.</Typography>
+              ) : (
+                <Box>
+                  {projects.slice(0, 3).map((p) => {
+                    const pct = completionOf(p);
+                    const onHold = pct === null;
+                    return (
+                      <Box key={p.id} sx={{ ...rowSx, py: 1, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Tooltip title={`Project manager: ${p.projectManager || 'Unassigned'}`}>
+                          <Avatar sx={{ width: 26, height: 26, fontSize: '0.6875rem', fontWeight: 700, bgcolor: colors.primarySoft, color: colors.primary, flexShrink: 0 }}>
+                            {(p.projectManager || '?').charAt(0).toUpperCase()}
+                          </Avatar>
+                        </Tooltip>
+                        <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                          <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600 }} noWrap>{p.projectName}</Typography>
+                          <Typography sx={{ fontSize: '0.6875rem', color: colors.textMuted }} noWrap>
+                            {p.projectManager || 'Unassigned'}{p.endDate ? ` · due ${dateLabel(p.endDate)}` : ''}
+                          </Typography>
+                        </Box>
+                        <Tooltip title={onHold ? 'Paused — no timeline progress' : `${pct}% of the schedule elapsed`}>
+                          <Box sx={{ width: 64, flexShrink: 0, display: { xs: 'none', sm: 'block' } }}>
+                            <LinearProgress
+                              variant="determinate" value={onHold ? 0 : pct}
+                              sx={{ height: 6, borderRadius: 999, bgcolor: colors.hover, '& .MuiLinearProgress-bar': glowBar(p.status === 'COMPLETED' ? colors.success : colors.primary) }}
+                            />
+                          </Box>
+                        </Tooltip>
                         <StatusBadge
                           status={p.status === 'ACTIVE' ? 'active' : p.status === 'COMPLETED' ? 'completed' : 'pending'}
                           label={p.status === 'ON_HOLD' ? 'On hold' : undefined}
                         />
                       </Box>
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', columnGap: 2, rowGap: 0.5, mb: 1.25 }}>
-                        <Tooltip title="Project manager">
-                          <Box component="span" sx={metaSx}>
-                            <Avatar sx={{ width: 18, height: 18, fontSize: '0.625rem', fontWeight: 700, bgcolor: colors.primarySoft, color: colors.primary }}>
-                              {(p.projectManager || '?').charAt(0).toUpperCase()}
-                            </Avatar>
-                            {p.projectManager || 'Unassigned'}
-                          </Box>
-                        </Tooltip>
-                        <Tooltip title="Target completion date">
-                          <Box component="span" sx={metaSx}><CalendarDays size={13} />Due {dateLabel(p.endDate)}</Box>
-                        </Tooltip>
+                    );
+                  })}
+                </Box>
+              )}
+            </ChartCard>
+
+            {/* Something live in the space the projects panel used to fill. */}
+            <ChartCard
+              sx={{ ...brightPanelSx, flexGrow: 1 }}
+              title="Recently Added"
+              subtitle="Newest parts in the catalogue"
+              action={<ViewAll onClick={() => navigate('/components')} />}
+            >
+              {loading ? (
+                <PanelSkeleton rows={5} />
+              ) : recentParts.length === 0 ? (
+                <EmptyState dense icon={PackagePlus} title="Nothing added yet" description="New parts will appear here as they are created." />
+              ) : (
+                <Box>
+                  {recentParts.map((c) => {
+                    const path = [c.category, c.type, c.value].filter(Boolean).join(' › ');
+                    return (
+                      <Box
+                        key={c.id} role="button" tabIndex={0}
+                        onClick={() => navigate(`/components?q=${encodeURIComponent(c.componentName || '')}`)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') navigate(`/components?q=${encodeURIComponent(c.componentName || '')}`); }}
+                        sx={{ ...rowSx, display: 'flex', alignItems: 'center', gap: 1.5, cursor: 'pointer' }}
+                      >
+                        <Box sx={{ width: 34, height: 34, borderRadius: '9px', display: 'grid', placeItems: 'center', bgcolor: colors.primarySoft, color: colors.primary, flexShrink: 0 }}>
+                          <PackagePlus size={16} />
+                        </Box>
+                        <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                          <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600, mb: 0.25 }} noWrap>{c.componentName}</Typography>
+                          <Typography sx={{ fontSize: '0.75rem', color: colors.textMuted }} noWrap>{path || 'Not categorised yet'}</Typography>
+                        </Box>
+                        <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
+                          <Typography sx={{ fontSize: '0.8125rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+                            {num(c.quantity)} <Box component="span" sx={{ fontWeight: 500, color: colors.textMuted }}>{c.unit || 'pcs'}</Box>
+                          </Typography>
+                          <Typography sx={{ fontSize: '0.6875rem', color: colors.textMuted }}>{ago(c.createdAt)}</Typography>
+                        </Box>
                       </Box>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                        <Tooltip title={onHold ? 'Paused — no timeline progress' : `${pct}% of the schedule elapsed`} placement="bottom-start" sx={{ flexGrow: 1 }}>
-                          <LinearProgress
-                            variant="determinate" value={onHold ? 0 : pct}
-                            sx={{ flexGrow: 1, height: 10, borderRadius: 999, bgcolor: colors.hover, '& .MuiLinearProgress-bar': glowBar(p.status === 'COMPLETED' ? colors.success : colors.primary) }}
-                          />
-                        </Tooltip>
-                        <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: onHold ? colors.textMuted : colors.textPrimary, minWidth: 34, textAlign: 'right' }}>
-                          {onHold ? '—' : `${pct}%`}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  );
-                })}
-              </Box>
-            )}
-          </ChartCard>
+                    );
+                  })}
+                </Box>
+              )}
+            </ChartCard>
+          </Box>
         </Grid>
       </Grid>
     </Box>

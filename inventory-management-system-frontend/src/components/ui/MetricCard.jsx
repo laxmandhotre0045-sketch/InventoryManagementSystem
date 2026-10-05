@@ -24,6 +24,7 @@ const alpha = (hex, a) => `${hex}${Math.round(a * 255).toString(16).padStart(2, 
  * - a lit icon chip, and a single light sweep across the card on hover.
  */
 const glowSx = (t) => ({
+  p: { xs: 1.75, sm: 2.25 },
   position: 'relative',
   overflow: 'hidden',
   background: `linear-gradient(145deg, #FFFFFF 0%, ${t.bg} 55%, ${t.chip} 100%)`,
@@ -55,7 +56,7 @@ const glowSx = (t) => ({
 });
 
 // Executive KPI card with a soft pastel tint, prominent value, and generous space.
-const MetricCard = ({ icon: Icon, title, value, trend, caption, tone = 'primary', loading = false, glow = false }) => {
+const MetricCard = ({ icon: Icon, title, value, trend, caption, tone = 'primary', loading = false, glow = false, valueSize = '1.75rem' }) => {
   const t = toneMap[tone] || toneMap.primary;
   const trendUp = trend?.direction !== 'down';
   const TrendIcon = trendUp ? TrendingUp : TrendingDown;
@@ -100,7 +101,7 @@ const MetricCard = ({ icon: Icon, title, value, trend, caption, tone = 'primary'
       ) : (
         // The KPI figure stays deliberately the largest text on the page, but at
         // 28px rather than 48px it reads as a metric instead of a headline.
-        <Typography sx={{ fontSize: '1.75rem', fontWeight: 650, lineHeight: 1.15, letterSpacing: '-0.022em', color: colors.textPrimary, fontVariantNumeric: 'tabular-nums' }}>
+        <Typography sx={{ fontSize: valueSize, fontWeight: 650, lineHeight: 1.15, letterSpacing: '-0.022em', color: colors.textPrimary, fontVariantNumeric: 'tabular-nums' }}>
           {value ?? '—'}
         </Typography>
       )}

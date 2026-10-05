@@ -37,6 +37,7 @@ public class DashboardServiceImpl implements DashboardService {
 
     private final EquipmentRepository equipmentRepository ;
     private final ComponentRepository componentRepository;
+    private final com.company.inventory.repository.UserRepository userRepository;
     private final ProjectRepository projectRepository;
     private final PurchaseRepository purchaseRepository;
     private final InventoryTransactionRepository transactionRepository;
@@ -93,8 +94,14 @@ public class DashboardServiceImpl implements DashboardService {
         if (transactions == null || transactions.isEmpty()) {
             return Collections.emptyList();
         }
+        // createdBy holds an email. Resolve each distinct one to its account name once
+        // (a handful of rows, a handful of lookups) so the dashboard can show people.
+        java.util.Map<String, String> names = new java.util.HashMap<>();
+        transactions.stream().map(InventoryTransaction::getCreatedBy).filter(java.util.Objects::nonNull).distinct()
+                .forEach(e -> userRepository.findByEmail(e).ifPresent(u -> names.put(e, u.getUsername())));
         return transactions.stream()
                 .map(this::toRecentTransactionResponse)
+                .peek(r -> r.setCreatedByName(r.getCreatedBy() == null ? null : names.get(r.getCreatedBy())))
                 .collect(Collectors.toList());
     }
 
