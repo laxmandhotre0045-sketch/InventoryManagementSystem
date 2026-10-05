@@ -58,3 +58,6 @@ Thumbs.db
 # Local dev/one-off scripts containing credentials — never commit
 update_admin_password.py
 update_pwd.sql
+
+# Spreadsheet exports of the live database (emails, prices) — never commit.
+exports/

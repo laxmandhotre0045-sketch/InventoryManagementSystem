@@ -124,9 +124,15 @@ public class ComponentCategoryMigrationRunner implements CommandLineRunner {
      * spelling variants collapse into one category instead of several.</p>
      */
     private void importLegacyCategories() {
+        // Only components still waiting to be linked count. The legacy text column is
+        // never cleared, so reading every row re-created a category from it on every
+        // boot — any category an admin deleted or merged came back, empty, after the
+        // next restart. A component that already has a category_id has been migrated;
+        // its old text is history, not a request for a category.
         List<String> legacyNames = jdbcTemplate.queryForList(
                 "SELECT DISTINCT TRIM(category) FROM components "
-                        + "WHERE category IS NOT NULL AND TRIM(category) <> ''",
+                        + "WHERE category_id IS NULL "
+                        + "  AND category IS NOT NULL AND TRIM(category) <> ''",
                 String.class);
 
         int created = 0;
