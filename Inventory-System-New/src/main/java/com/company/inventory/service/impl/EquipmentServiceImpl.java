@@ -29,11 +29,15 @@ public class EquipmentServiceImpl implements EquipmentService {
 
     private final com.company.inventory.service.ItemCodeGenerator itemCodeGenerator;
 
+    private final com.company.inventory.service.SpecificationService specificationService;
+
     public EquipmentServiceImpl(EquipmentRepository equipmentRepository, EquipmentMapper equipmentMapper,
-                                com.company.inventory.service.ItemCodeGenerator itemCodeGenerator) {
+                                com.company.inventory.service.ItemCodeGenerator itemCodeGenerator,
+                                com.company.inventory.service.SpecificationService specificationService) {
         this.equipmentRepository = equipmentRepository;
         this.equipmentMapper = equipmentMapper;
         this.itemCodeGenerator = itemCodeGenerator;
+        this.specificationService = specificationService;
     }
 
     @Override
@@ -58,6 +62,8 @@ public class EquipmentServiceImpl implements EquipmentService {
     public void deleteEquipment(Long id) {
         Equipment equipment = equipmentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Equipment not found with id: " + id));
+        // Equipment delete is permanent, so its specifications go with it.
+        specificationService.deleteAll(com.company.inventory.entity.ItemSpecification.EQUIPMENT, id);
         equipmentRepository.delete(equipment);
     }
 

@@ -25,6 +25,7 @@ public class EquipmentMapper {
         response.setStatus(equipment.getStatus());
         response.setLocation(equipment.getLocation());
         response.setNotes(equipment.getNotes());
+        response.setPurchaseId(equipment.getPurchaseId());
         response.setCreatedAt(equipment.getCreatedAt());
         response.setUpdatedAt(equipment.getUpdatedAt());
         return response;

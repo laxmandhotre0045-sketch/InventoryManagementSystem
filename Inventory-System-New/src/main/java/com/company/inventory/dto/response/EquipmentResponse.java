@@ -42,6 +42,9 @@ public class EquipmentResponse {
     @Schema(description = "Additional notes", example = "16GB RAM, 512GB SSD")
     private String notes;
 
+    @Schema(description = "Purchase this equipment was registered from (null when added by hand)")
+    private Long purchaseId;
+
     @Schema(description = "Record created timestamp")
     private LocalDateTime createdAt;
 

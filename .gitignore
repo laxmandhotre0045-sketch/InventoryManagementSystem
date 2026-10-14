@@ -61,3 +61,6 @@ update_pwd.sql
 
 # Spreadsheet exports of the live database (emails, prices) — never commit.
 exports/
+
+# Local safety DB dumps (contain password hashes) — never commit
+backups/pre-*.sql

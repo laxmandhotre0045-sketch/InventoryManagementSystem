@@ -6,7 +6,7 @@ import {
   TextField, Tooltip, Typography,
 } from '@mui/material';
 import {
-  ArrowLeft, ChevronRight, CircuitBoard, Layers, LayoutGrid, Package, Pencil, Plus, Tag, Trash2,
+  ArrowLeft, ChevronRight, CircuitBoard, Eye, FolderInput, Layers, LayoutGrid, Package, Pencil, Plus, Tag, Trash2,
 } from 'lucide-react';
 import {
   createComponentCategory, deleteComponentCategory, getComponentCategories,
@@ -17,6 +17,9 @@ import { useAuth } from '../auth/AuthContext';
 import { canWrite } from '../utils/roleUtils';
 import DataTable from '../components/common/DataTable';
 import ConfirmDialog from '../components/common/ConfirmDialog';
+import ComponentDetailsDrawer from '../components/components/ComponentDetailsDrawer';
+import ComponentFormDialog from '../components/components/ComponentFormDialog';
+import MoveComponentsDialog from '../components/components/MoveComponentsDialog';
 import { PageHeader, SearchBar, EmptyState } from '../components/ui';
 import useDebouncedValue from '../hooks/useDebouncedValue';
 import { colors } from '../theme/tokens';
@@ -64,15 +67,16 @@ const ComponentCategoriesPage = () => {
   const [selectedValue, setSelectedValue] = useState(null);
   const [components, setComponents] = useState([]);
   const [componentsLoading, setComponentsLoading] = useState(false);
-  const [page, setPage] = useState(0);
-  const [size, setSize] = useState(10);
-  const [total, setTotal] = useState(0);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState(emptyCategoryForm);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
+  // Component-level actions inside the drill-down: details drawer, edit form, move dialog.
+  const [detail, setDetail] = useState(null);
+  const [editRow, setEditRow] = useState(null);
+  const [moveTarget, setMoveTarget] = useState(null);
 
   const notify = (message, severity = 'success') => setSnack({ open: true, message, severity });
 
@@ -107,10 +111,12 @@ const ComponentCategoriesPage = () => {
       const res = await getComponents({
         categoryId: selected.id, page: 0, size: 500, sortBy: 'componentName', sortDir: 'asc',
       });
-      setComponents(res.data?.content || []);
-      setTotal(res.data?.totalElements || 0);
+      const list = res.data?.content || [];
+      setComponents(list);
+      return list;
     } catch (err) {
       notify(err.response?.data?.message || 'Failed to load components', 'error');
+      return null;
     } finally {
       setComponentsLoading(false);
     }
@@ -154,6 +160,7 @@ const ComponentCategoriesPage = () => {
     return {
       key: type,
       label: type,
+      rows,
       subtitle: `${values.size} value${values.size === 1 ? '' : 's'} · ${rows.length} item${rows.length === 1 ? '' : 's'}`,
     };
   }), [groupedByType]);
@@ -171,6 +178,7 @@ const ComponentCategoriesPage = () => {
       .map(([value, rows]) => ({
         key: value,
         label: value,
+        rows,
         subtitle: `${rows.length} item${rows.length === 1 ? '' : 's'}`,
       }));
   }, [rowsOfSelectedType]);
@@ -182,6 +190,25 @@ const ComponentCategoriesPage = () => {
       .filter((c) => ((c.value && c.value.trim()) || UNSPECIFIED_VALUE) === selectedValue)
       .sort((x, y) => compareLabels(x.componentName, y.componentName));
   }, [rowsOfSelectedType, selectedValue]);
+
+  /**
+   * After a component is edited or moved, reload the category and step back out of any
+   * Type or Value that no longer has components in it, instead of showing an empty page.
+   */
+  const afterComponentChange = async (message) => {
+    if (message) notify(message);
+    fetchCategories();
+    const list = await fetchComponents();
+    if (!list) return;
+    const typeOf = (c) => (c.type && c.type.trim()) || UNSPECIFIED_TYPE;
+    const valueOf = (c) => (c.value && c.value.trim()) || UNSPECIFIED_VALUE;
+    if (selectedType != null && !list.some((c) => typeOf(c) === selectedType)) {
+      backToTypes();
+    } else if (selectedValue != null
+      && !list.some((c) => typeOf(c) === selectedType && valueOf(c) === selectedValue)) {
+      backToValues();
+    }
+  };
 
   const openType = (type) => { setSelectedType(type); setSelectedValue(null); };
   const openValue = (value) => setSelectedValue(value);
@@ -254,13 +281,20 @@ const ComponentCategoriesPage = () => {
     setSelected(category);
     setSelectedType(null);
     setSelectedValue(null);
-    setPage(0);
   };
 
   // Columns for the leaf table (one Category → Type → Value). Value and Type are both
   // in the breadcrumb path above, so the table itself need not repeat them.
   const leafColumns = [
-    { field: 'componentName', headerName: 'Name' },
+    {
+      field: 'componentName', headerName: 'Name',
+      render: (row) => (
+        <Box component="button" type="button" onClick={() => setDetail(row)}
+          sx={{ all: 'unset', cursor: 'pointer', fontWeight: 600, '&:hover': { color: colors.primary, textDecoration: 'underline' } }}>
+          {row.componentName}
+        </Box>
+      ),
+    },
     {
       field: 'rackNo', headerName: 'Rack No',
       render: (row) => (row.rackNo
@@ -309,22 +343,30 @@ const ComponentCategoriesPage = () => {
     );
 
     // A grid of clickable cards — reused for the Types level and the Values level.
-    const drillGrid = (items, onOpen, Icon) => (
+    const drillGrid = (items, onOpen, Icon, onMove) => (
       <Grid container spacing={2}>
         {items.map((it) => (
           <Grid item xs={12} sm={6} md={4} lg={3} key={it.key}>
             <Card
               variant="outlined"
               sx={{
-                height: '100%', transition: 'border-color .2s, box-shadow .2s',
+                height: '100%', position: 'relative', transition: 'border-color .2s, box-shadow .2s',
                 '&:hover': { borderColor: colors.primary, boxShadow: '0 4px 14px rgba(0,0,0,.06)' },
               }}
             >
+              {onMove && writeAccess && (
+                <Tooltip title="Move or rename everything in here">
+                  <IconButton size="small" onClick={() => onMove(it)}
+                    sx={{ position: 'absolute', top: 6, right: 6, zIndex: 1, color: colors.textMuted, '&:hover': { color: colors.primary } }}>
+                    <FolderInput size={15} />
+                  </IconButton>
+                </Tooltip>
+              )}
               <CardActionArea
                 onClick={() => onOpen(it.key)}
                 sx={{ p: 2, height: '100%', alignItems: 'flex-start', textAlign: 'left' }}
               >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, mb: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, mb: 1, pr: onMove && writeAccess ? 3 : 0 }}>
                   <Box sx={{
                     width: 34, height: 34, borderRadius: '9px', display: 'grid', placeItems: 'center',
                     bgcolor: colors.primarySoft, color: colors.primary, flexShrink: 0,
@@ -388,14 +430,76 @@ const ComponentCategoriesPage = () => {
           />
         ) : !atType ? (
           // Level 1 — Types in this category.
-          drillGrid(typeCards, openType, Layers)
+          drillGrid(typeCards, openType, Layers, (it) => setMoveTarget({
+            items: it.rows, keepValue: true,
+            title: `Move or rename “${it.label}” (${it.rows.length} item${it.rows.length === 1 ? '' : 's'})`,
+          }))
         ) : !atValue ? (
           // Level 2 — Values of the chosen type.
-          drillGrid(valueCards, openValue, Tag)
+          drillGrid(valueCards, openValue, Tag, (it) => setMoveTarget({
+            items: it.rows, keepValue: false,
+            title: `Move or rename “${it.label}” (${it.rows.length} item${it.rows.length === 1 ? '' : 's'})`,
+          }))
         ) : (
           // Level 3 — components at this Category → Type → Value.
-          <DataTable columns={leafColumns} rows={leafComponents} rowKey="id" minWidth={560} />
+          <DataTable
+            columns={leafColumns} rows={leafComponents} rowKey="id" minWidth={560}
+            renderActions={(row) => (
+              <Box sx={{ display: 'inline-flex', gap: 0.875 }}>
+                <Tooltip title="Details & specifications">
+                  <IconButton size="small" onClick={() => setDetail(row)}><Eye size={16} /></IconButton>
+                </Tooltip>
+                {writeAccess && (
+                  <>
+                    <Tooltip title="Edit">
+                      <IconButton size="small" onClick={() => setEditRow(row)}><Pencil size={16} /></IconButton>
+                    </Tooltip>
+                    <Tooltip title="Move to another folder">
+                      <IconButton size="small" sx={{ color: colors.primary }}
+                        onClick={() => setMoveTarget({ items: [row], keepValue: false })}>
+                        <FolderInput size={16} />
+                      </IconButton>
+                    </Tooltip>
+                  </>
+                )}
+              </Box>
+            )}
+          />
         )}
+
+        <ComponentDetailsDrawer
+          component={detail} open={!!detail} onClose={() => setDetail(null)} canEdit={writeAccess}
+          onEdit={(row) => { setDetail(null); setEditRow(row); }}
+          onRelocate={(row) => { setDetail(null); setMoveTarget({ items: [row], keepValue: false }); }}
+          onMoved={(r) => { setDetail(null); afterComponentChange(`Moved to Equipment; ${r.componentItemCode} archived`); }}
+        />
+
+        <ComponentFormDialog
+          open={!!editRow} onClose={() => setEditRow(null)} component={editRow}
+          categories={categories} canCreateCategory={writeAccess} onCategoryCreated={fetchCategories}
+          notify={notify}
+          onSaved={(message) => { setEditRow(null); afterComponentChange(message); }}
+        />
+
+        <MoveComponentsDialog
+          open={!!moveTarget} onClose={() => setMoveTarget(null)}
+          items={moveTarget?.items || []} title={moveTarget?.title} keepValue={moveTarget?.keepValue}
+          categories={categories}
+          onMoved={(count, path) => {
+            setMoveTarget(null);
+            afterComponentChange(`Moved ${count} component${count === 1 ? '' : 's'}${path ? ` to ${path}` : ''}`);
+          }}
+        />
+
+        <Snackbar
+          open={snack.open} autoHideDuration={4000}
+          onClose={() => setSnack({ ...snack, open: false })}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        >
+          <Alert severity={snack.severity} variant="filled" onClose={() => setSnack({ ...snack, open: false })}>
+            {snack.message}
+          </Alert>
+        </Snackbar>
       </Box>
     );
   }

@@ -6,7 +6,9 @@ import {
 import { UploadCloud, FileText, X, Sparkles, RefreshCw, Check, Smartphone } from 'lucide-react';
 import { extractInvoice, confirmInvoice, fetchExtractionBlob } from '../../api/purchaseApi';
 import { getEquipment } from '../../api/equipmentApi';
+import { getComponentCategories } from '../../api/componentCategoryApi';
 import PhoneScanDialog from './PhoneScanDialog';
+import InventoryPathEditor from './InventoryPathEditor';
 import { formatCurrency, CURRENCY_SYMBOL } from '../../utils/currency';
 import { colors } from '../../theme/tokens';
 
@@ -96,6 +98,7 @@ const badgeFor = (l) => {
 const InvoiceUploadDialog = ({ open, onClose, components, onCreated }) => {
   const fileRef = useRef(null);
   const [equipment, setEquipment] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [file, setFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState('');
   const [isPdf, setIsPdf] = useState(false);
@@ -116,6 +119,10 @@ const InvoiceUploadDialog = ({ open, onClose, components, onCreated }) => {
     getEquipment({ page: 0, size: 500, sortBy: 'name', sortDir: 'asc' })
       .then((r) => setEquipment(r.data?.content || []))
       .catch(() => setEquipment([]));
+    // Categories for the "where will this be filed" editor on new components.
+    getComponentCategories()
+      .then((r) => setCategories(r.data || []))
+      .catch(() => setCategories([]));
   }, [open]);
 
   const reset = () => {
@@ -185,11 +192,17 @@ const InvoiceUploadDialog = ({ open, onClose, components, onCreated }) => {
       else { resolution = 'NEW_COMPONENT'; }
       return {
         description: it.description || '', supplierItemCode: it.supplierItemCode || '', hsnCode: it.hsnCode || '',
+        packageName: it.packageName || '',
         category: it.category || '', unit: it.unit || 'pcs', suggestedType: it.suggestedType || 'COMPONENT',
         quantity: Number(it.quantity) || 0, unitPrice: Number(it.unitPrice) || 0,
         discount: Number(it.discount) || 0, taxAmount: Number(it.taxAmount) || 0,
         taxPercentage: Number(it.taxPercentage) || 0, lineTotal: Number(it.lineTotal) || 0,
         resolution, componentId, equipmentId,
+        // Auto-suggested inventory path (Category › Type › Value) — editable before confirm.
+        invCategory: it.inventoryCategory || it.category || '',
+        invType: it.inventoryType || '',
+        invValue: it.inventoryValue || '',
+        invReason: it.inventoryReason || '',
       };
     }));
   };
@@ -239,7 +252,17 @@ const InvoiceUploadDialog = ({ open, onClose, components, onCreated }) => {
           resolution: l.resolution,
           componentId: l.resolution === 'EXISTING_COMPONENT' ? Number(l.componentId) : null,
           equipmentId: l.resolution === 'EXISTING_EQUIPMENT' ? Number(l.equipmentId) : null,
-          name: l.description, category: l.category, unit: l.unit,
+          name: l.description,
+          // New items are filed where the user confirmed; existing ones keep their place.
+          category: (l.resolution === 'NEW_COMPONENT' || l.resolution === 'NEW_EQUIPMENT')
+            ? (l.invCategory || l.category) : l.category,
+          type: l.resolution === 'NEW_COMPONENT' ? (l.invType || null) : null,
+          value: l.resolution === 'NEW_COMPONENT' ? (l.invValue || null) : null,
+          // Saved as specifications of a newly created item; ignored for existing ones.
+          supplierItemCode: l.supplierItemCode || null,
+          hsnCode: l.hsnCode || null,
+          packageName: l.packageName || null,
+          unit: l.unit,
           quantity: Number(l.quantity) || 0, unitPrice: Number(l.unitPrice) || 0,
         })),
       };
@@ -480,6 +503,8 @@ const InvoiceUploadDialog = ({ open, onClose, components, onCreated }) => {
                             </Typography>
                           </Grid>
                         </Grid>
+                        <InventoryPathEditor line={l} categories={categories} components={components}
+                          equipment={equipment} onChange={(patch) => setLine(i, patch)} />
                       </Box>
                     );
                   })}

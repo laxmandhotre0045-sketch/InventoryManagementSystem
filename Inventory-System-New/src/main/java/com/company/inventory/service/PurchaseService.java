@@ -34,4 +34,7 @@ public interface PurchaseService {
     void deletePurchase(Long id);
 
     PurchaseSummaryResponse getPurchaseSummary(Long id);
+
+    /** The purchase plus full details of every component and equipment it brought in. */
+    com.company.inventory.dto.response.PurchaseDetailResponse getPurchaseDetails(Long id);
 }

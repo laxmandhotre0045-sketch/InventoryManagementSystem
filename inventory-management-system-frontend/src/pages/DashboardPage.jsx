@@ -400,7 +400,7 @@ const DashboardPage = () => {
             subtitle={rankedCategories.length
               ? `${num(partsInCategories)} parts across ${rankedCategories.length} categories`
               : 'Parts in each category'}
-            action={<ViewAll onClick={() => navigate('/categories')} />}
+            action={<ViewAll onClick={() => navigate('/component-categories')} />}
           >
             {/* Stock status, compact: the donut it replaces was one colour at 98%. */}
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
@@ -431,8 +431,8 @@ const DashboardPage = () => {
                     <Tooltip key={c.id} title={`Open categories — ${c.name}`} placement="top-start">
                       <Box
                         role="button" tabIndex={0}
-                        onClick={() => navigate('/categories')}
-                        onKeyDown={(e) => { if (e.key === 'Enter') navigate('/categories'); }}
+                        onClick={() => navigate('/component-categories')}
+                        onKeyDown={(e) => { if (e.key === 'Enter') navigate('/component-categories'); }}
                         sx={{ ...rowSx, py: 0.875, cursor: 'pointer' }}
                       >
                         <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mb: 0.5 }}>
@@ -455,7 +455,7 @@ const DashboardPage = () => {
                   );
                 })}
                 {moreCategories > 0 && (
-                  <Button variant="text" size="small" onClick={() => navigate('/categories')} sx={{ mt: 0.75, ml: -0.75 }}>
+                  <Button variant="text" size="small" onClick={() => navigate('/component-categories')} sx={{ mt: 0.75, ml: -0.75 }}>
                     + {moreCategories} more categor{moreCategories === 1 ? 'y' : 'ies'}
                   </Button>
                 )}

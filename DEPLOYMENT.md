@@ -241,14 +241,39 @@ docker compose down                 # stop (database data is kept)
 docker compose down -v              # stop AND delete DB data (destructive)
 ```
 
-Update to the latest code:
+Update to the latest code (existing installation — keeps all data):
 
 ```bash
-git pull && docker compose up -d --build
+# 1. Back up the database first (the dump contains password hashes — keep it private)
+mkdir -p backups
+docker exec inventory-mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysqldump -uroot --single-transaction "$MYSQL_DATABASE"' \
+  > backups/pre-update-$(date +%Y%m%d-%H%M%S).sql
+
+# 2. Pull, rebuild the frontend bundle (dist/ is NOT rebuilt by Compose), rebuild the app
+git pull
+(cd inventory-management-system-frontend && npm ci && npm run build)
+docker compose up -d --build backend frontend
 ```
+
+Never use `docker compose down -v` when updating — it deletes the database.
 
 Persistent data lives in Docker volumes: `mysql_data` (database) and `backend_uploads`
 (uploaded invoice files). They survive `docker compose down` (but not `down -v`).
+
+### Notes for the October 2026 update
+
+- **No new `.env` settings.** On first start the backend adds, automatically and empty, one new
+  table (`item_specifications`) and one nullable column (`equipment.purchase_id`). Hibernate
+  `ddl-auto=update` only adds; no existing row or value is changed. (Verified by restoring a
+  production dump into a scratch stack and comparing every table before and after start-up.)
+- **New features:** BOM / Excel stock check (upload button in the top search bar), purchase
+  details with component specs, automatic Category › Type › Value filing for invoice items,
+  editable specifications on every component and equipment item (click a name), *Move to
+  another folder* for misfiled components, and *Move to Equipment* for modules.
+- **Optional one-time data step:** components in the *Modules* category are really equipment.
+  For each one, open it (Components page → click the name) → **Move to Equipment**. It shows a
+  preview first, creates one equipment record per unit and archives the component (it is
+  never deleted and can be restored).
 
 ---
 
@@ -258,6 +283,7 @@ Persistent data lives in Docker volumes: `mysql_data` (database) and `backend_up
 |---------|-------------|
 | Backend container restarts / unhealthy, logs mention the JWT secret | `JWT_SECRET` is still the placeholder. Set a real one (`openssl rand -base64 48`), then `docker compose up -d backend`. |
 | `Cannot connect to the Docker daemon` | Docker isn't running. Start Docker Desktop (Win/Mac) or `sudo systemctl start docker` (Linux). |
+| Windows: `git clone` says `Filename too long` / "checkout failed" | The repo still carries old Eclipse workspace files with long paths. Clone into a short folder (e.g. `C:\apps\`) or run `git config --global core.longpaths true` first, then `git restore --source=HEAD :/` in the clone. |
 | Port already in use (8090/8091/3310) | Another service holds the port. Change `FRONTEND_PORT`/`BACKEND_PORT`/`MYSQL_PORT` in `.env` and restart. |
 | Can't log in on a fresh DB | No users were seeded. Set `SEED_DEFAULT_USERS=true` + `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD`, `docker compose up -d backend`, log in, then set it back to `false`. |
 | Invoice upload shows a "sample data" chip | `OPENAI_API_KEY` is blank or `INVOICE_OCR_PROVIDER` isn't `openai`. Fix `.env`, `docker compose up -d --build backend`. |

@@ -3,7 +3,7 @@ import {
   Box, Button, Dialog, DialogActions, DialogContent, DialogTitle,
   IconButton, MenuItem, TextField, Typography, Snackbar, Alert, Grid, Divider, Tooltip,
 } from '@mui/material';
-import { Plus, Trash2, Upload, FileCheck2, ShoppingCart, Sparkles, Eye, Download } from 'lucide-react';
+import { Plus, Trash2, Upload, FileCheck2, ShoppingCart, Sparkles, Eye, Download, ClipboardList } from 'lucide-react';
 import {
   getPurchases, searchPurchases, createPurchase, deletePurchase, uploadInvoice, downloadInvoice,
 } from '../api/purchaseApi';
@@ -12,6 +12,7 @@ import DataTable from '../components/common/DataTable';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import InvoiceUploadDialog from '../components/purchases/InvoiceUploadDialog';
 import InvoiceViewerDialog from '../components/purchases/InvoiceViewerDialog';
+import PurchaseDetailsDrawer from '../components/purchases/PurchaseDetailsDrawer';
 import { PageHeader, StatusBadge, SearchBar } from '../components/ui';
 import useDebouncedValue from '../hooks/useDebouncedValue';
 import { colors } from '../theme/tokens';
@@ -38,6 +39,7 @@ const PurchasesPage = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [ocrOpen, setOcrOpen] = useState(false);
   const [viewRow, setViewRow] = useState(null);
+  const [detailRow, setDetailRow] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [deleteId, setDeleteId] = useState(null);
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
@@ -132,12 +134,24 @@ const PurchasesPage = () => {
     {
       field: 'invoiceNumber', headerName: 'Invoice #',
       render: (row) => (
-        <Box component="span" sx={{ fontWeight: 600, color: colors.primary, whiteSpace: 'nowrap' }}>
-          {row.invoiceNumber}
-        </Box>
+        <Tooltip title="View purchased items and specifications">
+          <Box component="button" type="button" onClick={() => setDetailRow(row)}
+            sx={{
+              all: 'unset', cursor: 'pointer', fontWeight: 600, color: colors.primary, whiteSpace: 'nowrap',
+              '&:hover': { textDecoration: 'underline' },
+            }}>
+            {row.invoiceNumber}
+          </Box>
+        </Tooltip>
       ),
     },
     { field: 'supplierName', headerName: 'Supplier' },
+    {
+      field: 'items', headerName: 'Items', align: 'right',
+      render: (row) => (row.items?.length
+        ? <Box component="span" sx={{ whiteSpace: 'nowrap' }}>{row.items.length}</Box>
+        : <Box component="span" sx={{ color: colors.textMuted }}>—</Box>),
+    },
     { field: 'purchaseDate', headerName: 'Invoice Date', render: (row) => dateLabel(row.purchaseDate) },
     { field: 'totalAmount', headerName: 'Total', align: 'right', render: (row) => <Box component="span" sx={{ fontWeight: 600 }}>{currency(row.totalAmount)}</Box> },
     {
@@ -186,6 +200,14 @@ const PurchasesPage = () => {
         }
       />
 
+      <PurchaseDetailsDrawer
+        open={Boolean(detailRow)}
+        purchase={detailRow}
+        onClose={() => setDetailRow(null)}
+        onViewInvoice={(row) => setViewRow(row)}
+        onDownloadInvoice={handleDownload}
+      />
+
       <InvoiceUploadDialog
         open={ocrOpen}
         onClose={() => setOcrOpen(false)}
@@ -215,6 +237,11 @@ const PurchasesPage = () => {
         }}
         renderActions={(row) => (
           <Box sx={{ display: 'inline-flex', gap: 0.5 }}>
+            <Tooltip title="View details — items and specifications">
+              <IconButton size="small" sx={{ color: colors.primary }} onClick={() => setDetailRow(row)}>
+                <ClipboardList size={16} />
+              </IconButton>
+            </Tooltip>
             <Tooltip title={row.hasInvoice ? 'View invoice' : 'No invoice uploaded yet'}>
               <span>
                 <IconButton size="small" disabled={!row.hasInvoice} onClick={() => setViewRow(row)}>

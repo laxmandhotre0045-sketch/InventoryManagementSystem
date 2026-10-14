@@ -117,6 +117,10 @@ public class OpenAiClient {
             return content.asText();
         } catch (RestClientException ex) {
             log.error("OpenAI request failed: {}", ex.getMessage());
+            com.company.inventory.exception.AiServiceException ai = aiError(ex);
+            if (ai != null) {
+                throw ai;
+            }
             throw new IllegalStateException("OpenAI request failed: " + ex.getMessage(), ex);
         } catch (Exception ex) {
             log.error("Could not parse OpenAI response: {}", ex.getMessage());
@@ -141,6 +145,12 @@ public class OpenAiClient {
         try {
             return transcribeWith(props.getTranscribeModel(), audio, filename);
         } catch (RestClientException ex) {
+            // A rejected key / exhausted quota / no connection affects every model alike.
+            com.company.inventory.exception.AiServiceException ai = aiError(ex);
+            if (ai != null) {
+                log.error("OpenAI transcription failed: {}", ex.getMessage());
+                throw ai;
+            }
             // Primary model may be unavailable on this account — fall back to the
             // universally-available whisper-1 so voice never hard-fails.
             if (!"whisper-1".equalsIgnoreCase(props.getTranscribeModel())) {
@@ -189,6 +199,31 @@ public class OpenAiClient {
         } catch (Exception ex) {
             throw new IllegalStateException("Could not read transcription result", ex);
         }
+    }
+
+    /**
+     * Problems the user cannot fix by retrying with a better photo get a plain message
+     * telling them (or their admin) what to do. Null for anything else.
+     */
+    private static com.company.inventory.exception.AiServiceException aiError(RestClientException ex) {
+        if (ex instanceof org.springframework.web.client.HttpClientErrorException h) {
+            int code = h.getStatusCode().value();
+            if (code == 401 || code == 403) {
+                return new com.company.inventory.exception.AiServiceException(
+                        "The AI service rejected the API key (OpenAI " + code + "). An administrator needs to "
+                                + "put a valid key in OPENAI_API_KEY in the .env file and restart the backend.");
+            }
+            if (code == 429) {
+                return new com.company.inventory.exception.AiServiceException(
+                        "The AI service quota or rate limit was reached (OpenAI 429). Check the OpenAI "
+                                + "account's billing and usage limits, then try again.");
+            }
+        }
+        if (ex instanceof org.springframework.web.client.ResourceAccessException) {
+            return new com.company.inventory.exception.AiServiceException(
+                    "Could not reach the AI service. Check the server's internet connection and try again.");
+        }
+        return null;
     }
 
     /** Small helper so we don't depend on Spring Boot's RestTemplateBuilder timeouts wiring. */

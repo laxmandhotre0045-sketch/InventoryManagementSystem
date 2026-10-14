@@ -2,8 +2,9 @@ import { InputBase, Box } from '@mui/material';
 import { Search } from 'lucide-react';
 import { colors } from '../../theme/tokens';
 
-// Reusable rounded search input with a leading icon.
-const SearchBar = ({ value, onChange, onKeyDown, placeholder = 'Search…', width = 280, sx, inputProps }) => (
+// Reusable rounded search input with a leading icon and an optional trailing element
+// (e.g. the BOM-upload button in the navbar search).
+const SearchBar = ({ value, onChange, onKeyDown, placeholder = 'Search…', width = 280, sx, inputProps, endAdornment }) => (
   <Box
     sx={{
       display: 'flex',
@@ -32,6 +33,7 @@ const SearchBar = ({ value, onChange, onKeyDown, placeholder = 'Search…', widt
       inputProps={inputProps}
       sx={{ flex: 1, fontSize: '0.875rem', '& input::placeholder': { color: colors.textSecondary, opacity: 0.75 } }}
     />
+    {endAdornment}
   </Box>
 );
 

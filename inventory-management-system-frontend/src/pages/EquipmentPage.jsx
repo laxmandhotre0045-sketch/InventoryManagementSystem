@@ -3,7 +3,7 @@ import {
   Box, Button, Card, Dialog, DialogActions, DialogContent, DialogTitle,
   IconButton, TextField, MenuItem, Snackbar, Alert, Grid, Tooltip, InputAdornment,
 } from '@mui/material';
-import { Plus, Pencil, Trash2, Filter, X, Cpu, Search } from 'lucide-react';
+import { Plus, Pencil, Trash2, Filter, X, Cpu, Search, Eye } from 'lucide-react';
 import {
   getEquipment, searchEquipment, createEquipment, updateEquipment, deleteEquipment,
 } from '../api/equipmentApi';
@@ -11,6 +11,7 @@ import { useAuth } from '../auth/AuthContext';
 import { canWrite } from '../utils/roleUtils';
 import DataTable from '../components/common/DataTable';
 import ConfirmDialog from '../components/common/ConfirmDialog';
+import EquipmentDetailsDrawer from '../components/equipment/EquipmentDetailsDrawer';
 import { PageHeader, StatusBadge } from '../components/ui';
 import useDebouncedValue from '../hooks/useDebouncedValue';
 import { colors } from '../theme/tokens';
@@ -63,6 +64,8 @@ const EquipmentPage = () => {
   const [form, setForm] = useState(emptyForm);
   const [editId, setEditId] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
+  // Row whose details/specifications drawer is open.
+  const [detail, setDetail] = useState(null);
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
 
   const fetchData = useCallback(async () => {
@@ -141,7 +144,15 @@ const EquipmentPage = () => {
         </Box>
       ),
     },
-    { field: 'name', headerName: 'Name' },
+    {
+      field: 'name', headerName: 'Name',
+      render: (row) => (
+        <Box component="button" type="button" onClick={() => setDetail(row)}
+          sx={{ all: 'unset', cursor: 'pointer', fontWeight: 600, '&:hover': { color: colors.primary, textDecoration: 'underline' } }}>
+          {row.name}
+        </Box>
+      ),
+    },
     { field: 'serialNumber', headerName: 'Serial #' },
     { field: 'category', headerName: 'Category' },
     { field: 'status', headerName: 'Status', render: (row) => <StatusBadge status={equipmentStatus(row.status)} label={row.status || 'UNKNOWN'} /> },
@@ -198,12 +209,17 @@ const EquipmentPage = () => {
           actionLabel: writeAccess ? 'Add Equipment' : undefined,
           onAction: writeAccess ? openCreate : undefined,
         }}
-        renderActions={writeAccess ? (row) => (
+        renderActions={(row) => (
           <Box sx={{ display: 'inline-flex', gap: 0.875 }}>
-            <Tooltip title="Edit"><IconButton size="small" onClick={() => openEdit(row)}><Pencil size={16} /></IconButton></Tooltip>
-            <Tooltip title="Delete"><IconButton size="small" sx={{ color: colors.danger }} onClick={() => setDeleteId(row.id)}><Trash2 size={16} /></IconButton></Tooltip>
+            <Tooltip title="Details & specifications"><IconButton size="small" onClick={() => setDetail(row)}><Eye size={16} /></IconButton></Tooltip>
+            {writeAccess && (
+              <>
+                <Tooltip title="Edit"><IconButton size="small" onClick={() => openEdit(row)}><Pencil size={16} /></IconButton></Tooltip>
+                <Tooltip title="Delete"><IconButton size="small" sx={{ color: colors.danger }} onClick={() => setDeleteId(row.id)}><Trash2 size={16} /></IconButton></Tooltip>
+              </>
+            )}
           </Box>
-        ) : undefined}
+        )}
       />
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
@@ -252,6 +268,12 @@ const EquipmentPage = () => {
           <Button variant="contained" onClick={handleSave}>Save</Button>
         </DialogActions>
       </Dialog>
+
+      <EquipmentDetailsDrawer
+        equipment={detail} open={!!detail} onClose={() => setDetail(null)}
+        canEdit={writeAccess} statusOf={equipmentStatus}
+        onEdit={(row) => { setDetail(null); openEdit(row); }}
+      />
 
       <ConfirmDialog
         open={!!deleteId} title="Delete Equipment"

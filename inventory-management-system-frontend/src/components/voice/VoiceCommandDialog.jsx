@@ -3,7 +3,7 @@ import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button, Box, Typography,
   IconButton, CircularProgress, TextField, Grid, Alert, Chip, Divider,
 } from '@mui/material';
-import { Mic, Square, X, Check, Sparkles, RotateCcw } from 'lucide-react';
+import { Mic, Square, X, Check, Sparkles, RotateCcw, MapPin } from 'lucide-react';
 import { transcribeAudio, interpretVoiceCommand, executeVoiceCommand } from '../../api/voiceApi';
 import { CURRENCY_SYMBOL } from '../../utils/currency';
 import { colors } from '../../theme/tokens';
@@ -61,6 +61,8 @@ const VoiceCommandDialog = ({ open, onClose, onDone }) => {
   const [category, setCategory] = useState('');
   const [unit, setUnit] = useState('');
   const [unitPrice, setUnitPrice] = useState('');
+  const [compType, setCompType] = useState('');
+  const [compValue, setCompValue] = useState('');
 
   const cleanupStream = () => {
     if (autoStopRef.current) { clearTimeout(autoStopRef.current); autoStopRef.current = null; }
@@ -73,6 +75,7 @@ const VoiceCommandDialog = ({ open, onClose, onDone }) => {
     cleanupStream();
     setRecording(false); setTranscript(''); setPhase('capture');
     setError(''); setHint(''); setInterp(null); setQty(''); setCategory(''); setUnit(''); setUnitPrice('');
+    setCompType(''); setCompValue('');
   };
 
   useEffect(() => {
@@ -109,10 +112,12 @@ const VoiceCommandDialog = ({ open, onClose, onDone }) => {
     recorderRef.current = recorder;
 
     recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunksRef.current.push(e.data); };
-    recorder.onstop = async () => {
+    // Recording length from the recorder's own event timestamps (start -> stop).
+    recorder.onstart = (ev) => { startTimeRef.current = ev.timeStamp; };
+    recorder.onstop = async (ev) => {
       cleanupStream();
       setRecording(false);
-      const elapsed = Date.now() - (startTimeRef.current || 0);
+      const elapsed = (ev?.timeStamp ?? 0) - (startTimeRef.current || 0);
       const type = recorder.mimeType || mimeType || 'audio/webm';
       const blob = new Blob(chunksRef.current, { type });
       if (!blob.size || elapsed < MIN_RECORD_MS) {
@@ -139,7 +144,6 @@ const VoiceCommandDialog = ({ open, onClose, onDone }) => {
     };
 
     setRecording(true);
-    startTimeRef.current = Date.now();
     recorder.start();
     // Safety auto-stop so a forgotten recording can't run forever.
     autoStopRef.current = setTimeout(() => {
@@ -163,6 +167,8 @@ const VoiceCommandDialog = ({ open, onClose, onDone }) => {
       setCategory(d.category ?? '');
       setUnit(d.unit ?? '');
       setUnitPrice(d.unitPrice ?? '');
+      setCompType(d.type ?? '');
+      setCompValue(d.componentValue ?? '');
       setPhase('review');
     } catch (err) {
       setError(err.response?.data?.message || 'Could not interpret the command. Please try again.');
@@ -185,6 +191,8 @@ const VoiceCommandDialog = ({ open, onClose, onDone }) => {
         componentName: interp.itemName,
         quantity: Number(qty),
         categoryName: category || null,
+        type: compType || null,
+        componentValue: compValue || null,
         unit: unit || null,
         unitPrice: unitPrice === '' ? null : Number(unitPrice),
         minimumQuantity: null,
@@ -295,9 +303,25 @@ const VoiceCommandDialog = ({ open, onClose, onDone }) => {
                   <Typography sx={{ fontWeight: 600 }} noWrap>{interp.matchedComponentName || interp.itemName}</Typography>
                 </Box>
 
-                <Typography sx={{ fontSize: '0.9375rem', mb: 2 }}>
+                <Typography sx={{ fontSize: '0.9375rem', mb: 1.5 }}>
                   {interp.confirmationText}
                 </Typography>
+
+                {/* Where the stock is / will be filed — so a mis-heard part is easy to spot. */}
+                {(isCreate || interp.matchedPath) && (
+                  <Box sx={{
+                    display: 'flex', alignItems: 'center', gap: 0.75, mb: 2, px: 1.25, py: 0.75, borderRadius: 2,
+                    bgcolor: isCreate ? colors.primarySoft : colors.canvas,
+                  }}>
+                    <MapPin size={14} color={isCreate ? colors.primary : colors.textMuted} style={{ flexShrink: 0 }} />
+                    <Typography sx={{ fontSize: '0.75rem', color: colors.textSecondary, whiteSpace: 'nowrap' }}>
+                      {isCreate ? 'Will be filed under' : 'Stock is at'}
+                    </Typography>
+                    <Typography sx={{ fontSize: '0.8125rem', fontWeight: 700, color: isCreate ? colors.primary : colors.textSecondary, wordBreak: 'break-word' }}>
+                      {isCreate ? [category, compType, compValue].filter((s) => s && String(s).trim()).join(' › ') || '—' : interp.matchedPath}
+                    </Typography>
+                  </Box>
+                )}
 
                 {interp.warning && (
                   <Alert severity={nothingToRemove ? 'error' : 'warning'} sx={{ mb: 2 }}>{interp.warning}</Alert>
@@ -324,6 +348,21 @@ const VoiceCommandDialog = ({ open, onClose, onDone }) => {
                           <TextField fullWidth size="small" type="number" label={`Unit Price (${CURRENCY_SYMBOL})`}
                             value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} />
                         </Grid>
+                        <Grid item xs={6}>
+                          <TextField fullWidth size="small" label="Type" placeholder="SMD / THT / Module"
+                            value={compType} onChange={(e) => setCompType(e.target.value)} />
+                        </Grid>
+                        <Grid item xs={6}>
+                          <TextField fullWidth size="small" label="Value" placeholder="e.g. 100nF"
+                            value={compValue} onChange={(e) => setCompValue(e.target.value)} />
+                        </Grid>
+                        {interp.categoryReason && (
+                          <Grid item xs={12}>
+                            <Typography sx={{ fontSize: '0.72rem', color: colors.textMuted }}>
+                              {interp.categoryReason}{interp.categoryIsNew ? ' (new category)' : ''}
+                            </Typography>
+                          </Grid>
+                        )}
                       </>
                     )}
                   </Grid>

@@ -50,4 +50,35 @@ public class ExtractedInvoiceLineItem {
 
     @Schema(description = "Suggested item type when this is a new item: COMPONENT or EQUIPMENT", example = "COMPONENT")
     private String suggestedType;
+
+    // ---- From the AI: physical form, when the invoice implies it ----
+
+    @Schema(description = "Package / footprint, e.g. 0805, SOT-23, DIP-8", example = "0805")
+    private String packageName;
+
+    @Schema(description = "SMD or THT, as judged by the AI", example = "SMD")
+    private String mounting;
+
+    // ---- Where a NEW item would be filed: Category › Type › Value (auto-suggested) ----
+
+    @Schema(description = "Suggested existing category id (null when a new category is suggested)")
+    private Long inventoryCategoryId;
+
+    @Schema(description = "Suggested category", example = "Capacitor")
+    private String inventoryCategory;
+
+    @Schema(description = "True when the suggested category does not exist yet")
+    private boolean inventoryCategoryIsNew;
+
+    @Schema(description = "Suggested type: SMD, THT or Module", example = "SMD")
+    private String inventoryType;
+
+    @Schema(description = "Suggested value", example = "100nF")
+    private String inventoryValue;
+
+    @Schema(description = "Category › Type › Value", example = "Capacitor › SMD › 100nF")
+    private String inventoryPath;
+
+    @Schema(description = "Why this category was suggested")
+    private String inventoryReason;
 }

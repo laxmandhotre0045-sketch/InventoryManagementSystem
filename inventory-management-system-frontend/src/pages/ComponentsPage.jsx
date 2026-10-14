@@ -1,38 +1,27 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  Box, Button, Card, Dialog, DialogActions, DialogContent, DialogTitle,
-  IconButton, TextField, MenuItem, Snackbar, Alert, Grid, Tooltip, Chip, InputAdornment, Typography,
+  Box, Button, Card,
+  IconButton, TextField, MenuItem, Snackbar, Alert, Grid, Tooltip, Chip, InputAdornment,
 } from '@mui/material';
-import { Plus, Pencil, Trash2, RotateCcw, Filter, X, AlertTriangle, CircuitBoard, Search } from 'lucide-react';
 import {
-  getComponents, createComponent, updateComponent, deleteComponent, restoreComponent, getLowStockComponents,
+  Plus, Pencil, Trash2, RotateCcw, Filter, X, AlertTriangle, CircuitBoard, Search, Eye, FolderInput,
+} from 'lucide-react';
+import {
+  getComponents, deleteComponent, restoreComponent, getLowStockComponents,
 } from '../api/componentApi';
-import { getComponentCategories, createComponentCategory } from '../api/componentCategoryApi';
+import { getComponentCategories } from '../api/componentCategoryApi';
 import { useAuth } from '../auth/AuthContext';
 import { canWrite } from '../utils/roleUtils';
 import DataTable from '../components/common/DataTable';
 import ConfirmDialog from '../components/common/ConfirmDialog';
+import ComponentDetailsDrawer from '../components/components/ComponentDetailsDrawer';
+import ComponentFormDialog from '../components/components/ComponentFormDialog';
+import MoveComponentsDialog from '../components/components/MoveComponentsDialog';
 import { PageHeader, StatusBadge } from '../components/ui';
 import useDebouncedValue from '../hooks/useDebouncedValue';
-import { formatCurrency as currency, CURRENCY_SYMBOL } from '../utils/currency';
+import { formatCurrency as currency } from '../utils/currency';
 import { colors } from '../theme/tokens';
-
-const emptyForm = {
-  componentName: '', categoryId: '', type: '', value: '', quantity: 0, minimumQuantity: 0, unitPrice: '',
-  location: '', rackNo: '', status: 'ACTIVE', description: '',
-};
-
-// Sentinel value for the "create a new category" row in the category dropdown.
-// Not a valid id, so it can never be mistaken for a real selection.
-const NEW_CATEGORY = '__new__';
-
-// Two states only. ARCHIVED still exists in the data model to back the soft delete,
-// but it is set by the archive/restore actions — never chosen from this list.
-const STATUS_OPTIONS = [
-  { value: 'ACTIVE', label: 'Available' },
-  { value: 'INACTIVE', label: 'Not Available' },
-];
 
 /**
  * Availability is binary: in stock and active, or not.
@@ -63,14 +52,16 @@ const ComponentsPage = () => {
   const [status, setStatus] = useState('');
   const [stockStatus, setStockStatus] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState(emptyForm);
-  const [editId, setEditId] = useState(null);
+  // Row being edited in the form dialog (null = creating), and prefill for a new one.
+  const [editRow, setEditRow] = useState(null);
+  const [createDefaults, setCreateDefaults] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
+  // Row whose details/specifications drawer is open.
+  const [detail, setDetail] = useState(null);
+  // Component being moved to another Category › Type › Value.
+  const [moveRow, setMoveRow] = useState(null);
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
   const [categories, setCategories] = useState([]);
-  const [newCategoryOpen, setNewCategoryOpen] = useState(false);
-  const [newCategoryName, setNewCategoryName] = useState('');
-  const [savingCategory, setSavingCategory] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -159,124 +150,20 @@ const ComponentsPage = () => {
     if (!createInCategoryId) return;
     // Only preselect the category in the create form — the page itself no longer
     // filters by category (the rail is gone), so the list keeps showing everything.
-    setEditId(null);
-    setForm({ ...emptyForm, categoryId: createInCategoryId });
+    setEditRow(null);
+    setCreateDefaults({ categoryId: createInCategoryId });
     setDialogOpen(true);
     navigate(routerLocation.pathname, { replace: true, state: null });
   }, [createInCategoryId, navigate, routerLocation.pathname]);
 
-  /** The category the open form will save into. */
-  const formCategory = categories.find((c) => c.id === Number(form.categoryId)) || null;
-
-  // Either nothing is chosen yet, or a category has been picked in the form.
-  let categoryHelperText = ' ';
-  if (form.categoryId === '') {
-    categoryHelperText = 'Required — choose the category this component belongs to.';
-  }
-
   const openCreate = () => {
-    setEditId(null);
-    setForm({ ...emptyForm });
+    setEditRow(null);
+    setCreateDefaults(null);
     setDialogOpen(true);
   };
   const openEdit = (row) => {
-    setEditId(row.id);
-    setForm({
-      // itemCode is still carried so the existing "never send it back" guard in
-      // handleSave has something to strip; it is simply no longer shown.
-      itemCode: row.itemCode || '',
-      componentName: row.componentName || '', categoryId: row.categoryId ?? '',
-      type: row.type || '', value: row.value || '',
-      quantity: row.quantity ?? 0, minimumQuantity: row.minimumQuantity ?? 0,
-      unitPrice: row.unitPrice ?? '', location: row.location || '',
-      rackNo: row.rackNo || '',
-      status: row.status || 'ACTIVE', description: row.description || '',
-    });
+    setEditRow(row);
     setDialogOpen(true);
-  };
-
-  /**
-   * The category select doubles as the entry point for creating one, so an admin who
-   * finds the category missing mid-entry can add it without losing the form they are
-   * part-way through filling in.
-   */
-  const handleCategoryChange = (value) => {
-    if (value === NEW_CATEGORY) {
-      setNewCategoryName('');
-      setNewCategoryOpen(true);
-      return;
-    }
-    setForm((prev) => ({ ...prev, categoryId: value }));
-  };
-
-  const handleCreateCategory = async () => {
-    const name = newCategoryName.trim();
-    if (!name) {
-      setSnack({ open: true, message: 'Category name is required', severity: 'error' });
-      return;
-    }
-    setSavingCategory(true);
-    try {
-      const res = await createComponentCategory({ name });
-      const created = res.data;
-      await fetchCategories();
-      // Select it straight away — creating it from inside the form means it is the
-      // one the user wants for the component they are entering.
-      setForm((prev) => ({ ...prev, categoryId: created?.id ?? '' }));
-      setNewCategoryOpen(false);
-      setSnack({ open: true, message: `Category "${created?.name || name}" created`, severity: 'success' });
-    } catch (err) {
-      setSnack({ open: true, message: err.response?.data?.message || 'Could not create category', severity: 'error' });
-    } finally {
-      setSavingCategory(false);
-    }
-  };
-
-  const handleSave = async () => {
-    // Caught here as well as by the backend so the user gets the message beside the
-    // form rather than a validation error after a round trip.
-    if (form.categoryId === '' || form.categoryId == null) {
-      setSnack({ open: true, message: 'Please select a category', severity: 'error' });
-      return;
-    }
-    // Type and Value complete the Category → Type → Value structure and are required
-    // for every component entered through the app.
-    if (!form.type.trim()) {
-      setSnack({ open: true, message: 'Please enter a Type (e.g. SMD, axial)', severity: 'error' });
-      return;
-    }
-    if (!form.value.trim()) {
-      setSnack({ open: true, message: 'Please enter a Value (e.g. 4.7kΩ, 100µF)', severity: 'error' });
-      return;
-    }
-    try {
-      // itemCode is system-generated — never sent to the API.
-      const payload = {
-        ...form,
-        categoryId: Number(form.categoryId),
-        quantity: Number(form.quantity),
-        minimumQuantity: Number(form.minimumQuantity),
-        // Blank means "no price known", which is not the same as free. Sending null
-        // keeps the component out of the valuation instead of valuing it at zero.
-        unitPrice: form.unitPrice === '' || form.unitPrice === null ? null : Number(form.unitPrice),
-      };
-      delete payload.itemCode;
-      // Named in the confirmation because the form's category can be changed after
-      // it was inherited from the rail — this is what makes a component landing
-      // somewhere other than the category on screen visible rather than silent.
-      const savedIn = categories.find((c) => c.id === Number(form.categoryId))?.name;
-      if (editId) {
-        await updateComponent(editId, payload);
-        setSnack({ open: true, message: `Component updated in ${savedIn}`, severity: 'success' });
-      } else {
-        await createComponent(payload);
-        setSnack({ open: true, message: `Component created in ${savedIn}`, severity: 'success' });
-      }
-      setDialogOpen(false);
-      refresh();
-    } catch (err) {
-      setSnack({ open: true, message: err.response?.data?.message || 'Save failed', severity: 'error' });
-    }
   };
 
   const handleDelete = async () => {
@@ -309,7 +196,28 @@ const ComponentsPage = () => {
   // box — it simply is not what anyone on the floor uses to find a part. Rack no takes
   // its place because that is the label that says where the component physically is.
   const columns = [
-    { field: 'componentName', headerName: 'Name' },
+    {
+      field: 'componentName', headerName: 'Name',
+      render: (row) => (
+        <Box>
+          <Box component="button" type="button" onClick={() => setDetail(row)}
+            sx={{ all: 'unset', cursor: 'pointer', fontWeight: 600, '&:hover': { color: colors.primary, textDecoration: 'underline' } }}>
+            {row.componentName}
+          </Box>
+          {/* Found by meaning rather than literal text (e.g. "PCF8563T" -> "PCF8563…"): say why. */}
+          {row.searchMatch && (
+            <Tooltip title={row.searchNote || ''}>
+              <Chip size="small" label={row.searchMatch === 'POSSIBLE' ? 'Possible match' : 'Close match'}
+                sx={{
+                  display: 'flex', width: 'fit-content', mt: 0.5, height: 20, fontSize: '0.68rem', fontWeight: 700,
+                  bgcolor: row.searchMatch === 'POSSIBLE' ? colors.accentSoft : colors.infoSoft,
+                  color: row.searchMatch === 'POSSIBLE' ? colors.accent : colors.info,
+                }} />
+            </Tooltip>
+          )}
+        </Box>
+      ),
+    },
     {
       field: 'rackNo', headerName: 'Rack No',
       render: (row) => (row.rackNo
@@ -424,6 +332,13 @@ const ComponentsPage = () => {
         </Grid>
       </Card>
 
+      {page === 0 && debouncedKeyword.trim() && rows.length > 0 && rows.every((r) => r.searchMatch) && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Nothing is named exactly “{debouncedKeyword.trim()}” — showing the closest components.
+          Hover the label under a name to see what differs.
+        </Alert>
+      )}
+
       <DataTable
         columns={columns} rows={rows} loading={loading} page={page} rowsPerPage={size}
         totalElements={total} onPageChange={setPage} onRowsPerPageChange={(s) => { setSize(s); setPage(0); }}
@@ -436,9 +351,19 @@ const ComponentsPage = () => {
         }}
         renderActions={(row) => (
           <Box sx={{ display: 'inline-flex', gap: 0.875 }}>
+            <Tooltip title="Details & specifications">
+              <IconButton size="small" onClick={() => setDetail(row)}><Eye size={16} /></IconButton>
+            </Tooltip>
             <Tooltip title="Edit">
               <span>
                 <IconButton size="small" onClick={() => openEdit(row)} disabled={!writeAccess}><Pencil size={16} /></IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title="Move to another folder">
+              <span>
+                <IconButton size="small" sx={{ color: colors.primary }} onClick={() => setMoveRow(row)} disabled={!writeAccess}>
+                  <FolderInput size={16} />
+                </IconButton>
               </span>
             </Tooltip>
             {row.status === 'ARCHIVED' ? (
@@ -456,130 +381,38 @@ const ComponentsPage = () => {
         )}
       />
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
-        {/* The title names the category so the destination is stated before the
-            form is even read, not only in the field half way down it. */}
-        <DialogTitle>
-          {editId ? 'Edit Component' : 'Add Component'}
-          {!editId && formCategory && (
-            <Typography component="span" sx={{ color: colors.textSecondary, fontWeight: 500 }}>
-              {' '}to {formCategory.name}
-            </Typography>
-          )}
-        </DialogTitle>
-        <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 0.5 }}>
-            {/* The read-only Item Code field was removed with the column: the value is
-                system-generated, uneditable, and of no use while filling this form in.
-                It is still assigned on save and still stored. */}
-            <Grid item xs={12}><TextField label="Component Name" fullWidth required value={form.componentName}
-              onChange={(e) => setForm({ ...form, componentName: e.target.value })} /></Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                select required fullWidth label="Category"
-                value={form.categoryId}
-                onChange={(e) => handleCategoryChange(e.target.value)}
-                error={form.categoryId === ''}
-                helperText={categoryHelperText}
-              >
-                {categories.map((c) => (
-                  <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
-                ))}
-                {writeAccess && (
-                  <MenuItem
-                    value={NEW_CATEGORY}
-                    sx={{ color: colors.primary, fontWeight: 600, borderTop: `1px solid ${colors.border}`, mt: 0.5 }}
-                  >
-                    <Plus size={15} style={{ marginRight: 8 }} /> Create new category…
-                  </MenuItem>
-                )}
-              </TextField>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="Type" fullWidth required
-                placeholder="e.g. SMD, axial, ceramic"
-                inputProps={{ maxLength: 100 }}
-                error={form.type.trim() === ''}
-                helperText="The sub-type within the category (Category → Type → Value)."
-                value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="Value" fullWidth required
-                placeholder="e.g. 4.7kΩ, 100µF, 16MHz"
-                inputProps={{ maxLength: 100 }}
-                error={form.value.trim() === ''}
-                helperText="The specific value within the type."
-                value={form.value} onChange={(e) => setForm({ ...form, value: e.target.value })}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="Rack No" fullWidth placeholder="e.g. 12, A12, RACK-A, B-04"
-                inputProps={{ maxLength: 50 }}
-                helperText="Numbers or text — entered by you, not generated."
-                value={form.rackNo} onChange={(e) => setForm({ ...form, rackNo: e.target.value })}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}><TextField label="Warehouse Location" fullWidth placeholder="e.g. Rack A-12 / Bin 04"
-              value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} /></Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField select label="Status" fullWidth value={form.status}
-                onChange={(e) => setForm({ ...form, status: e.target.value })}>
-                {STATUS_OPTIONS.map((s) => <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>)}
-              </TextField>
-            </Grid>
-            <Grid item xs={12} sm={6}><TextField label="Quantity" type="number" fullWidth required value={form.quantity}
-              onChange={(e) => setForm({ ...form, quantity: e.target.value })} /></Grid>
-            <Grid item xs={12} sm={6}><TextField label="Minimum Quantity" type="number" fullWidth required value={form.minimumQuantity}
-              onChange={(e) => setForm({ ...form, minimumQuantity: e.target.value })} /></Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label={`Unit Price (${CURRENCY_SYMBOL})`} type="number" fullWidth
-                inputProps={{ min: 0, step: '0.01' }}
-                value={form.unitPrice}
-                onChange={(e) => setForm({ ...form, unitPrice: e.target.value })}
-                helperText={
-                  form.unitPrice === '' || form.unitPrice === null
-                    ? 'Without a price this component is excluded from the stock valuation.'
-                    : `Stock value: ${currency(Number(form.unitPrice || 0) * Number(form.quantity || 0))}`
-                }
-              />
-            </Grid>
-            <Grid item xs={12}><TextField label="Description" fullWidth multiline rows={2} value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })} /></Grid>
-          </Grid>
-        </DialogContent>
-        <DialogActions>
-          <Button variant="text" onClick={() => setDialogOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleSave}>Save</Button>
-        </DialogActions>
-      </Dialog>
+      <ComponentFormDialog
+        open={dialogOpen} onClose={() => setDialogOpen(false)}
+        component={editRow} initialValues={createDefaults}
+        categories={categories} canCreateCategory={writeAccess}
+        onCategoryCreated={fetchCategories}
+        notify={(message, severity = 'success') => setSnack({ open: true, message, severity })}
+        onSaved={(message) => { setSnack({ open: true, message, severity: 'success' }); setDialogOpen(false); refresh(); }}
+      />
 
-      {/* Sits above the component dialog so the half-filled form is still there when
-          this closes. Only the name is asked for — anything else is an extra field
-          between the user and getting back to the component they were adding. */}
-      <Dialog open={newCategoryOpen} onClose={() => setNewCategoryOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>New Category</DialogTitle>
-        <DialogContent>
-          <TextField
-            autoFocus fullWidth label="Category Name" sx={{ mt: 1 }}
-            placeholder="e.g. Voltage Regulator"
-            value={newCategoryName}
-            onChange={(e) => setNewCategoryName(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && !savingCategory) handleCreateCategory(); }}
-            helperText="Must be unique. It will be selected for this component once created."
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button variant="text" onClick={() => setNewCategoryOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleCreateCategory} disabled={savingCategory}>
-            {savingCategory ? 'Creating…' : 'Create'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <ComponentDetailsDrawer
+        component={detail} open={!!detail} onClose={() => setDetail(null)} canEdit={writeAccess}
+        onEdit={(row) => { setDetail(null); openEdit(row); }}
+        onRelocate={(row) => { setDetail(null); setMoveRow(row); }}
+        onMoved={(r) => {
+          setDetail(null);
+          setSnack({
+            open: true, severity: 'success',
+            message: `Moved to Equipment as ${r.equipmentCodes.length > 1 ? `${r.equipmentCodes[0]} – ${r.equipmentCodes[r.equipmentCodes.length - 1]}` : r.equipmentCodes[0]}; ${r.componentItemCode} archived`,
+          });
+          refresh();
+        }}
+      />
+
+      <MoveComponentsDialog
+        open={!!moveRow} onClose={() => setMoveRow(null)} items={moveRow ? [moveRow] : []}
+        categories={categories}
+        onMoved={(count, path) => {
+          setMoveRow(null);
+          setSnack({ open: true, severity: 'success', message: `Moved${path ? ` to ${path}` : ''}` });
+          refresh();
+        }}
+      />
 
       <ConfirmDialog open={!!deleteId} title="Archive Component"
         message="This component may have stock or project history. Archiving will hide it from new transactions while preserving existing records."

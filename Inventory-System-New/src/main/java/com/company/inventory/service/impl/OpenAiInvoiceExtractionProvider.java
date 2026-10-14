@@ -68,7 +68,9 @@ public class OpenAiInvoiceExtractionProvider implements InvoiceExtractionProvide
                   "taxPercentage": number,        // e.g. 18.0
                   "taxAmount": number,            // tax amount for the line
                   "lineTotal": number,            // qty*price - discount + tax
-                  "suggestedType": "COMPONENT"|"EQUIPMENT"|"SERVICE"
+                  "suggestedType": "COMPONENT"|"EQUIPMENT"|"SERVICE",
+                  "packageName": string|null,     // package/footprint if stated or obvious, e.g. "0805", "SOT-23", "DIP-8", "TO-220"
+                  "mounting": "SMD"|"THT"|null    // surface-mount or through-hole; null if you cannot tell
                 }
               ],
               "subTotal": number|null,
@@ -168,6 +170,8 @@ public class OpenAiInvoiceExtractionProvider implements InvoiceExtractionProvide
         try {
             userContent = buildUserContent(content, contentType, originalFilename);
             inv = readInvoice(userContent);
+        } catch (com.company.inventory.exception.AiServiceException ex) {
+            throw ex; // rejected key / quota / no connection — the message says what to do
         } catch (Exception ex) {
             // The key IS configured, so a failure here is a real error (timeout, bad
             // image, API error). Surface it instead of silently returning mock data —

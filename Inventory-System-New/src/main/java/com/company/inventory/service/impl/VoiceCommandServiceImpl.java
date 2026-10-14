@@ -50,6 +50,7 @@ public class VoiceCommandServiceImpl implements VoiceCommandService {
               "category": string|null,    // best-guess category when creating, e.g. "Sensors"
               "specifications": string|null,
               "unitPrice": number|null,
+              "mounting": "SMD"|"THT"|null, // surface-mount or through-hole if said or obvious
               "reason": string|null       // when understood=false, why
             }
 
@@ -78,17 +79,20 @@ public class VoiceCommandServiceImpl implements VoiceCommandService {
     private final ComponentCategoryService categoryService;
     private final InventoryTransactionService transactionService;
     private final ObjectMapper objectMapper;
+    private final com.company.inventory.service.ComponentClassifier classifier;
 
     public VoiceCommandServiceImpl(OpenAiClient openAi,
                                    ComponentService componentService,
                                    ComponentCategoryService categoryService,
                                    InventoryTransactionService transactionService,
-                                   ObjectMapper objectMapper) {
+                                   ObjectMapper objectMapper,
+                                   com.company.inventory.service.ComponentClassifier classifier) {
         this.openAi = openAi;
         this.componentService = componentService;
         this.categoryService = categoryService;
         this.transactionService = transactionService;
         this.objectMapper = objectMapper;
+        this.classifier = classifier;
     }
 
     @Override
@@ -122,7 +126,9 @@ public class VoiceCommandServiceImpl implements VoiceCommandService {
             log.error("Voice interpretation failed: {}", ex.getMessage());
             out.setUnderstood(false);
             out.setAction("UNKNOWN");
-            out.setWarning("Sorry, I couldn't process that command. Please try again.");
+            out.setWarning(ex instanceof com.company.inventory.exception.AiServiceException
+                    ? ex.getMessage()
+                    : "Sorry, I couldn't process that command. Please try again.");
             return out;
         }
 
@@ -216,7 +222,57 @@ public class VoiceCommandServiceImpl implements VoiceCommandService {
                 out.setWarning("I didn't catch a clear inventory command.");
             }
         }
+
+        if (out.isUnderstood()) {
+            // Show where the stock is: the existing item's location, or where a new one
+            // will be filed (Category › Type › Value) so the user can verify it.
+            if (match != null && !out.isNeedsCreate()) {
+                out.setMatchedPath(pathOf(match));
+            }
+            if (out.isNeedsCreate()) {
+                try {
+                    com.company.inventory.dto.response.ComponentClassification cl = classifier.session()
+                            .classify(itemName, out.getSpecifications(), category, text(intent, "mounting", null));
+                    out.setCategory(cl.getCategory());
+                    out.setCategoryIsNew(cl.isCategoryIsNew());
+                    out.setCategoryReason(cl.getReason());
+                    out.setType(cl.getType());
+                    out.setComponentValue(cl.getValue());
+                    out.setPath(cl.getPath());
+                    int qty = quantity == null ? 0 : quantity;
+                    out.setConfirmationText(String.format("Create \"%s\" in %s with %d%s in stock?",
+                            itemName, cl.getPath(), qty, unitLabel));
+                } catch (Exception ex) {
+                    log.warn("Could not classify voice item '{}': {}", itemName, ex.getMessage());
+                }
+            }
+        }
         return out;
+    }
+
+    private static String blankToNull(String s) {
+        if (s == null || s.isBlank()) {
+            return null;
+        }
+        String t = s.trim();
+        return t.length() > 100 ? t.substring(0, 100) : t;
+    }
+
+    /** "Capacitor › SMD › 100nF · Rack A12" for an existing component. */
+    private static String pathOf(ComponentResponse c) {
+        StringBuilder sb = new StringBuilder();
+        for (String part : new String[] { c.getCategory(), c.getType(), c.getValue() }) {
+            if (part != null && !part.isBlank()) {
+                if (sb.length() > 0) {
+                    sb.append(" › ");
+                }
+                sb.append(part.trim());
+            }
+        }
+        if (c.getRackNo() != null && !c.getRackNo().isBlank()) {
+            sb.append(sb.length() > 0 ? " · " : "").append("Rack ").append(c.getRackNo().trim());
+        }
+        return sb.length() > 0 ? sb.toString() : null;
     }
 
     @Override
@@ -270,6 +326,8 @@ public class VoiceCommandServiceImpl implements VoiceCommandService {
                 cr.setMinimumQuantity(req.getMinimumQuantity() != null ? req.getMinimumQuantity() : 0);
                 cr.setUnitPrice(req.getUnitPrice());
                 cr.setUnit(req.getUnit());
+                cr.setType(blankToNull(req.getType()));
+                cr.setValue(blankToNull(req.getComponentValue()));
                 cr.setDescription(req.getDescription());
                 cr.setStatus(ComponentStatus.ACTIVE);
                 ComponentResponse c = componentService.createComponent(cr);

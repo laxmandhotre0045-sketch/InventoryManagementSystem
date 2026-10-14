@@ -30,6 +30,12 @@ public class VoiceExecuteRequest {
     @Schema(description = "Category name for a new component (resolved or created)", example = "Transistors")
     private String categoryName;
 
+    @Schema(description = "Type within the category for a new component", example = "THT")
+    private String type;
+
+    @Schema(description = "Value within the type for a new component", example = "BC547")
+    private String componentValue;
+
     @Schema(description = "Unit of measure for a new component", example = "pcs")
     private String unit;
 

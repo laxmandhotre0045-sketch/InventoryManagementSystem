@@ -33,6 +33,22 @@ public class ConfirmInvoiceItemRequest {
     @Schema(description = "Unit for a new component", example = "pcs")
     private String unit;
 
+    @Schema(description = "Type within the category for a new component (Category › Type › Value)", example = "SMD")
+    private String type;
+
+    @Schema(description = "Value within the type for a new component", example = "100nF")
+    private String value;
+
+    // ---- Details read off the invoice, saved as specifications of a NEW item ----
+    @Schema(description = "Supplier's part code from the invoice", example = "R216425")
+    private String supplierItemCode;
+
+    @Schema(description = "HSN / SAC code from the invoice", example = "85423100")
+    private String hsnCode;
+
+    @Schema(description = "Package / footprint", example = "SOIC-8")
+    private String packageName;
+
     @Schema(description = "Serial number for a new equipment (optional)")
     private String serialNumber;
 

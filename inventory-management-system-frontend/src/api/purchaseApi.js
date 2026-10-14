@@ -6,6 +6,8 @@ export const getPurchases = (params) => get('/purchases', params);
 export const searchPurchases = (params) => get('/purchases/search', params);
 export const getPurchaseById = (id) => get(`/purchases/${id}`);
 export const getPurchaseSummary = (id) => get(`/purchases/${id}/summary`);
+// Every component (with its specification) and equipment a purchase brought in.
+export const getPurchaseDetails = (id) => get(`/purchases/${id}/details`);
 export const createPurchase = (payload) => axiosClient.post('/purchases', payload).then((r) => r.data);
 export const deletePurchase = (id) => axiosClient.delete(`/purchases/${id}`).then((r) => r.data);
 
