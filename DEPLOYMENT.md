@@ -238,6 +238,7 @@ Persistent data lives in Docker volumes: `mysql_data` (database) and `backend_up
 |---------|-------------|
 | Backend container restarts / unhealthy, logs mention the JWT secret | `JWT_SECRET` is still the placeholder. Set a real one (`openssl rand -base64 48`), then `docker compose up -d backend`. |
 | `Cannot connect to the Docker daemon` | Docker isn't running. Start Docker Desktop (Win/Mac) or `sudo systemctl start docker` (Linux). |
+| Windows: `git clone` says `Filename too long` / "checkout failed" | The repo still carries old Eclipse workspace files with long paths. Clone into a short folder (e.g. `C:\apps\`) or run `git config --global core.longpaths true` first, then `git restore --source=HEAD :/` in the clone. |
 | Port already in use (8090/8091/3310) | Another service holds the port. Change `FRONTEND_PORT`/`BACKEND_PORT`/`MYSQL_PORT` in `.env` and restart. |
 | Can't log in on a fresh DB | No users were seeded. Set `SEED_DEFAULT_USERS=true` + `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD`, `docker compose up -d backend`, log in, then set it back to `false`. |
 | Invoice upload shows a "sample data" chip | `OPENAI_API_KEY` is blank or `INVOICE_OCR_PROVIDER` isn't `openai`. Fix `.env`, `docker compose up -d --build backend`. |
