@@ -31,15 +31,18 @@ public class InvoiceExtractionServiceImpl implements InvoiceExtractionService {
     private final InvoiceExtractionProvider extractionProvider;
     private final InvoiceExtractionRepository extractionRepository;
     private final ObjectMapper objectMapper;
+    private final com.company.inventory.service.ComponentClassifier classifier;
 
     public InvoiceExtractionServiceImpl(FileStorageService fileStorageService,
                                         InvoiceExtractionProvider extractionProvider,
                                         InvoiceExtractionRepository extractionRepository,
-                                        ObjectMapper objectMapper) {
+                                        ObjectMapper objectMapper,
+                                        com.company.inventory.service.ComponentClassifier classifier) {
         this.fileStorageService = fileStorageService;
         this.extractionProvider = extractionProvider;
         this.extractionRepository = extractionRepository;
         this.objectMapper = objectMapper;
+        this.classifier = classifier;
     }
 
     @Override
@@ -51,10 +54,18 @@ public class InvoiceExtractionServiceImpl implements InvoiceExtractionService {
         ExtractedInvoice extracted;
         try {
             extracted = extractionProvider.extract(readBytes(file), file.getContentType(), file.getOriginalFilename());
+        } catch (com.company.inventory.exception.AiServiceException ex) {
+            log.error("Invoice extraction failed via provider '{}': {}", extractionProvider.name(), ex.getMessage());
+            throw ex;
         } catch (Exception ex) {
             log.error("Invoice extraction failed via provider '{}': {}", extractionProvider.name(), ex.getMessage());
-            throw new IllegalStateException("Failed to extract invoice data");
+            // Show the provider's own advice (e.g. "retake a clearer photo") instead of a generic 500.
+            throw new IllegalArgumentException(ex.getMessage() != null ? ex.getMessage() : "Failed to extract invoice data");
         }
+
+        // 2b. Suggest where each new item would be filed (Category › Type › Value) so the
+        //     review screen can show the path for the user to verify. Never fatal.
+        suggestInventoryPaths(extracted);
 
         // 3. Persist an audit record with the raw structured output.
         InvoiceExtraction record = InvoiceExtraction.builder()
@@ -106,6 +117,38 @@ public class InvoiceExtractionServiceImpl implements InvoiceExtractionService {
             rec.setPurchaseId(purchaseId);
             extractionRepository.save(rec);
         });
+    }
+
+    private void suggestInventoryPaths(ExtractedInvoice extracted) {
+        if (extracted == null || extracted.getItems() == null || extracted.getItems().isEmpty()) {
+            return;
+        }
+        try {
+            com.company.inventory.service.ComponentClassifier.Session session = classifier.session();
+            for (com.company.inventory.dto.response.ExtractedInvoiceLineItem it : extracted.getItems()) {
+                String kind = it.getSuggestedType();
+                if ("SERVICE".equalsIgnoreCase(kind)) {
+                    continue;
+                }
+                if ("EQUIPMENT".equalsIgnoreCase(kind)) {
+                    String cat = it.getCategory() != null && !it.getCategory().isBlank() ? it.getCategory().trim() : "Uncategorized";
+                    it.setInventoryCategory(cat);
+                    it.setInventoryPath("Equipment › " + cat);
+                    continue;
+                }
+                com.company.inventory.dto.response.ComponentClassification c = session.classify(
+                        it.getDescription(), it.getPackageName(), it.getCategory(), it.getMounting());
+                it.setInventoryCategoryId(c.getCategoryId());
+                it.setInventoryCategory(c.getCategory());
+                it.setInventoryCategoryIsNew(c.isCategoryIsNew());
+                it.setInventoryType(c.getType());
+                it.setInventoryValue(c.getValue());
+                it.setInventoryPath(c.getPath());
+                it.setInventoryReason(c.getReason());
+            }
+        } catch (Exception ex) {
+            log.warn("Could not suggest inventory paths: {}", ex.getMessage());
+        }
     }
 
     private byte[] readBytes(MultipartFile file) {

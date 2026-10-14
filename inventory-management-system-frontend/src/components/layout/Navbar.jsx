@@ -1,15 +1,18 @@
 import { useState } from 'react';
 import {
   AppBar, Toolbar, Box, IconButton, Typography, Avatar, Menu,
-  MenuItem, Divider, ListItemIcon, useTheme, useMediaQuery,
+  MenuItem, Divider, ListItemIcon, Tooltip, useTheme, useMediaQuery,
 } from '@mui/material';
-import { Menu as MenuIcon, PanelLeftClose, PanelLeft, LogOut, LayoutGrid, Settings, CalendarDays } from 'lucide-react';
+import {
+  Menu as MenuIcon, PanelLeftClose, PanelLeft, LogOut, LayoutGrid, Settings, CalendarDays, FileSpreadsheet,
+} from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
 import { roleLabel } from '../../utils/roleUtils';
 import SearchBar from '../ui/SearchBar';
 import NotificationBell from '../common/NotificationBell';
 import VoiceCommandButton from '../voice/VoiceCommandButton';
+import BomCheckDialog from '../bom/BomCheckDialog';
 import { colors, layout } from '../../theme/tokens';
 
 const ROUTE_TITLES = {
@@ -33,6 +36,22 @@ const Navbar = ({ onMenuClick, onToggleCollapse, collapsed, sidebarWidth }) => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [anchorEl, setAnchorEl] = useState(null);
   const [query, setQuery] = useState('');
+  const [bomOpen, setBomOpen] = useState(false);
+
+  // Upload a BOM / Excel to check stock — lives inside the search bar on desktop and
+  // as its own icon on mobile (where the search bar is hidden).
+  const bomButton = (
+    <Tooltip title="Upload a BOM / Excel to check which parts are in stock">
+      <IconButton
+        size="small"
+        onClick={() => setBomOpen(true)}
+        aria-label="Check a BOM file against inventory"
+        sx={{ color: colors.primary, mr: isMobile ? 0 : -0.75, '&:hover': { bgcolor: colors.primarySoft } }}
+      >
+        <FileSpreadsheet size={isMobile ? 19 : 17} />
+      </IconButton>
+    </Tooltip>
+  );
 
   const pageKey = Object.keys(ROUTE_TITLES).find((k) => location.pathname.startsWith(k));
   const pageTitle = ROUTE_TITLES[pageKey] || 'Overview';
@@ -84,17 +103,19 @@ const Navbar = ({ onMenuClick, onToggleCollapse, collapsed, sidebarWidth }) => {
         </Box>
 
         {/* Search (desktop only — every page carries its own filter bar on mobile) */}
-        {!isMobile && (
+        {!isMobile ? (
           <SearchBar
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={submitSearch}
             placeholder="Search components…"
-            width={240}
+            width={270}
             sx={{ bgcolor: colors.canvas }}
             inputProps={{ 'aria-label': 'Search components' }}
+            endAdornment={bomButton}
           />
-        )}
+        ) : bomButton}
+        <BomCheckDialog open={bomOpen} onClose={() => setBomOpen(false)} />
 
         {/* Voice command — add/remove stock hands-free */}
         <VoiceCommandButton />

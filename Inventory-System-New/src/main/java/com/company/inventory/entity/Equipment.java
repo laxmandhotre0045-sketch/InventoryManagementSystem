@@ -62,6 +62,15 @@ public class Equipment {
     @Column(columnDefinition = "TEXT")
     private String notes;
 
+    /**
+     * The purchase (invoice) this equipment was registered from, so the purchase's
+     * detail view can list it. A plain id rather than a JPA relation keeps Equipment
+     * independent of the purchase model. Nullable: equipment added by hand, and every
+     * row that predates this column, simply has no purchase.
+     */
+    @Column(name = "purchase_id")
+    private Long purchaseId;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

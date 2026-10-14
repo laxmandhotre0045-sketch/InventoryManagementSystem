@@ -51,3 +51,6 @@ Thumbs.db
 # Local dev/one-off scripts containing credentials — never commit
 update_admin_password.py
 update_pwd.sql
+
+# Local safety DB dumps (contain password hashes) — never commit
+backups/pre-*.sql

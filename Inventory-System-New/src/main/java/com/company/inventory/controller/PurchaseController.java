@@ -141,6 +141,14 @@ public class PurchaseController {
                 .body(resource);
     }
 
+    @Operation(summary = "Purchase details: every component (with its specification) and equipment it brought in")
+    @GetMapping("/{id}/details")
+    public ResponseEntity<ApiResponse<com.company.inventory.dto.response.PurchaseDetailResponse>> getPurchaseDetails(
+            @Parameter(description = "Purchase identifier", required = true) @PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success("Purchase details retrieved",
+                purchaseService.getPurchaseDetails(id)));
+    }
+
     @Operation(summary = "Get purchase by id")
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<PurchaseResponse>> getPurchaseById(

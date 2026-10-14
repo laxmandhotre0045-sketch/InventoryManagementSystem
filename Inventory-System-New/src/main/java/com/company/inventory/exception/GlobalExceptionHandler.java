@@ -40,6 +40,11 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(ApiResponse.failure(ex.getMessage(), null), HttpStatus.CONFLICT);
     }
 
+    @ExceptionHandler(AiServiceException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAiService(AiServiceException ex) {
+        return new ResponseEntity<>(ApiResponse.failure(ex.getMessage(), null), HttpStatus.SERVICE_UNAVAILABLE);
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiResponse<Object>> handleIllegalArgument(IllegalArgumentException ex) {
         return new ResponseEntity<>(ApiResponse.failure(ex.getMessage(), null), HttpStatus.BAD_REQUEST);

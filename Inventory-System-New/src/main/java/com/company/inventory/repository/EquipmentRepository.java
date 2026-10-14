@@ -19,6 +19,9 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long>, Jpa
 
     List<Equipment> findByItemCodeIsNullOrderByIdAsc();
 
+    /** Equipment registered from a given purchase's invoice. */
+    List<Equipment> findByPurchaseIdOrderByIdAsc(Long purchaseId);
+
     /**
      * Highest numeric suffix across existing item codes (e.g. "E10000" -> 10000).
      * Compared numerically, so numbering continues correctly past E9999.

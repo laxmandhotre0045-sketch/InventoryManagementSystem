@@ -82,6 +82,9 @@ public class SecurityConfig {
                         ).hasAnyRole("ADMIN", "USER")
                         // Any authenticated user can mark their notifications read.
                         .requestMatchers(HttpMethod.PUT, api + "/notifications/**").hasAnyRole("ADMIN", "USER")
+                        // BOM stock check only reads the catalogue (nothing is written),
+                        // so anyone who can view components may run it.
+                        .requestMatchers(HttpMethod.POST, api + "/bom/check").hasAnyRole("ADMIN", "USER")
                         // Account & role management belongs to the single system owner.
                         // Plain admins get 403 here, so they cannot create, edit, suspend
                         // or delete other admins, nor promote themselves.

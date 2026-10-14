@@ -46,6 +46,7 @@ public class PurchaseServiceImpl implements PurchaseService {
     private final PurchaseMapper purchaseMapper;
     private final com.company.inventory.service.InvoiceExtractionService invoiceExtractionService;
     private final com.company.inventory.repository.EquipmentRepository equipmentRepository;
+    private final com.company.inventory.service.SpecificationService specificationService;
     private final com.company.inventory.service.ItemCodeGenerator itemCodeGenerator;
     private final com.company.inventory.service.ComponentCategoryService componentCategoryService;
 
@@ -59,7 +60,9 @@ public class PurchaseServiceImpl implements PurchaseService {
                                com.company.inventory.service.InvoiceExtractionService invoiceExtractionService,
                                com.company.inventory.repository.EquipmentRepository equipmentRepository,
                                com.company.inventory.service.ItemCodeGenerator itemCodeGenerator,
-                               com.company.inventory.service.ComponentCategoryService componentCategoryService) {
+                               com.company.inventory.service.ComponentCategoryService componentCategoryService,
+                               com.company.inventory.service.SpecificationService specificationService) {
+        this.specificationService = specificationService;
         this.purchaseRepository = purchaseRepository;
         this.purchaseItemRepository = purchaseItemRepository;
         this.componentRepository = componentRepository;
@@ -107,6 +110,8 @@ public class PurchaseServiceImpl implements PurchaseService {
         // even when several new items are created in the same invoice.
         long compCodeNum = itemCodeGenerator.currentComponentNumber();
         long equipCodeNum = itemCodeGenerator.currentEquipmentNumber();
+        // Equipment from this invoice, linked to the purchase once it has an id (below).
+        List<com.company.inventory.entity.Equipment> equipmentToLink = new java.util.ArrayList<>();
 
         for (com.company.inventory.dto.request.ConfirmInvoiceItemRequest line : request.getItems()) {
             com.company.inventory.dto.request.ItemResolution res = line.getResolution();
@@ -117,20 +122,30 @@ public class PurchaseServiceImpl implements PurchaseService {
             // Equipment lines register an asset but never affect stock or the purchase items.
             if (res == com.company.inventory.dto.request.ItemResolution.NEW_EQUIPMENT) {
                 String eqName = requireName(line, "register new equipment");
-                equipmentRepository.save(com.company.inventory.entity.Equipment.builder()
+                com.company.inventory.entity.Equipment newEq = equipmentRepository.save(com.company.inventory.entity.Equipment.builder()
                         .itemCode(itemCodeGenerator.buildCode(
                                 com.company.inventory.service.ItemCodeGenerator.EQUIPMENT_PREFIX, ++equipCodeNum))
                         .name(eqName)
                         .serialNumber(line.getSerialNumber())
                         .category(line.getCategory())
                         .manufacturer(line.getManufacturer())
+                        .purchaseDate(request.getPurchaseDate())
                         .status("ACTIVE")
                         .build());
+                equipmentToLink.add(newEq);
+                specificationService.addMissing(com.company.inventory.entity.ItemSpecification.EQUIPMENT,
+                        newEq.getId(), invoiceDetails(line));
                 continue;
             }
             if (res == com.company.inventory.dto.request.ItemResolution.EXISTING_EQUIPMENT) {
-                if (line.getEquipmentId() == null || !equipmentRepository.existsById(line.getEquipmentId())) {
+                com.company.inventory.entity.Equipment eq = line.getEquipmentId() == null ? null
+                        : equipmentRepository.findById(line.getEquipmentId()).orElse(null);
+                if (eq == null) {
                     throw new ResourceNotFoundException("Equipment not found with id: " + line.getEquipmentId());
+                }
+                // Only claim it if it is not already tied to another purchase.
+                if (eq.getPurchaseId() == null) {
+                    equipmentToLink.add(eq);
                 }
                 continue;
             }
@@ -155,11 +170,17 @@ public class PurchaseServiceImpl implements PurchaseService {
                             // creates one when genuinely new. A line with no category at
                             // all lands in "Uncategorized" rather than blocking the import.
                             .category(componentCategoryService.resolveOrCreate(line.getCategory()))
+                            // Category › Type › Value as confirmed on the review screen.
+                            .type(trimTo(line.getType(), 100))
+                            .value(trimTo(line.getValue(), 100))
                             .quantity(0)
                             .minimumQuantity(0)
                             .unit(line.getUnit() != null ? line.getUnit() : "pcs")
                             .status(com.company.inventory.entity.ComponentStatus.ACTIVE)
                             .build());
+                    // Details read off the invoice become editable specifications.
+                    specificationService.addMissing(com.company.inventory.entity.ItemSpecification.COMPONENT,
+                            component.getId(), invoiceDetails(line));
                 }
             }
 
@@ -203,8 +224,36 @@ public class PurchaseServiceImpl implements PurchaseService {
         purchase.setTotalAmount(totalAmount);
         purchase.setItems(items);
         Purchase saved = purchaseRepository.save(purchase);
+        for (com.company.inventory.entity.Equipment eq : equipmentToLink) {
+            eq.setPurchaseId(saved.getId());
+            equipmentRepository.save(eq);
+        }
         invoiceExtractionService.markConfirmed(request.getExtractionId(), saved.getId());
         return purchaseMapper.toResponse(saved);
+    }
+
+    /** Supplier code, HSN and package from an invoice line, as specification rows. */
+    private static List<com.company.inventory.dto.response.SpecificationEntry> invoiceDetails(
+            com.company.inventory.dto.request.ConfirmInvoiceItemRequest line) {
+        List<com.company.inventory.dto.response.SpecificationEntry> out = new java.util.ArrayList<>();
+        if (line.getSupplierItemCode() != null && !line.getSupplierItemCode().isBlank()) {
+            out.add(new com.company.inventory.dto.response.SpecificationEntry("Supplier part code", line.getSupplierItemCode().trim()));
+        }
+        if (line.getPackageName() != null && !line.getPackageName().isBlank()) {
+            out.add(new com.company.inventory.dto.response.SpecificationEntry("Package", line.getPackageName().trim()));
+        }
+        if (line.getHsnCode() != null && !line.getHsnCode().isBlank()) {
+            out.add(new com.company.inventory.dto.response.SpecificationEntry("HSN code", line.getHsnCode().trim()));
+        }
+        return out;
+    }
+
+    private static String trimTo(String s, int max) {
+        if (s == null || s.isBlank()) {
+            return null;
+        }
+        String t = s.trim();
+        return t.length() > max ? t.substring(0, max) : t;
     }
 
     private String requireName(com.company.inventory.dto.request.ConfirmInvoiceItemRequest line, String action) {
@@ -308,6 +357,64 @@ public class PurchaseServiceImpl implements PurchaseService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public com.company.inventory.dto.response.PurchaseDetailResponse getPurchaseDetails(Long id) {
+        Purchase purchase = purchaseRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Purchase not found with id: " + id));
+
+        com.company.inventory.dto.response.PurchaseDetailResponse detail =
+                new com.company.inventory.dto.response.PurchaseDetailResponse();
+        detail.setPurchase(purchaseMapper.toResponse(purchase));
+
+        if (purchase.getItems() != null) {
+            for (PurchaseItem item : purchase.getItems()) {
+                ComponentItem c = item.getComponent();
+                com.company.inventory.dto.response.PurchaseDetailResponse.ComponentLine line =
+                        new com.company.inventory.dto.response.PurchaseDetailResponse.ComponentLine();
+                line.setPurchaseItemId(item.getId());
+                line.setQuantityPurchased(item.getQuantity());
+                line.setUnitPricePaid(item.getUnitPrice());
+                line.setLineTotal(item.getTotalPrice());
+                if (c != null) {
+                    line.setComponentId(c.getId());
+                    line.setItemCode(c.getItemCode());
+                    line.setComponentName(c.getComponentName());
+                    line.setCategory(c.getCategory() != null ? c.getCategory().getName() : null);
+                    line.setType(c.getType());
+                    line.setValue(c.getValue());
+                    line.setDescription(c.getDescription());
+                    line.setUnit(c.getUnit());
+                    line.setLocation(c.getLocation());
+                    line.setRackNo(c.getRackNo());
+                    line.setStatus(c.getStatus() != null ? c.getStatus().name() : null);
+                    line.setCurrentStock(c.getQuantity());
+                    line.setMinimumQuantity(c.getMinimumQuantity());
+                    line.setCurrentUnitPrice(c.getUnitPrice());
+                }
+                detail.getComponents().add(line);
+            }
+        }
+
+        for (com.company.inventory.entity.Equipment eq : equipmentRepository.findByPurchaseIdOrderByIdAsc(id)) {
+            com.company.inventory.dto.response.PurchaseDetailResponse.EquipmentLine line =
+                    new com.company.inventory.dto.response.PurchaseDetailResponse.EquipmentLine();
+            line.setEquipmentId(eq.getId());
+            line.setItemCode(eq.getItemCode());
+            line.setName(eq.getName());
+            line.setSerialNumber(eq.getSerialNumber());
+            line.setCategory(eq.getCategory());
+            line.setManufacturer(eq.getManufacturer());
+            line.setStatus(eq.getStatus());
+            line.setLocation(eq.getLocation());
+            line.setPurchaseDate(eq.getPurchaseDate());
+            line.setWarrantyExpiry(eq.getWarrantyExpiry());
+            line.setNotes(eq.getNotes());
+            detail.getEquipment().add(line);
+        }
+        return detail;
+    }
+
+    @Override
     public org.springframework.core.io.Resource loadInvoiceFile(Long purchaseId) {
         return fileStorageService.loadInvoice(invoicePathOf(purchaseId));
     }
@@ -345,6 +452,11 @@ public class PurchaseServiceImpl implements PurchaseService {
     public void deletePurchase(Long id) {
         Purchase purchase = purchaseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Purchase not found with id: " + id));
+        // The equipment itself stays — only its link to the deleted purchase is cleared.
+        for (com.company.inventory.entity.Equipment eq : equipmentRepository.findByPurchaseIdOrderByIdAsc(id)) {
+            eq.setPurchaseId(null);
+            equipmentRepository.save(eq);
+        }
         purchaseRepository.delete(purchase);
     }
 

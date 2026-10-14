@@ -41,6 +41,26 @@ public class VoiceInterpretation {
     @Schema(description = "Current stock of the matched component")
     private Integer currentQuantity;
 
+    @Schema(description = "Where the matched component is kept: Category › Type › Value · Rack",
+            example = "Capacitor › SMD › 100nF · Rack A12")
+    private String matchedPath;
+
+    // ---- Where a NEW component would be filed (auto-suggested, editable) ----
+    @Schema(description = "True when the suggested category does not exist yet")
+    private boolean categoryIsNew;
+
+    @Schema(description = "Why this category was suggested")
+    private String categoryReason;
+
+    @Schema(description = "Suggested type within the category: SMD, THT or Module", example = "SMD")
+    private String type;
+
+    @Schema(description = "Suggested value within the type", example = "100nF")
+    private String componentValue;
+
+    @Schema(description = "Category › Type › Value", example = "Sensor › Module › DHT11")
+    private String path;
+
     @Schema(description = "True when ADD_STOCK matched no existing item, so confirming will create it")
     private boolean needsCreate;
 

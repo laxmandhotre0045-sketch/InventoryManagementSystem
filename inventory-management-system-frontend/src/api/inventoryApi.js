@@ -4,3 +4,6 @@ export const stockIn = (payload) => axiosClient.post('/inventory/stock-in', payl
 export const stockOut = (payload) => axiosClient.post('/inventory/stock-out', payload).then((r) => r.data);
 export const getTransactionHistory = (params) => axiosClient.get('/inventory/history', { params }).then((r) => r.data);
 export const getTransactionById = (id) => axiosClient.get(`/inventory/${id}`).then((r) => r.data);
+// Stock movements of one component (newest first).
+export const getComponentHistory = (componentId, params) =>
+  axiosClient.get(`/inventory/history/${componentId}`, { params }).then((r) => r.data);

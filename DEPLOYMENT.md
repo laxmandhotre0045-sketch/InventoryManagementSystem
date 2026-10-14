@@ -198,14 +198,37 @@ docker compose down                 # stop (database data is kept)
 docker compose down -v              # stop AND delete DB data (destructive)
 ```
 
-Update to the latest code:
+Update to the latest code (existing installation — keeps all data):
 
 ```bash
-git pull && docker compose up -d --build
+# 1. Back up the database first (the dump contains password hashes — keep it private)
+mkdir -p backups
+docker exec inventory-mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysqldump -uroot --single-transaction "$MYSQL_DATABASE"' \
+  > backups/pre-update-$(date +%Y%m%d-%H%M%S).sql
+
+# 2. Pull, rebuild the frontend bundle (dist/ is NOT rebuilt by Compose), rebuild the app
+git pull
+(cd inventory-management-system-frontend && npm ci && npm run build)
+docker compose up -d --build backend frontend
 ```
+
+Never use `docker compose down -v` when updating — it deletes the database.
 
 Persistent data lives in Docker volumes: `mysql_data` (database) and `backend_uploads`
 (uploaded invoice files). They survive `docker compose down` (but not `down -v`).
+
+### Notes for the October 2026 update
+
+- **No new `.env` settings.** One new table, `item_specifications`, is created automatically
+  on backend start (Hibernate `ddl-auto=update` only adds; existing data is untouched).
+- **New features:** BOM / Excel stock check (upload button in the top search bar), purchase
+  details with component specs, automatic Category › Type › Value filing for invoice items,
+  editable specifications on every component and equipment item (click a name), *Move to
+  another folder* for misfiled components, and *Move to Equipment* for modules.
+- **Optional one-time data step:** components in the *Modules* category are really equipment.
+  For each one, open it (Components page → click the name) → **Move to Equipment**. It shows a
+  preview first, creates one equipment record per unit and archives the component (it is
+  never deleted and can be restored).
 
 ---
 

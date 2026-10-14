@@ -88,11 +88,16 @@ public class MobileCaptureServiceImpl implements MobileCaptureService {
             s.result = extracted;
             s.status = "READY";
             return s.status;
+        } catch (com.company.inventory.exception.AiServiceException ex) {
+            log.error("Mobile capture extraction failed for session {}: {}", sessionId, ex.getMessage());
+            s.error = ex.getMessage();
+            s.status = "ERROR";
+            throw ex; // e.g. rejected API key — tell the phone user exactly that
         } catch (Exception ex) {
             log.error("Mobile capture extraction failed for session {}: {}", sessionId, ex.getMessage());
             s.error = ex.getMessage();
             s.status = "ERROR";
-            throw new IllegalStateException("Could not read the invoice image. Please try again with a clearer photo.");
+            throw new IllegalArgumentException("Could not read the invoice image. Please try again with a clearer photo.");
         }
     }
 
