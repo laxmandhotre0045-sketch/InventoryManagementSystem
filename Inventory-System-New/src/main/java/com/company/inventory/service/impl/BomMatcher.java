@@ -57,6 +57,31 @@ final class BomMatcher {
 
     // ================================================================== matching
 
+    /**
+     * Search-box use: components the typed text most likely means, best first — so a pasted
+     * "PCF8563T", "AO3401A" or "100nF" finds "PCF8563-…", "A03401A- PMOS" or "0.1UF" even
+     * though the words do not literally appear in those names.
+     */
+    static List<Match> search(String query, List<ComponentItem> items) {
+        if (blank(query)) {
+            return List.of();
+        }
+        BomRow row = new BomRow();
+        row.name = query.trim();
+        row.quantity = 1;
+        Line line = new Line(row);
+        List<Match> out = new ArrayList<>();
+        for (ComponentItem item : items) {
+            Match m = score(line, new Indexed(item));
+            if (m != null) {
+                out.add(m);
+            }
+        }
+        out.sort((a, b) -> a.score != b.score ? Integer.compare(b.score, a.score)
+                : Integer.compare(qty(b.target), qty(a.target)));
+        return out;
+    }
+
     static Result match(Line line, List<Indexed> inventory) {
         List<Match> all = new ArrayList<>();
         for (Indexed c : inventory) {

@@ -66,9 +66,6 @@ const ComponentCategoriesPage = () => {
   const [selectedValue, setSelectedValue] = useState(null);
   const [components, setComponents] = useState([]);
   const [componentsLoading, setComponentsLoading] = useState(false);
-  const [page, setPage] = useState(0);
-  const [size, setSize] = useState(10);
-  const [total, setTotal] = useState(0);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState(null);
@@ -115,7 +112,6 @@ const ComponentCategoriesPage = () => {
       });
       const list = res.data?.content || [];
       setComponents(list);
-      setTotal(res.data?.totalElements || 0);
       return list;
     } catch (err) {
       notify(err.response?.data?.message || 'Failed to load components', 'error');
@@ -283,7 +279,6 @@ const ComponentCategoriesPage = () => {
     setSelected(category);
     setSelectedType(null);
     setSelectedValue(null);
-    setPage(0);
   };
 
   // Columns for the leaf table (one Category → Type → Value). Value and Type are both

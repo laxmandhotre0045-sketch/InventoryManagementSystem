@@ -199,9 +199,22 @@ const ComponentsPage = () => {
     {
       field: 'componentName', headerName: 'Name',
       render: (row) => (
-        <Box component="button" type="button" onClick={() => setDetail(row)}
-          sx={{ all: 'unset', cursor: 'pointer', fontWeight: 600, '&:hover': { color: colors.primary, textDecoration: 'underline' } }}>
-          {row.componentName}
+        <Box>
+          <Box component="button" type="button" onClick={() => setDetail(row)}
+            sx={{ all: 'unset', cursor: 'pointer', fontWeight: 600, '&:hover': { color: colors.primary, textDecoration: 'underline' } }}>
+            {row.componentName}
+          </Box>
+          {/* Found by meaning rather than literal text (e.g. "PCF8563T" -> "PCF8563…"): say why. */}
+          {row.searchMatch && (
+            <Tooltip title={row.searchNote || ''}>
+              <Chip size="small" label={row.searchMatch === 'POSSIBLE' ? 'Possible match' : 'Close match'}
+                sx={{
+                  display: 'flex', width: 'fit-content', mt: 0.5, height: 20, fontSize: '0.68rem', fontWeight: 700,
+                  bgcolor: row.searchMatch === 'POSSIBLE' ? colors.accentSoft : colors.infoSoft,
+                  color: row.searchMatch === 'POSSIBLE' ? colors.accent : colors.info,
+                }} />
+            </Tooltip>
+          )}
         </Box>
       ),
     },
@@ -318,6 +331,13 @@ const ComponentsPage = () => {
           </Grid>
         </Grid>
       </Card>
+
+      {page === 0 && debouncedKeyword.trim() && rows.length > 0 && rows.every((r) => r.searchMatch) && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Nothing is named exactly “{debouncedKeyword.trim()}” — showing the closest components.
+          Hover the label under a name to see what differs.
+        </Alert>
+      )}
 
       <DataTable
         columns={columns} rows={rows} loading={loading} page={page} rowsPerPage={size}

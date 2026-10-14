@@ -123,6 +123,9 @@ public class ComponentServiceImpl implements ComponentService {
     public PagedResponse<ComponentResponse> searchComponents(String keyword, Long categoryId, String category,
                                                               String status, String stockStatus,
                                                               int page, int size, String sortBy, String sortDir) {
+        if (keyword != null && !keyword.isBlank()) {
+            return searchWithCloseMatches(keyword, categoryId, category, status, stockStatus, page, size, sortBy, sortDir);
+        }
         Pageable pageable = createPageable(page, size, sortBy, sortDir);
         Specification<ComponentItem> spec = buildComponentSpecification(keyword, categoryId, category, status, stockStatus);
         if (isItemCodeSort(sortBy)) {
@@ -131,6 +134,86 @@ public class ComponentServiceImpl implements ComponentService {
         }
         Page<ComponentItem> componentPage = componentRepository.findAll(spec, pageable);
         return mapPage(componentPage);
+    }
+
+    /**
+     * A search: literal matches first (in the requested order), then components the text
+     * most likely means even though it does not literally appear in them — a pasted
+     * "PCF8563T" finds "PCF8563-Real-time clock", "AO3401A" finds "A03401A- PMOS",
+     * "100nF" finds "0.1UF". Close matches are flagged so the list says why they are there.
+     *
+     * <p>Paged in memory: a search narrows the list to a few dozen rows at most, and the
+     * close-match scoring needs the candidates in Java anyway.</p>
+     */
+    private PagedResponse<ComponentResponse> searchWithCloseMatches(String keyword, Long categoryId, String category,
+                                                                    String status, String stockStatus,
+                                                                    int page, int size, String sortBy, String sortDir) {
+        Specification<ComponentItem> spec = buildComponentSpecification(keyword, categoryId, category, status, stockStatus);
+        List<ComponentItem> literal = findAllSorted(spec, sortBy, sortDir);
+
+        List<ComponentResponse> all = new ArrayList<>();
+        java.util.Set<Long> seen = new java.util.HashSet<>();
+        for (ComponentItem c : literal) {
+            all.add(componentMapper.toResponse(c));
+            seen.add(c.getId());
+        }
+
+        // Same filters, no keyword: the candidates a close match may come from.
+        List<ComponentItem> pool = componentRepository.findAll(
+                buildComponentSpecification(null, categoryId, category, status, stockStatus));
+        for (BomMatcher.Match m : BomMatcher.search(keyword, pool)) {
+            ComponentItem c = m.target().c;
+            boolean possible = "LOW".equals(m.confidence());
+            // Beside literal hits only confident extras are worth showing; with no literal
+            // hit, a possible match is better than an empty page.
+            if (!seen.add(c.getId()) || (possible && !literal.isEmpty())) {
+                continue;
+            }
+            ComponentResponse r = componentMapper.toResponse(c);
+            r.setSearchMatch(possible ? "POSSIBLE" : "CLOSE");
+            r.setSearchNote(searchNote(m));
+            all.add(r);
+        }
+
+        int safeSize = size < 1 ? 10 : Math.min(size, 500);
+        int safePage = Math.max(0, page);
+        int from = Math.min(safePage * safeSize, all.size());
+        int to = Math.min(from + safeSize, all.size());
+        PagedResponse<ComponentResponse> response = new PagedResponse<>();
+        response.setContent(new ArrayList<>(all.subList(from, to)));
+        response.setPage(safePage);
+        response.setSize(safeSize);
+        response.setTotalElements(all.size());
+        response.setTotalPages((int) Math.ceil(all.size() / (double) safeSize));
+        response.setLast(to >= all.size());
+        return response;
+    }
+
+    /** Why a close search result is shown, in search wording rather than BOM wording. */
+    private static String searchNote(BomMatcher.Match m) {
+        String note = m.note();
+        if (note == null) {
+            return switch (m.type()) {
+                case "VALUE" -> "Same value, written differently";
+                case "EXACT" -> "Same part number";
+                case "PART_IN_NAME" -> "Part number found in the name";
+                case "WORDS", "FUZZY" -> "Similar name";
+                default -> "Similar part";
+            };
+        }
+        return note.replace("— BOM ", "— searched ")
+                .replace("BOM asks for the", "You searched the")
+                .replace("BOM needs", "searched for")
+                .replace("BOM says", "search says");
+    }
+
+    /** Every row of a query, in the same order the paged list uses. */
+    private List<ComponentItem> findAllSorted(Specification<ComponentItem> spec, String sortBy, String sortDir) {
+        Sort.Direction direction = "desc".equalsIgnoreCase(sortDir) ? Sort.Direction.DESC : Sort.Direction.ASC;
+        if (isItemCodeSort(sortBy)) {
+            return componentRepository.findAll(spec.and(categoryThenItemCodeOrder(direction)));
+        }
+        return componentRepository.findAll(spec, createPageable(0, 1, sortBy, sortDir).getSort());
     }
 
     @Override
@@ -283,6 +366,16 @@ public class ComponentServiceImpl implements ComponentService {
                 existing.getQuantity() != null ? existing.getQuantity() : 0);
     }
 
+    /** lower(text) with spaces, hyphens and underscores removed. */
+    private static jakarta.persistence.criteria.Expression<String> withoutSeparators(
+            jakarta.persistence.criteria.CriteriaBuilder cb, jakarta.persistence.criteria.Expression<String> text) {
+        jakarta.persistence.criteria.Expression<String> e = cb.lower(text);
+        for (String sep : new String[] {" ", "-", "_"}) {
+            e = cb.function("replace", String.class, e, cb.literal(sep), cb.literal(""));
+        }
+        return e;
+    }
+
     private Specification<ComponentItem> buildComponentSpecification(String keyword, Long categoryId, String category,
                                                                      String status, String stockStatus) {
         return (root, query, cb) -> {
@@ -305,7 +398,13 @@ public class ComponentServiceImpl implements ComponentService {
                         continue;
                     }
                     String pattern = "%" + word + "%";
+                    // Separators are ignored on both sides, so "lm358", "16mhz" and "nulink"
+                    // find "LM 358 DIP-8", "16 Mhz" and "Nu-Link".
+                    String compact = "%" + word.replaceAll("[-_]", "") + "%";
                     predicates.add(cb.or(
+                            cb.like(withoutSeparators(cb, root.get("componentName")), compact),
+                            cb.like(withoutSeparators(cb, root.get("value")), compact),
+                            cb.like(withoutSeparators(cb, root.get("type")), compact),
                             cb.like(cb.lower(root.get("itemCode")), pattern),
                             cb.like(cb.lower(root.get("componentName")), pattern),
                             cb.like(cb.lower(cat.get("name")), pattern),

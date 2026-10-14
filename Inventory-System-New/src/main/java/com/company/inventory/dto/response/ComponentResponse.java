@@ -78,4 +78,12 @@ public class ComponentResponse {
 
     @Schema(description = "Record updated timestamp")
     private LocalDateTime updatedAt;
+
+    @Schema(description = "Only on search results that are not a literal text match: CLOSE (likely the "
+            + "part searched for) or POSSIBLE (worth checking)", example = "CLOSE")
+    private String searchMatch;
+
+    @Schema(description = "Why a close search result was included",
+            example = "Ordering/package suffix differs — searched PCF8563T, stock PCF8563")
+    private String searchNote;
 }
