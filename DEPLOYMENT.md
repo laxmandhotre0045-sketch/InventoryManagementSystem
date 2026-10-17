@@ -225,6 +225,11 @@ Persistent data lives in Docker volumes: `mysql_data` (database) and `backend_up
   details with component specs, automatic Category › Type › Value filing for invoice items,
   editable specifications on every component and equipment item (click a name), *Move to
   another folder* for misfiled components, and *Move to Equipment* for modules.
+- **Project folders:** each project (Projects → click its name) has its own component folder —
+  components bought for it, set aside from stock, or added from an invoice scanned inside the
+  project — with a project-only search and the project's cost against its budget. The parts stay
+  in the main inventory, marked with the project. New table `project_stock` and a nullable
+  `purchases.project_id` column are created automatically; no data step needed.
 - **Optional one-time data step:** components in the *Modules* category are really equipment.
   For each one, open it (Components page → click the name) → **Move to Equipment**. It shows a
   preview first, creates one equipment record per unit and archives the component (it is

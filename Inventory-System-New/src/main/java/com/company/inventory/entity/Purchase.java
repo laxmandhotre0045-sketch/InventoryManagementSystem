@@ -78,6 +78,11 @@ public class Purchase {
     @Column(length = 1000)
     private String remarks;
 
+    /** Set when the purchase was made for a project (invoice scanned from that project). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "project_id")
+    private Project project;
+
     @Column(name = "created_by", length = 120)
     private String createdBy;
 

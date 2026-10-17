@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.Query;
 
 public interface PurchaseRepository extends JpaRepository<Purchase, Long> {
 
+    java.util.List<Purchase> findByProjectIdOrderByPurchaseDateDescIdDesc(Long projectId);
+
     Page<Purchase> findBySupplierNameContainingIgnoreCaseOrInvoiceNumberContainingIgnoreCase(String supplierName, String invoiceNumber, Pageable pageable);
 
     @Query("select count(p) from Purchase p where month(p.purchaseDate) = month(current_date) and year(p.purchaseDate) = year(current_date)")

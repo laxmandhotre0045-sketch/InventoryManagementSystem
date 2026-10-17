@@ -15,6 +15,7 @@ const ComponentsPage = lazy(() => import('../pages/ComponentsPage'));
 const ComponentCategoriesPage = lazy(() => import('../pages/ComponentCategoriesPage'));
 const InventoryPage = lazy(() => import('../pages/InventoryPage'));
 const ProjectsPage = lazy(() => import('../pages/ProjectsPage'));
+const ProjectWorkspacePage = lazy(() => import('../pages/ProjectWorkspacePage'));
 const PurchasesPage = lazy(() => import('../pages/PurchasesPage'));
 const SuppliersPage = lazy(() => import('../pages/SuppliersPage'));
 const ReportsPage = lazy(() => import('../pages/ReportsPage'));
@@ -104,6 +105,10 @@ const AppRoutes = () => {
         <Route
           path="projects"
           element={<Suspense fallback={<PageFallback />}><ProjectsPage /></Suspense>}
+        />
+        <Route
+          path="projects/:projectId"
+          element={<Suspense fallback={<PageFallback />}><ProjectWorkspacePage /></Suspense>}
         />
         <Route
           path="inventory"

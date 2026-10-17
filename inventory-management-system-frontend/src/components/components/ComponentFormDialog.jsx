@@ -44,7 +44,8 @@ const formFromRow = (row) => ({
  * initialValues     — prefill for a new component (e.g. { categoryId })
  * categories        — the category list for the dropdown
  * onCategoryCreated — called after a category is created here so the parent reloads the list
- * onSaved(message)  — after a successful save; notify(message, severity) for everything else
+ * onSaved(message, saved) — after a successful save (saved = the component as stored);
+ *                    notify(message, severity) for everything else
  */
 const ComponentFormDialog = ({
   open, onClose, component, initialValues, categories, canCreateCategory,
@@ -141,11 +142,11 @@ const ComponentFormDialog = ({
       // category on screen is visible rather than silent.
       const savedIn = categories.find((c) => c.id === Number(form.categoryId))?.name;
       if (editId) {
-        await updateComponent(editId, payload);
-        onSaved(`Component updated in ${savedIn}`);
+        const res = await updateComponent(editId, payload);
+        onSaved(`Component updated in ${savedIn}`, res?.data);
       } else {
-        await createComponent(payload);
-        onSaved(`Component created in ${savedIn}`);
+        const res = await createComponent(payload);
+        onSaved(`Component created in ${savedIn}`, res?.data);
       }
     } catch (err) {
       notify(err.response?.data?.message || 'Save failed', 'error');

@@ -67,6 +67,7 @@ public class SecurityConfig {
                         // require ADMIN via the catch-all rule below.
                         .requestMatchers(HttpMethod.POST, api + "/mobile-capture/*/upload").permitAll()
                         .requestMatchers(HttpMethod.GET, api + "/mobile-capture/*/status").permitAll()
+                        .requestMatchers(HttpMethod.GET, api + "/projects/*/purchases").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET,
                                 api + "/equipment/**",
                                 api + "/components/**",

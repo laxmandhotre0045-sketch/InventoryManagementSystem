@@ -48,6 +48,10 @@ public class PurchaseResponse {
     @Schema(description = "Purchase remarks", example = "Order received from ABC Electronics")
     private String remarks;
 
+    @Schema(description = "Project this purchase was made for, if any")
+    private Long projectId;
+    private String projectName;
+
     @Schema(description = "Purchase items")
     private List<PurchaseItemResponse> items;
 

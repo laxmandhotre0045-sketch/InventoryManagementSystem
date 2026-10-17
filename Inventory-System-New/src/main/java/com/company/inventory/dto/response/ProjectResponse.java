@@ -56,6 +56,12 @@ public class ProjectResponse {
     @Schema(description = "Allocated budget", example = "250000.00")
     private BigDecimal budget;
 
+    @Schema(description = "Value of the project's component folder (Σ quantity × unit price)")
+    private BigDecimal componentCost;
+
+    @Schema(description = "Distinct components in the project's folder")
+    private int componentCount;
+
     @Schema(description = "Record created timestamp")
     private LocalDateTime createdAt;
 

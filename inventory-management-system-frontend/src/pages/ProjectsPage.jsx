@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box, Button, Dialog, DialogActions, DialogContent, DialogTitle,
   IconButton, MenuItem, TextField, Snackbar, Alert, Grid, Tooltip,
   Autocomplete, Chip, Typography,
 } from '@mui/material';
-import { Plus, Pencil, Trash2, PackagePlus, FolderKanban, Eye } from 'lucide-react';
+import { Plus, Pencil, Trash2, PackagePlus, FolderKanban, FolderOpen, Eye } from 'lucide-react';
 import {
   getProjects, searchProjects, createProject, updateProject, deleteProject,
   recordProjectUsage,
@@ -18,7 +19,7 @@ import ConfirmDialog from '../components/common/ConfirmDialog';
 import ProjectDetailsDrawer from '../components/projects/ProjectDetailsDrawer';
 import { PageHeader, StatusBadge, SearchBar } from '../components/ui';
 import useDebouncedValue from '../hooks/useDebouncedValue';
-import { CURRENCY_SYMBOL } from '../utils/currency';
+import { CURRENCY_SYMBOL, formatCurrency } from '../utils/currency';
 import { colors } from '../theme/tokens';
 
 const STATUSES = ['ACTIVE', 'COMPLETED', 'ON_HOLD'];
@@ -46,6 +47,7 @@ const projectStatus = (s) => {
 
 const ProjectsPage = () => {
   const { role } = useAuth();
+  const navigate = useNavigate();
   const writeAccess = canWrite(role);
   const [rows, setRows] = useState([]);
   const [components, setComponents] = useState([]);
@@ -224,7 +226,8 @@ const ProjectsPage = () => {
         <Box
           component="button"
           type="button"
-          onClick={() => openDetails(row)}
+          onClick={() => navigate(`/projects/${row.id}`)}
+          title="Open this project's folder"
           sx={{
             all: 'unset', cursor: 'pointer', fontWeight: 600, color: colors.primary,
             '&:hover': { textDecoration: 'underline' },
@@ -243,6 +246,24 @@ const ProjectsPage = () => {
         : <Box component="span" sx={{ color: colors.textMuted }}>—</Box>),
     },
     { field: 'projectManager', headerName: 'Manager' },
+    {
+      field: 'componentCost', headerName: 'Components cost', align: 'right',
+      render: (row) => {
+        const cost = Number(row.componentCost || 0);
+        const over = row.budget != null && cost > Number(row.budget);
+        return (
+          <Box sx={{ textAlign: 'right' }}>
+            <Box component="span" sx={{ fontWeight: 700, color: over ? colors.danger : colors.textPrimary }}>
+              {formatCurrency(cost)}
+            </Box>
+            <Box sx={{ fontSize: '0.72rem', color: colors.textMuted }}>
+              {row.componentCount} part{row.componentCount === 1 ? '' : 's'}
+              {row.budget != null ? ` · of ${formatCurrency(row.budget)}` : ''}
+            </Box>
+          </Box>
+        );
+      },
+    },
     { field: 'startDate', headerName: 'Start' },
     { field: 'endDate', headerName: 'End' },
   ];
@@ -282,7 +303,10 @@ const ProjectsPage = () => {
         }}
         renderActions={(row) => (
           <Box sx={{ display: 'inline-flex', gap: 0.5 }}>
-            <Tooltip title="View details"><IconButton size="small" onClick={() => openDetails(row)}><Eye size={16} /></IconButton></Tooltip>
+            <Tooltip title="Open project folder (components, invoices, cost)">
+              <IconButton size="small" sx={{ color: colors.primary }} onClick={() => navigate(`/projects/${row.id}`)}><FolderOpen size={17} /></IconButton>
+            </Tooltip>
+            <Tooltip title="Quick view"><IconButton size="small" onClick={() => openDetails(row)}><Eye size={16} /></IconButton></Tooltip>
             {writeAccess && (
               <>
                 <Tooltip title="Assign component"><IconButton size="small" sx={{ color: colors.primary }} onClick={() => openUsage(row.id)}><PackagePlus size={17} /></IconButton></Tooltip>
@@ -474,6 +498,7 @@ const ProjectsPage = () => {
         canWrite={writeAccess}
         onEdit={(p) => { setDetailsOpen(false); openEdit(p); }}
         onAssignComponent={(p) => { setDetailsOpen(false); openUsage(p.id); }}
+        onOpenFolder={(p) => navigate(`/projects/${p.id}`)}
       />
 
       <ConfirmDialog open={!!deleteId} title="Delete Project"

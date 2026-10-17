@@ -18,6 +18,10 @@ import lombok.Data;
 @Data
 public class ConfirmInvoiceRequest {
 
+    @io.swagger.v3.oas.annotations.media.Schema(description = "When set, the purchase is made for this project: "
+            + "every component line also goes into the project's folder at the price paid")
+    private Long projectId;
+
     @Schema(description = "Extraction record id from /extract-invoice")
     private Long extractionId;
 

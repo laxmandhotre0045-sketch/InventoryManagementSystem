@@ -78,7 +78,7 @@ const Section = ({ title, action, children }) => (
   </Box>
 );
 
-const ProjectDetailsDrawer = ({ projectId, open, onClose, onEdit, onAssignComponent, canWrite }) => {
+const ProjectDetailsDrawer = ({ projectId, open, onClose, onEdit, onAssignComponent, onOpenFolder, canWrite }) => {
   const [project, setProject] = useState(null);
   const [usage, setUsage] = useState([]);
   const [activity, setActivity] = useState([]);
@@ -282,13 +282,16 @@ const ProjectDetailsDrawer = ({ projectId, open, onClose, onEdit, onAssignCompon
               )}
             </Section>
 
-            <Section title="Attachments">
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: colors.textMuted }}>
+            <Section title="Project folder">
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: colors.textMuted, mb: 1 }}>
                 <Paperclip size={13} />
                 <Typography sx={{ fontSize: '0.75rem' }}>
-                  Per-project documents aren&apos;t stored yet — invoices live in the Purchases module.
+                  Components bought for this project, its invoices and its total cost.
                 </Typography>
               </Box>
+              <Button fullWidth variant="contained" onClick={() => onOpenFolder?.(project)}>
+                Open project folder
+              </Button>
             </Section>
 
             <Typography sx={{ fontSize: '0.6875rem', color: colors.textMuted, mt: 1 }}>
