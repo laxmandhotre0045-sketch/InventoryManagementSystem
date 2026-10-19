@@ -39,13 +39,16 @@ public class ComponentServiceImpl implements ComponentService {
 
     private final com.company.inventory.service.ItemCodeGenerator itemCodeGenerator;
     private final ComponentCategoryService categoryService;
+    private final ProjectStockService projectStockService;
 
     public ComponentServiceImpl(ComponentRepository componentRepository, ComponentMapper componentMapper,
                                 InventoryTransactionRepository transactionRepository,
                                 PurchaseItemRepository purchaseItemRepository,
                                 ProjectComponentUsageRepository projectComponentUsageRepository,
                                 com.company.inventory.service.ItemCodeGenerator itemCodeGenerator,
-                                ComponentCategoryService categoryService) {
+                                ComponentCategoryService categoryService,
+                                ProjectStockService projectStockService) {
+        this.projectStockService = projectStockService;
         this.componentRepository = componentRepository;
         this.componentMapper = componentMapper;
         this.transactionRepository = transactionRepository;
@@ -109,7 +112,9 @@ public class ComponentServiceImpl implements ComponentService {
     public ComponentResponse getComponentById(Long id) {
         ComponentItem existing = componentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Component not found with id: " + id));
-        return componentMapper.toResponse(existing);
+        ComponentResponse response = componentMapper.toResponse(existing);
+        projectStockService.tagComponents(java.util.List.of(response));
+        return response;
     }
 
     @Override
@@ -181,6 +186,7 @@ public class ComponentServiceImpl implements ComponentService {
         int to = Math.min(from + safeSize, all.size());
         PagedResponse<ComponentResponse> response = new PagedResponse<>();
         response.setContent(new ArrayList<>(all.subList(from, to)));
+        projectStockService.tagComponents(response.getContent());
         response.setPage(safePage);
         response.setSize(safeSize);
         response.setTotalElements(all.size());
@@ -341,6 +347,7 @@ public class ComponentServiceImpl implements ComponentService {
                 .map(componentMapper::toResponse)
                 .collect(Collectors.toList());
 
+        projectStockService.tagComponents(responses);
         PagedResponse<ComponentResponse> response = new PagedResponse<>();
         response.setContent(responses);
         response.setPage(pageData.getNumber());

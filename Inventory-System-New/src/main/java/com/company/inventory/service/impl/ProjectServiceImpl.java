@@ -27,9 +27,14 @@ public class ProjectServiceImpl implements ProjectService {
     private final ProjectRepository projectRepository;
     private final ProjectMapper projectMapper;
     private final TeamMemberService teamMemberService;
+    private final ProjectStockService projectStockService;
+    private final com.company.inventory.repository.ProjectComponentUsageRepository usageRepository;
 
     public ProjectServiceImpl(ProjectRepository projectRepository, ProjectMapper projectMapper,
-                              TeamMemberService teamMemberService) {
+                              TeamMemberService teamMemberService, ProjectStockService projectStockService,
+                              com.company.inventory.repository.ProjectComponentUsageRepository usageRepository) {
+        this.projectStockService = projectStockService;
+        this.usageRepository = usageRepository;
         this.projectRepository = projectRepository;
         this.projectMapper = projectMapper;
         this.teamMemberService = teamMemberService;
@@ -73,6 +78,13 @@ public class ProjectServiceImpl implements ProjectService {
     public void deleteProject(Long id) {
         Project existing = projectRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Project not found with id: " + id));
+        // Never silently drop what a project holds: its folder and usage history stay
+        // until someone deals with them (or the project is marked Completed instead).
+        if (projectStockService.hasFolderEntries(id) || usageRepository.existsByProjectId(id)) {
+            throw new com.company.inventory.exception.ResourceInUseException("\"" + existing.getProjectName()
+                    + "\" still has components in its folder or recorded usage. Release its components first, "
+                    + "or set the project to Completed to keep its history.");
+        }
         projectRepository.delete(existing);
     }
 
@@ -80,7 +92,9 @@ public class ProjectServiceImpl implements ProjectService {
     public ProjectResponse getProjectById(Long id) {
         Project existing = projectRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Project not found with id: " + id));
-        return projectMapper.toResponse(existing);
+        ProjectResponse response = projectMapper.toResponse(existing);
+        withCosts(java.util.List.of(response));
+        return response;
     }
 
     @Override
@@ -97,6 +111,17 @@ public class ProjectServiceImpl implements ProjectService {
         return mapPage(projectPage);
     }
 
+    /** Adds each project's folder value and size, in one query for the whole page. */
+    private void withCosts(java.util.List<ProjectResponse> projects) {
+        java.util.Map<Long, Object[]> costs = projectStockService.costsFor(
+                projects.stream().map(ProjectResponse::getId).toList());
+        for (ProjectResponse p : projects) {
+            Object[] c = costs.get(p.getId());
+            p.setComponentCost(c != null ? (java.math.BigDecimal) c[0] : java.math.BigDecimal.ZERO);
+            p.setComponentCount(c != null ? (Integer) c[1] : 0);
+        }
+    }
+
     private Pageable createPageable(int page, int size, String sortBy, String sortDir) {
         Sort sort = Sort.by(sortBy);
         sort = "desc".equalsIgnoreCase(sortDir) ? sort.descending() : sort.ascending();
@@ -106,6 +131,7 @@ public class ProjectServiceImpl implements ProjectService {
     private PagedResponse<ProjectResponse> mapPage(Page<Project> pageData) {
         PagedResponse<ProjectResponse> response = new PagedResponse<>();
         response.setContent(pageData.stream().map(projectMapper::toResponse).collect(Collectors.toList()));
+        withCosts(response.getContent());
         response.setPage(pageData.getNumber());
         response.setSize(pageData.getSize());
         response.setTotalElements(pageData.getTotalElements());

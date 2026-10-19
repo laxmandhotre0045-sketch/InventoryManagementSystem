@@ -95,7 +95,11 @@ const badgeFor = (l) => {
   return { label: 'Matched', fg: colors.success, bg: colors.successSoft };
 };
 
-const InvoiceUploadDialog = ({ open, onClose, components, onCreated }) => {
+/**
+ * projectId / projectName (optional): scanning from inside a project — the purchase is
+ * recorded for that project and every component line goes into its folder.
+ */
+const InvoiceUploadDialog = ({ open, onClose, components, onCreated, projectId, projectName }) => {
   const fileRef = useRef(null);
   const [equipment, setEquipment] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -244,6 +248,7 @@ const InvoiceUploadDialog = ({ open, onClose, components, onCreated }) => {
       const payload = {
         extractionId: result?.extractionId,
         invoiceFilePath: result?.invoiceFilePath,
+        projectId: projectId || null,
         supplierName: header.supplierName,
         invoiceNumber: header.invoiceNumber,
         purchaseDate: header.invoiceDate || null,
@@ -271,8 +276,12 @@ const InvoiceUploadDialog = ({ open, onClose, components, onCreated }) => {
       if (componentLines.length) parts.push(`${componentLines.length} component line(s)`);
       if (equipCount) parts.push(`${equipCount} equipment registered`);
       if (newCount) parts.push(`${newCount} new item(s) created`);
+      // Component lines from an invoice scanned inside a project go into that project's
+      // folder; equipment is registered as usual and is not filed there.
+      const toProject = projectId && componentLines.length
+        ? ` Added to ${projectName || 'the project'}.` : '';
       onCreated?.(`Purchase created from invoice — ${parts.join(', ')}.`
-        + (componentLines.length ? ' Stock updated.' : ''));
+        + (componentLines.length ? ' Stock updated.' : '') + toProject);
       handleClose();
     } catch (err) {
       // Backend is transactional: on failure nothing was created.
@@ -316,6 +325,10 @@ const InvoiceUploadDialog = ({ open, onClose, components, onCreated }) => {
         <Sparkles size={22} color={colors.primary} />
         <Box sx={{ flexGrow: 1 }}>
           Upload Invoice
+          {projectId && (
+            <Chip size="small" label={`For project: ${projectName || projectId}`}
+              sx={{ ml: 1.5, bgcolor: colors.accentSoft, color: colors.accent, fontWeight: 700 }} />
+          )}
           {capturedOnPhone && (
             <Chip size="small" icon={<Smartphone size={13} />} label="Captured on phone"
               sx={{ ml: 1.5, bgcolor: colors.primarySoft, color: colors.primary, fontWeight: 600 }} />

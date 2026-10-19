@@ -28,6 +28,10 @@ public class PurchaseMapper {
         response.setInvoiceProcessingStatus(purchase.getInvoiceProcessingStatus());
         response.setHasInvoice(purchase.getInvoiceFilePath() != null && !purchase.getInvoiceFilePath().isBlank());
         response.setRemarks(purchase.getRemarks());
+        if (purchase.getProject() != null) {
+            response.setProjectId(purchase.getProject().getId());
+            response.setProjectName(purchase.getProject().getProjectName());
+        }
         response.setCreatedAt(purchase.getCreatedAt());
         response.setUpdatedAt(purchase.getUpdatedAt());
         response.setItems(purchase.getItems() != null ? purchase.getItems().stream().map(this::toItemResponse).collect(Collectors.toList()) : null);

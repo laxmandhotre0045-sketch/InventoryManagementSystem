@@ -49,6 +49,8 @@ public class PurchaseServiceImpl implements PurchaseService {
     private final com.company.inventory.service.SpecificationService specificationService;
     private final com.company.inventory.service.ItemCodeGenerator itemCodeGenerator;
     private final com.company.inventory.service.ComponentCategoryService componentCategoryService;
+    private final com.company.inventory.repository.ProjectRepository projectRepository;
+    private final ProjectStockService projectStockService;
 
     public PurchaseServiceImpl(PurchaseRepository purchaseRepository,
                                PurchaseItemRepository purchaseItemRepository,
@@ -61,8 +63,12 @@ public class PurchaseServiceImpl implements PurchaseService {
                                com.company.inventory.repository.EquipmentRepository equipmentRepository,
                                com.company.inventory.service.ItemCodeGenerator itemCodeGenerator,
                                com.company.inventory.service.ComponentCategoryService componentCategoryService,
-                               com.company.inventory.service.SpecificationService specificationService) {
+                               com.company.inventory.service.SpecificationService specificationService,
+                               com.company.inventory.repository.ProjectRepository projectRepository,
+                               ProjectStockService projectStockService) {
         this.specificationService = specificationService;
+        this.projectRepository = projectRepository;
+        this.projectStockService = projectStockService;
         this.purchaseRepository = purchaseRepository;
         this.purchaseItemRepository = purchaseItemRepository;
         this.componentRepository = componentRepository;
@@ -94,6 +100,13 @@ public class PurchaseServiceImpl implements PurchaseService {
         purchase.setRemarks(request.getRemarks());
         purchase.setCreatedBy(username);
         purchase.setInvoiceProcessingStatus(com.company.inventory.entity.InvoiceProcessingStatus.UPLOADED);
+        // Scanned from inside a project: the purchase and every component line belong to it.
+        com.company.inventory.entity.Project project = null;
+        if (request.getProjectId() != null) {
+            project = projectRepository.findById(request.getProjectId()).orElseThrow(
+                    () -> new ResourceNotFoundException("Project not found with id: " + request.getProjectId()));
+            purchase.setProject(project);
+        }
         if (request.getInvoiceFilePath() != null && !request.getInvoiceFilePath().isBlank()) {
             purchase.setInvoiceFilePath(request.getInvoiceFilePath());
             // Same provenance as a manual upload, so the invoice list can show it.
@@ -241,6 +254,12 @@ public class PurchaseServiceImpl implements PurchaseService {
         for (com.company.inventory.entity.Equipment eq : equipmentToLink) {
             eq.setPurchaseId(saved.getId());
             equipmentRepository.save(eq);
+        }
+        if (project != null) {
+            for (PurchaseItem item : saved.getItems()) {
+                projectStockService.addFromInvoice(project, item.getComponent(), item.getQuantity(),
+                        item.getUnitPrice(), saved.getId(), saved.getInvoiceNumber(), username);
+            }
         }
         invoiceExtractionService.markConfirmed(request.getExtractionId(), saved.getId());
         return purchaseMapper.toResponse(saved);

@@ -86,4 +86,10 @@ public class ComponentResponse {
     @Schema(description = "Why a close search result was included",
             example = "Ordering/package suffix differs — searched PCF8563T, stock PCF8563")
     private String searchNote;
+
+    @Schema(description = "Projects whose folder holds this component (empty when none)")
+    private java.util.List<ComponentProjectTag> projects = new java.util.ArrayList<>();
+
+    @Schema(description = "Units still set aside for projects (Σ remaining across projects)")
+    private int reservedForProjects;
 }

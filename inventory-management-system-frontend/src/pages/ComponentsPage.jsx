@@ -5,7 +5,7 @@ import {
   IconButton, TextField, MenuItem, Snackbar, Alert, Grid, Tooltip, Chip, InputAdornment,
 } from '@mui/material';
 import {
-  Plus, Pencil, Trash2, RotateCcw, Filter, X, AlertTriangle, CircuitBoard, Search, Eye, FolderInput,
+  Plus, Pencil, Trash2, RotateCcw, Filter, X, AlertTriangle, CircuitBoard, Search, Eye, FolderInput, FolderOpen,
 } from 'lucide-react';
 import {
   getComponents, deleteComponent, restoreComponent, getLowStockComponents,
@@ -204,6 +204,22 @@ const ComponentsPage = () => {
             sx={{ all: 'unset', cursor: 'pointer', fontWeight: 600, '&:hover': { color: colors.primary, textDecoration: 'underline' } }}>
             {row.componentName}
           </Box>
+          {/* Parts bought for / set aside for a project: still listed here, marked with the project. */}
+          {row.projects?.length > 0 && (
+            <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5, flexWrap: 'wrap' }}>
+              {row.projects.map((p) => (
+                <Tooltip key={p.projectId}
+                  title={`${p.allocated} in the "${p.projectName}" project folder, ${p.remaining} not used yet — click to open`}>
+                  <Chip size="small" icon={<FolderOpen size={12} />} label={`${p.projectName} · ${p.remaining}`}
+                    onClick={() => navigate(`/projects/${p.projectId}`)}
+                    sx={{
+                      height: 20, fontSize: '0.68rem', fontWeight: 700, cursor: 'pointer',
+                      bgcolor: colors.accentSoft, color: colors.accent, '& .MuiChip-icon': { color: colors.accent },
+                    }} />
+                </Tooltip>
+              ))}
+            </Box>
+          )}
           {/* Found by meaning rather than literal text (e.g. "PCF8563T" -> "PCF8563…"): say why. */}
           {row.searchMatch && (
             <Tooltip title={row.searchNote || ''}>

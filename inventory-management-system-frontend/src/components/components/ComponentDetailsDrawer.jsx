@@ -3,7 +3,8 @@ import {
   Alert, Box, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle,
   Divider, Drawer, IconButton, TextField, Tooltip, Typography,
 } from '@mui/material';
-import { ArrowRightLeft, CircuitBoard, FolderInput, History, MapPin, Pencil, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { ArrowRightLeft, CircuitBoard, FolderInput, FolderOpen, History, MapPin, Pencil, X } from 'lucide-react';
 import { moveComponentToEquipment } from '../../api/componentApi';
 import { getComponentHistory } from '../../api/inventoryApi';
 import SpecificationsEditor from '../common/SpecificationsEditor';
@@ -124,6 +125,7 @@ const MoveToEquipmentDialog = ({ component, open, onClose, onMoved }) => {
 };
 
 const ComponentDetailsDrawer = ({ component, open, onClose, canEdit, onEdit, onRelocate, onMoved }) => {
+  const navigate = useNavigate();
   const [history, setHistory] = useState({ rows: [], state: 'idle' });
   const [moveOpen, setMoveOpen] = useState(false);
   const id = component?.id;
@@ -214,6 +216,29 @@ const ComponentDetailsDrawer = ({ component, open, onClose, canEdit, onEdit, onR
         <Box sx={{ p: 2, borderRadius: 2.5, border: `1px solid ${colors.border}`, bgcolor: colors.paper }}>
           <SpecificationsEditor itemType="components" itemId={c.id} canEdit={canEdit} />
         </Box>
+
+        {c.projects?.length > 0 && (
+          <Box sx={{ p: 2, borderRadius: 2.5, border: `1px solid ${colors.border}`, bgcolor: colors.paper }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+              <FolderOpen size={17} color={colors.accent} />
+              <Typography sx={{ fontSize: '0.9375rem', fontWeight: 700 }}>In project folders</Typography>
+            </Box>
+            {c.projects.map((p) => (
+              <Box key={p.projectId} sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.75, borderTop: `1px solid ${colors.border}` }}>
+                <Box component="button" type="button" onClick={() => navigate(`/projects/${p.projectId}`)}
+                  sx={{ all: 'unset', cursor: 'pointer', flexGrow: 1, fontWeight: 600, color: colors.primary, '&:hover': { textDecoration: 'underline' } }}>
+                  {p.projectName}
+                </Box>
+                <Typography sx={{ fontSize: '0.8125rem', color: colors.textSecondary }}>
+                  {p.allocated} in folder · {p.remaining} not used
+                </Typography>
+              </Box>
+            ))}
+            <Typography sx={{ fontSize: '0.75rem', color: colors.textMuted, mt: 0.5 }}>
+              {c.reservedForProjects} of the {c.quantity} in stock belong to projects · {Math.max((c.quantity || 0) - (c.reservedForProjects || 0), 0)} free
+            </Typography>
+          </Box>
+        )}
 
         <Box sx={{ p: 2, borderRadius: 2.5, border: `1px solid ${colors.border}`, bgcolor: colors.paper }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
