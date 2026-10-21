@@ -120,6 +120,20 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiResponse<Object>> handleDataIntegrity(DataIntegrityViolationException ex) {
         log.warn("Data integrity violation", ex);
+        // MySQL reports an over-long value as a data-integrity error too. Calling that a
+        // "conflict with existing data" sent people hunting for a duplicate that did not
+        // exist, so name the field that is too long instead.
+        String cause = ex.getMostSpecificCause() != null ? ex.getMostSpecificCause().getMessage() : null;
+        if (cause != null) {
+            java.util.regex.Matcher tooLong = java.util.regex.Pattern
+                    .compile("Data too long for column '([^']+)'").matcher(cause);
+            if (tooLong.find()) {
+                String field = tooLong.group(1).replace('_', ' ');
+                return new ResponseEntity<>(ApiResponse.failure(
+                        "The " + field + " is too long to save. Shorten it and try again.", null),
+                        HttpStatus.BAD_REQUEST);
+            }
+        }
         return new ResponseEntity<>(ApiResponse.failure(
                 "That change conflicts with existing data. A record with the same unique value may already exist, "
                 + "or the item is still referenced elsewhere.", null), HttpStatus.CONFLICT);

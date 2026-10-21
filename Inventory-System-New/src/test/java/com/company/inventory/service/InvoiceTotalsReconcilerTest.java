@@ -143,4 +143,30 @@ class InvoiceTotalsReconcilerTest {
         assertThat(reconciler.reconcile(invoiceOf())).isEmpty();
         assertThat(reconciler.reconcile(null)).isEmpty();
     }
+
+    @Test
+    @DisplayName("shipping listed as a line is not counted a second time (invoice SO289050)")
+    void shippingListedAsALineIsNotCountedTwice() {
+        // Parts 20100.03 + "Shipping Charge - Porter" 1 x 168.64 = sub-total 20268.67;
+        // tax 3648.38; grand total 23917.05. The invoice also states shipping 168.64.
+        ExtractedInvoice inv = invoiceOf(
+                line("Parts", "1", "20100.03", "20100.03"),
+                line("Shipping Charge - Porter", "1", "168.64", "168.64"));
+        inv.setSubTotal(new BigDecimal("20268.67"));
+        inv.setTaxAmount(new BigDecimal("3648.38"));
+        inv.setShippingCharges(new BigDecimal("168.64"));
+        inv.setGrandTotal(new BigDecimal("23917.05"));
+
+        assertThat(reconciler.reconcile(inv)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("shipping stated only in the totals is still added")
+    void shippingOnlyInTotalsIsAdded() {
+        ExtractedInvoice inv = invoiceOf(line("Parts", "1", "1000.00", "1000.00"));
+        inv.setShippingCharges(new BigDecimal("50.00"));
+        inv.setGrandTotal(new BigDecimal("1050.00"));
+
+        assertThat(reconciler.reconcile(inv)).isEmpty();
+    }
 }

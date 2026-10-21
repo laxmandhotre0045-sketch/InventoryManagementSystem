@@ -138,11 +138,13 @@ public class PurchaseServiceImpl implements PurchaseService {
 
             // Equipment lines register an asset but never affect stock or the purchase items.
             if (res == com.company.inventory.dto.request.ItemResolution.NEW_EQUIPMENT) {
-                String eqName = requireName(line, "register new equipment");
+                String eqFullName = requireName(line, "register new equipment");
+                String eqName = fitName(eqFullName, NAME_MAX);
                 com.company.inventory.entity.Equipment newEq = equipmentRepository.save(com.company.inventory.entity.Equipment.builder()
                         .itemCode(itemCodeGenerator.buildCode(
                                 com.company.inventory.service.ItemCodeGenerator.EQUIPMENT_PREFIX, ++equipCodeNum))
                         .name(eqName)
+                        .notes(eqName.equals(eqFullName) ? null : eqFullName)
                         .serialNumber(line.getSerialNumber())
                         .category(line.getCategory())
                         .manufacturer(line.getManufacturer())
@@ -177,7 +179,11 @@ public class PurchaseServiceImpl implements PurchaseService {
                 component = componentRepository.findById(line.getComponentId())
                         .orElseThrow(() -> new ResourceNotFoundException("Component not found with id: " + line.getComponentId()));
             } else {
-                String name = requireName(line, "create a new component");
+                // Supplier listings (Robu, LCSC...) often run past the 150 characters the name
+                // column holds; one such line used to fail the whole invoice. The name is
+                // shortened at a word boundary and the full text kept in the description.
+                String fullName = requireName(line, "create a new component");
+                String name = fitName(fullName, NAME_MAX);
                 ComponentItem existing = componentRepository.findByComponentName(name).orElse(null);
                 if (existing != null) {
                     component = existing; // reuse — don't consume a code number
@@ -186,6 +192,7 @@ public class PurchaseServiceImpl implements PurchaseService {
                             .itemCode(itemCodeGenerator.buildCode(
                                     com.company.inventory.service.ItemCodeGenerator.COMPONENT_PREFIX, ++compCodeNum))
                             .componentName(name)
+                            .description(name.equals(fullName) ? null : fullName)
                             // Category text off an invoice is free-form, so it is matched
                             // case-insensitively against existing categories and only
                             // creates one when genuinely new. A line with no category at
@@ -287,6 +294,26 @@ public class PurchaseServiceImpl implements PurchaseService {
             out.add(new com.company.inventory.dto.response.SpecificationEntry("HSN code", line.getHsnCode().trim()));
         }
         return out;
+    }
+
+    /** components.component_name and equipment.name are both VARCHAR(150). */
+    private static final int NAME_MAX = 150;
+
+    /**
+     * Fits a name into {@code max} characters, cutting at the last word boundary rather
+     * than mid-word, and dropping the dangling separator ("… SOT-223 Voltag" -> "… SOT-223").
+     */
+    static String fitName(String s, int max) {
+        String t = s.trim();
+        if (t.length() <= max) {
+            return t;
+        }
+        String cut = t.substring(0, max);
+        int space = cut.lastIndexOf(' ');
+        if (space >= max * 0.6) {
+            cut = cut.substring(0, space);
+        }
+        return cut.replaceAll("[\\s,;:(\\-–—/]+$", "").trim();
     }
 
     private static String trimTo(String s, int max) {

@@ -38,19 +38,22 @@ public class InvoiceExtractionServiceImpl implements InvoiceExtractionService {
     private final InvoiceTotalsReconciler totalsReconciler;
     private final ObjectMapper objectMapper;
     private final com.company.inventory.service.ComponentClassifier classifier;
+    private final com.company.inventory.repository.ComponentRepository componentRepository;
 
     public InvoiceExtractionServiceImpl(FileStorageService fileStorageService,
                                         InvoiceExtractionProvider extractionProvider,
                                         InvoiceExtractionRepository extractionRepository,
                                         InvoiceTotalsReconciler totalsReconciler,
                                         ObjectMapper objectMapper,
-                                        com.company.inventory.service.ComponentClassifier classifier) {
+                                        com.company.inventory.service.ComponentClassifier classifier,
+                                        com.company.inventory.repository.ComponentRepository componentRepository) {
         this.fileStorageService = fileStorageService;
         this.extractionProvider = extractionProvider;
         this.extractionRepository = extractionRepository;
         this.totalsReconciler = totalsReconciler;
         this.objectMapper = objectMapper;
         this.classifier = classifier;
+        this.componentRepository = componentRepository;
     }
 
     @Override
@@ -88,6 +91,10 @@ public class InvoiceExtractionServiceImpl implements InvoiceExtractionService {
         // 2c. Suggest where each new item would be filed (Category › Type › Value) so the
         //     review screen can show the path for the user to verify. Never fatal.
         suggestInventoryPaths(extracted);
+
+        // 2d. Is each line a part already in stock? Then confirming should add to that
+        //     component's quantity rather than create a second copy. Never fatal.
+        matchExistingStock(extracted);
 
         // 3. Persist an audit record with the raw structured output.
         InvoiceExtraction record = InvoiceExtraction.builder()
@@ -141,6 +148,38 @@ public class InvoiceExtractionServiceImpl implements InvoiceExtractionService {
             rec.setPurchaseId(purchaseId);
             extractionRepository.save(rec);
         });
+    }
+
+    private void matchExistingStock(ExtractedInvoice extracted) {
+        if (extracted == null || extracted.getItems() == null || extracted.getItems().isEmpty()) {
+            return;
+        }
+        try {
+            List<BomMatcher.Indexed> inventory = new java.util.ArrayList<>();
+            for (com.company.inventory.entity.ComponentItem c : componentRepository.findAll()) {
+                if (c.getStatus() != com.company.inventory.entity.ComponentStatus.ARCHIVED) {
+                    inventory.add(new BomMatcher.Indexed(c));
+                }
+            }
+            for (com.company.inventory.dto.response.ExtractedInvoiceLineItem it : extracted.getItems()) {
+                String kind = it.getSuggestedType();
+                if ("SERVICE".equalsIgnoreCase(kind) || "EQUIPMENT".equalsIgnoreCase(kind)) {
+                    continue;
+                }
+                InvoiceLineMatcher.Decision d = InvoiceLineMatcher.decide(
+                        it.getDescription(), it.getSupplierItemCode(), it.getPackageName(), inventory);
+                if (d == null) {
+                    continue;
+                }
+                it.setMatchedComponentId(d.target().c.getId());
+                it.setMatchedComponentName(d.target().c.getComponentName());
+                it.setMatchedComponentStock(d.target().c.getQuantity());
+                it.setMatchConfidence(d.confidence());
+                it.setMatchNote(d.note());
+            }
+        } catch (Exception ex) {
+            log.warn("Could not match invoice lines to existing stock: {}", ex.getMessage());
+        }
     }
 
     private void suggestInventoryPaths(ExtractedInvoice extracted) {

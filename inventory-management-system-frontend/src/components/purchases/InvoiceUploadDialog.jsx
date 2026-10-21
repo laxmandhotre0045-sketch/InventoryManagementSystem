@@ -186,10 +186,20 @@ const InvoiceUploadDialog = ({ open, onClose, components, onCreated, projectId, 
       grandTotal: ex.grandTotal ?? 0, finalInvoiceAmount: ex.finalInvoiceAmount ?? 0,
     });
     setLines((ex.items || []).map((it) => {
-      const comp = findMatch(it.description, components, 'componentName');
-      const equip = comp ? null : findMatch(it.description, equipment, 'name');
+      // Same part already in stock? The server compares kind, value, package, voltage and
+      // part numbers. Only a SURE match is pre-selected (confirming adds to that component's
+      // quantity); a POSSIBLE one is offered below the line for the user to accept.
+      const serverMatch = it.matchedComponentId != null
+        && components.some((c) => c.id === it.matchedComponentId);
+      const sure = serverMatch && it.matchConfidence === 'SURE';
+      // Fallback: the exact same name. (Not "one name contains the other" — a stock item
+      // called "OLED" would otherwise grab any line that merely mentions an OLED.)
+      const sameName = sure ? null
+        : components.find((c) => norm(c.componentName) === norm(it.description)) || null;
+      const equip = (sure || sameName) ? null : findMatch(it.description, equipment, 'name');
       let resolution; let componentId = null; let equipmentId = null;
-      if (comp) { resolution = 'EXISTING_COMPONENT'; componentId = comp.id; }
+      if (sure) { resolution = 'EXISTING_COMPONENT'; componentId = it.matchedComponentId; }
+      else if (sameName) { resolution = 'EXISTING_COMPONENT'; componentId = sameName.id; }
       else if (equip) { resolution = 'EXISTING_EQUIPMENT'; equipmentId = equip.id; }
       else if (it.suggestedType === 'SERVICE') { resolution = 'SKIP'; }
       else if (it.suggestedType === 'EQUIPMENT') { resolution = 'NEW_EQUIPMENT'; }
@@ -207,6 +217,10 @@ const InvoiceUploadDialog = ({ open, onClose, components, onCreated, projectId, 
         invType: it.inventoryType || '',
         invValue: it.inventoryValue || '',
         invReason: it.inventoryReason || '',
+        match: serverMatch ? {
+          id: it.matchedComponentId, name: it.matchedComponentName, stock: it.matchedComponentStock ?? 0,
+          confidence: it.matchConfidence, note: it.matchNote || '',
+        } : null,
       };
     }));
   };
@@ -305,8 +319,14 @@ const InvoiceUploadDialog = ({ open, onClose, components, onCreated, projectId, 
       (s, l) => s + Number(l.quantity || 0) * Number(l.unitPrice || 0) - Number(l.discount || 0), 0);
     const lineTax = lines.reduce((s, l) => s + Number(l.taxAmount || 0), 0);
     const tax = Number(header.taxAmount) || lineTax;
-    const shipping = Number(header.shippingCharges) || 0;
-    const other = Number(header.otherCharges) || 0;
+    // A charge the invoice also lists as a line ("Shipping Charge - Porter") is already in
+    // the lines' sum; adding it again overstated the total by exactly that charge.
+    const listedAsLine = (charge) => lines.some(
+      (l) => Math.abs(Number(l.quantity || 0) * Number(l.unitPrice || 0) - Number(l.discount || 0) - charge) <= 0.05);
+    const shippingRaw = Number(header.shippingCharges) || 0;
+    const otherRaw = Number(header.otherCharges) || 0;
+    const shipping = shippingRaw && !listedAsLine(shippingRaw) ? shippingRaw : 0;
+    const other = otherRaw && !listedAsLine(otherRaw) ? otherRaw : 0;
     // An invoice-level discount only counts when the lines didn't already carry it.
     const discount = lines.some((l) => Number(l.discount)) ? 0 : Number(header.discountTotal) || 0;
     const computed = net + tax + shipping + other - discount;
@@ -516,6 +536,37 @@ const InvoiceUploadDialog = ({ open, onClose, components, onCreated, projectId, 
                             </Typography>
                           </Grid>
                         </Grid>
+                        {l.match && (() => {
+                          const using = l.resolution === 'EXISTING_COMPONENT' && Number(l.componentId) === l.match.id;
+                          const qty = Number(l.quantity) || 0;
+                          if (using) {
+                            return (
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 1, px: 1.25, py: 0.75,
+                                borderRadius: 1.5, bgcolor: colors.successSoft }}>
+                                <Check size={14} color={colors.success} style={{ flexShrink: 0 }} />
+                                <Typography sx={{ fontSize: '0.75rem', color: colors.textSecondary }}>
+                                  Already in stock as <b>{l.match.name}</b> — {l.match.stock.toLocaleString()} now,{' '}
+                                  {(l.match.stock + qty).toLocaleString()} after this invoice.
+                                  {l.match.confidence !== 'SURE' && l.match.note ? ` Check: ${l.match.note}.` : ''}
+                                </Typography>
+                              </Box>
+                            );
+                          }
+                          if (l.match.confidence !== 'POSSIBLE' || l.resolution === 'SKIP') return null;
+                          return (
+                            <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, mt: 1, px: 1.25, py: 0.75,
+                              borderRadius: 1.5, bgcolor: colors.warningSoft }}>
+                              <Typography sx={{ fontSize: '0.75rem', color: colors.textSecondary, flexGrow: 1, minWidth: 0 }}>
+                                Possibly already in stock: <b>{l.match.name}</b> ({l.match.stock.toLocaleString()} on hand)
+                                {l.match.note ? ` — ${l.match.note}` : ''}
+                              </Typography>
+                              <Button size="small" variant="outlined" sx={{ flexShrink: 0, py: 0.25 }}
+                                onClick={() => setLine(i, { resolution: 'EXISTING_COMPONENT', componentId: l.match.id, equipmentId: null })}>
+                                Add to this instead
+                              </Button>
+                            </Box>
+                          );
+                        })()}
                         <InventoryPathEditor line={l} categories={categories} components={components}
                           equipment={equipment} onChange={(patch) => setLine(i, patch)} />
                       </Box>

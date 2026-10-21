@@ -81,4 +81,22 @@ public class ExtractedInvoiceLineItem {
 
     @Schema(description = "Why this category was suggested")
     private String inventoryReason;
+
+    // ---- Same part already in stock? (set by the server, confirmed by the user) ----
+
+    @Schema(description = "Existing component this line is (or may be) the same part as")
+    private Long matchedComponentId;
+
+    @Schema(description = "Name of that existing component", example = "RES 4K7 0603 1%")
+    private String matchedComponentName;
+
+    @Schema(description = "Its current stock")
+    private Integer matchedComponentStock;
+
+    @Schema(description = "SURE: pre-selected as 'add to existing'. POSSIBLE: suggested, user decides.",
+            example = "SURE")
+    private String matchConfidence;
+
+    @Schema(description = "What to check when the match is only POSSIBLE")
+    private String matchNote;
 }

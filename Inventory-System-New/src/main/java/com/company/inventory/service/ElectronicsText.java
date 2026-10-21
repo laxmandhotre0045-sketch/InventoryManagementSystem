@@ -155,15 +155,19 @@ public final class ElectronicsText {
             if (v != null) {
                 return new ValueMatch(v, tok);
             }
-            if (NUMERIC.matcher(tok).matches()) {
-                if (i + 1 < toks.length) {
+            // A bare number may be a value whose unit was written as the next word or two
+            // ("Cap 1 nF", "RES 15 k ohm"). Only join it to words that are themselves a unit
+            // or multiplier — never to a word starting with a digit, and never when the number
+            // is a package size. Otherwise "0805 22K Ohm" reads as "080522K" = 80.522 MΩ.
+            if (NUMERIC.matcher(tok).matches() && !SIZE.matcher(tok).matches()) {
+                if (i + 1 < toks.length && !startsWithDigit(toks[i + 1])) {
                     String two = tok + toks[i + 1];
                     v = siValue(two, true);
                     if (v != null) {
                         return new ValueMatch(v, two);
                     }
                 }
-                if (i + 2 < toks.length) {
+                if (i + 2 < toks.length && !startsWithDigit(toks[i + 1]) && !startsWithDigit(toks[i + 2])) {
                     String three = tok + toks[i + 1] + toks[i + 2];
                     v = siValue(three, true);
                     if (v != null) {
@@ -180,6 +184,10 @@ public final class ElectronicsText {
             }
         }
         return null;
+    }
+
+    private static boolean startsWithDigit(String s) {
+        return s != null && !s.isEmpty() && Character.isDigit(s.charAt(0));
     }
 
     public static Double firstStrictSi(String text) {

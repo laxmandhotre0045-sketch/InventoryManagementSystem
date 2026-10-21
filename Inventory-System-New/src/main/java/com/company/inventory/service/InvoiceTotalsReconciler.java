@@ -152,8 +152,7 @@ public class InvoiceTotalsReconciler {
             // No printed total to honour — derive one so the UI still shows a figure.
             BigDecimal derived = money(computedNet
                     .add(taxFor(inv, computedTax))
-                    .add(orZero(inv.getShippingCharges()))
-                    .add(orZero(inv.getOtherCharges()))
+                    .add(extraCharges(inv))
                     .subtract(invoiceLevelDiscount(inv)));
             if (isBlank(inv.getGrandTotal())) {
                 inv.setGrandTotal(derived);
@@ -166,8 +165,7 @@ public class InvoiceTotalsReconciler {
 
         BigDecimal expected = money(computedNet
                 .add(taxFor(inv, computedTax))
-                .add(orZero(inv.getShippingCharges()))
-                .add(orZero(inv.getOtherCharges()))
+                .add(extraCharges(inv))
                 .subtract(invoiceLevelDiscount(inv)));
 
         if (!differs(expected, printedGrandTotal, GRAND_TOTAL_RELATIVE_TOLERANCE)) {
@@ -244,9 +242,37 @@ public class InvoiceTotalsReconciler {
             tax = tax.add(orZero(line.getTaxAmount()));
         }
         return money(net.add(taxFor(inv, tax))
-                .add(orZero(inv.getShippingCharges()))
-                .add(orZero(inv.getOtherCharges()))
+                .add(extraCharges(inv))
                 .subtract(invoiceLevelDiscount(inv)));
+    }
+
+    /**
+     * Shipping and other charges to add on top of the lines — except a charge the invoice
+     * also lists as one of its lines ("Shipping Charge - Porter  1 x 168.64"). Counting it
+     * both ways overstated the expected total by exactly that charge and raised a false
+     * "lines do not add up" warning on invoices that balance.
+     */
+    private BigDecimal extraCharges(ExtractedInvoice inv) {
+        BigDecimal total = BigDecimal.ZERO;
+        for (BigDecimal charge : new BigDecimal[] { inv.getShippingCharges(), inv.getOtherCharges() }) {
+            if (charge != null && charge.signum() != 0 && !listedAsLine(inv, charge)) {
+                total = total.add(charge);
+            }
+        }
+        return total;
+    }
+
+    private boolean listedAsLine(ExtractedInvoice inv, BigDecimal charge) {
+        for (ExtractedInvoiceLineItem line : inv.getItems()) {
+            if (isBlank(line.getQuantity()) || isBlank(line.getUnitPrice())) {
+                continue;
+            }
+            BigDecimal net = line.getQuantity().multiply(line.getUnitPrice()).subtract(orZero(line.getDiscount()));
+            if (net.subtract(charge).abs().compareTo(ABSOLUTE_TOLERANCE) <= 0) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Prefer the invoice's own tax figure; fall back to the sum of the lines'. */
