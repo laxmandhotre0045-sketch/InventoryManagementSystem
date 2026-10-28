@@ -22,4 +22,7 @@ export const addProjectComponent = (projectId, payload) =>
 /** Takes one entry out of the folder; stock is unchanged (units return to general stock). */
 export const releaseProjectEntry = (projectId, entryId) =>
   axiosClient.delete(`/projects/${projectId}/components/entries/${entryId}`).then((r) => r.data);
-export const getProjectPurchases = (projectId) => get(`/projects/${projectId}/purchases`);
+/** payload: { componentId, toProjectId, quantity, notes? } — moves units to another project's folder; stock unchanged. */
+export const transferProjectComponent = (projectId, payload) =>
+  axiosClient.post(`/projects/${projectId}/components/transfer`, payload).then((r) => r.data);
+export const getProjectPurchases =(projectId) => get(`/projects/${projectId}/purchases`);

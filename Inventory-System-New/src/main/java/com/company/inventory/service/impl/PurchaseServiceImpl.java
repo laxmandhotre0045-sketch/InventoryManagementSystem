@@ -93,6 +93,18 @@ public class PurchaseServiceImpl implements PurchaseService {
     public PurchaseResponse confirmInvoicePurchase(
             com.company.inventory.dto.request.ConfirmInvoiceRequest request, String username) {
 
+        // Invoice numbers are unique. Confirming the same invoice again used to fail with a
+        // generic "conflicts with existing data"; say what happened and what to do instead.
+        Purchase already = purchaseRepository.findByInvoiceNumber(request.getInvoiceNumber()).orElse(null);
+        if (already != null) {
+            String where = already.getProject() != null ? already.getProject().getProjectName() : null;
+            throw new IllegalArgumentException("Invoice " + request.getInvoiceNumber() + " is already recorded"
+                    + (where != null
+                        ? " for project " + where + ". To put some of its components in another project, open "
+                          + where + " and use \"Move to another project\" on those components."
+                        : ". It cannot be confirmed twice."));
+        }
+
         Purchase purchase = new Purchase();
         purchase.setSupplierName(request.getSupplierName());
         purchase.setInvoiceNumber(request.getInvoiceNumber());
@@ -116,6 +128,13 @@ public class PurchaseServiceImpl implements PurchaseService {
 
         BigDecimal totalAmount = BigDecimal.ZERO;
         List<PurchaseItem> items = new java.util.ArrayList<>();
+        // The project folder each component line goes into, parallel to `items` (null = general stock).
+        // A line can be sent to another project's folder than the one the invoice was scanned in.
+        List<com.company.inventory.entity.Project> itemFolders = new java.util.ArrayList<>();
+        java.util.Map<Long, com.company.inventory.entity.Project> projectsById = new java.util.HashMap<>();
+        if (project != null) {
+            projectsById.put(project.getId(), project);
+        }
         // Equipment is registered as an asset rather than stocked, so it produces no
         // PurchaseItem. It is still something the invoice was paid for, so it counts
         // towards the purchase total and towards "this invoice had something on it".
@@ -243,6 +262,7 @@ public class PurchaseServiceImpl implements PurchaseService {
                     .unitPrice(line.getUnitPrice())
                     .totalPrice(totalPrice)
                     .build());
+            itemFolders.add(folderFor(line, project, projectsById));
         }
 
         // An invoice can legitimately contain no stockable components at all — buying a
@@ -262,14 +282,35 @@ public class PurchaseServiceImpl implements PurchaseService {
             eq.setPurchaseId(saved.getId());
             equipmentRepository.save(eq);
         }
-        if (project != null) {
-            for (PurchaseItem item : saved.getItems()) {
-                projectStockService.addFromInvoice(project, item.getComponent(), item.getQuantity(),
-                        item.getUnitPrice(), saved.getId(), saved.getInvoiceNumber(), username);
+        for (int i = 0; i < items.size(); i++) {
+            com.company.inventory.entity.Project folder = itemFolders.get(i);
+            if (folder != null) {
+                PurchaseItem item = items.get(i);
+                projectStockService.addFromInvoice(folder, item.getComponent(), item.getQuantity(),
+                        item.getUnitPrice(), saved.getId(), saved.getInvoiceNumber(), project, username);
             }
         }
         invoiceExtractionService.markConfirmed(request.getExtractionId(), saved.getId());
         return purchaseMapper.toResponse(saved);
+    }
+
+    /**
+     * The project folder a component line goes into: general stock when the line says so,
+     * the project the line names, otherwise the project the invoice was scanned in (if any).
+     */
+    private com.company.inventory.entity.Project folderFor(
+            com.company.inventory.dto.request.ConfirmInvoiceItemRequest line,
+            com.company.inventory.entity.Project invoiceProject,
+            java.util.Map<Long, com.company.inventory.entity.Project> projectsById) {
+        if (Boolean.TRUE.equals(line.getGeneralStock())) {
+            return null;
+        }
+        Long id = line.getProjectId();
+        if (id == null) {
+            return invoiceProject;
+        }
+        return projectsById.computeIfAbsent(id, k -> projectRepository.findById(k).orElseThrow(
+                () -> new ResourceNotFoundException("Project not found with id: " + k)));
     }
 
     /** A line's money value, tolerating the blanks an equipment line may carry. */

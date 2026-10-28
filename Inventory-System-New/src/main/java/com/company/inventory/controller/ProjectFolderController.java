@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.company.inventory.dto.request.AddProjectComponentRequest;
+import com.company.inventory.dto.request.TransferProjectComponentRequest;
 import com.company.inventory.dto.response.ApiResponse;
 import com.company.inventory.dto.response.ProjectFolderResponse;
 import com.company.inventory.dto.response.PurchaseResponse;
@@ -49,6 +50,16 @@ public class ProjectFolderController {
             Authentication authentication) {
         String user = authentication != null ? authentication.getName() : "system";
         return ResponseEntity.ok(ApiResponse.success("Added to project", stockService.add(projectId, request, user)));
+    }
+
+    @Operation(summary = "Move units of a component from this project's folder to another project's folder (stock unchanged)")
+    @PostMapping("/components/transfer")
+    public ResponseEntity<ApiResponse<ProjectFolderResponse>> transfer(
+            @PathVariable Long projectId, @Valid @RequestBody TransferProjectComponentRequest request,
+            Authentication authentication) {
+        String user = authentication != null ? authentication.getName() : "system";
+        return ResponseEntity.ok(ApiResponse.success("Moved to the other project",
+                stockService.transfer(projectId, request, user)));
     }
 
     @Operation(summary = "Take an entry out of the folder (stock unchanged — the units return to general stock)")

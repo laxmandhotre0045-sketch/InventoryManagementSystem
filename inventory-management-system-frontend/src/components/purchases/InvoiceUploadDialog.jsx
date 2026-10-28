@@ -3,8 +3,9 @@ import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button, Box, Typography,
   TextField, MenuItem, ListSubheader, IconButton, CircularProgress, Chip, Divider, Grid, Alert,
 } from '@mui/material';
-import { UploadCloud, FileText, X, Sparkles, RefreshCw, Check, Smartphone } from 'lucide-react';
+import { UploadCloud, FileText, X, Sparkles, RefreshCw, Check, Smartphone, FolderInput } from 'lucide-react';
 import { extractInvoice, confirmInvoice, fetchExtractionBlob } from '../../api/purchaseApi';
+import { getProjects } from '../../api/projectApi';
 import { getEquipment } from '../../api/equipmentApi';
 import { getComponentCategories } from '../../api/componentCategoryApi';
 import PhoneScanDialog from './PhoneScanDialog';
@@ -97,7 +98,8 @@ const badgeFor = (l) => {
 
 /**
  * projectId / projectName (optional): scanning from inside a project — the purchase is
- * recorded for that project and every component line goes into its folder.
+ * recorded for that project and every component line goes into its folder, unless the
+ * line is sent to another project's folder (or kept in general stock) on the review.
  */
 const InvoiceUploadDialog = ({ open, onClose, components, onCreated, projectId, projectName }) => {
   const fileRef = useRef(null);
@@ -116,6 +118,8 @@ const InvoiceUploadDialog = ({ open, onClose, components, onCreated, projectId, 
   const [warnings, setWarnings] = useState([]);
   const [phoneScanOpen, setPhoneScanOpen] = useState(false);
   const [capturedOnPhone, setCapturedOnPhone] = useState(false);
+  // Other projects a component line can be sent to (only when scanning inside a project).
+  const [otherProjects, setOtherProjects] = useState([]);
 
   // Load equipment once when the dialog opens (for matching against assets).
   useEffect(() => {
@@ -127,7 +131,12 @@ const InvoiceUploadDialog = ({ open, onClose, components, onCreated, projectId, 
     getComponentCategories()
       .then((r) => setCategories(r.data || []))
       .catch(() => setCategories([]));
-  }, [open]);
+    if (projectId) {
+      getProjects({ page: 0, size: 200, sortBy: 'projectName', sortDir: 'asc' })
+        .then((r) => setOtherProjects((r.data?.content || []).filter((p) => p.id !== Number(projectId))))
+        .catch(() => setOtherProjects([]));
+    }
+  }, [open, projectId]);
 
   const reset = () => {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
@@ -212,6 +221,8 @@ const InvoiceUploadDialog = ({ open, onClose, components, onCreated, projectId, 
         discount: Number(it.discount) || 0, taxAmount: Number(it.taxAmount) || 0,
         taxPercentage: Number(it.taxPercentage) || 0, lineTotal: Number(it.lineTotal) || 0,
         resolution, componentId, equipmentId,
+        // Project folder for a component line: 'here' (the project scanned in), 'p:<id>' or 'none'.
+        folder: 'here',
         // Auto-suggested inventory path (Category › Type › Value) — editable before confirm.
         invCategory: it.inventoryCategory || it.category || '',
         invType: it.inventoryType || '',
@@ -283,6 +294,9 @@ const InvoiceUploadDialog = ({ open, onClose, components, onCreated, projectId, 
           packageName: l.packageName || null,
           unit: l.unit,
           quantity: Number(l.quantity) || 0, unitPrice: Number(l.unitPrice) || 0,
+          // Which project folder the line goes into; absent = the project scanned in.
+          projectId: l.folder?.startsWith('p:') ? Number(l.folder.slice(2)) : null,
+          generalStock: l.folder === 'none' ? true : null,
         })),
       };
       await confirmInvoice(payload);
@@ -291,9 +305,13 @@ const InvoiceUploadDialog = ({ open, onClose, components, onCreated, projectId, 
       if (equipCount) parts.push(`${equipCount} equipment registered`);
       if (newCount) parts.push(`${newCount} new item(s) created`);
       // Component lines from an invoice scanned inside a project go into that project's
-      // folder; equipment is registered as usual and is not filed there.
+      // folder, or the folder chosen for the line; equipment is not filed there.
+      const inFolders = folderSummary.filter((f) => f.f !== 'none');
+      const kept = folderSummary.find((f) => f.f === 'none');
       const toProject = projectId && componentLines.length
-        ? ` Added to ${projectName || 'the project'}.` : '';
+        ? (inFolders.length ? ` Added to ${inFolders.map((f) => `${f.name} (${f.count})`).join(', ')}.` : '')
+          + (kept ? ` ${kept.count} kept in general stock only.` : '')
+        : '';
       onCreated?.(`Purchase created from invoice — ${parts.join(', ')}.`
         + (componentLines.length ? ' Stock updated.' : '') + toProject);
       handleClose();
@@ -304,6 +322,21 @@ const InvoiceUploadDialog = ({ open, onClose, components, onCreated, projectId, 
       setSubmitting(false);
     }
   };
+
+  const folderName = (f) => {
+    if (f === 'none') return 'General stock';
+    if (f?.startsWith('p:')) return otherProjects.find((p) => p.id === Number(f.slice(2)))?.projectName || 'Another project';
+    return projectName || 'This project';
+  };
+  // Where the component lines go, e.g. Solar (5), Sentrac_TMS (2), General stock (1).
+  const folderSummary = useMemo(() => {
+    const counts = new Map();
+    componentLines.forEach((l) => counts.set(l.folder || 'here', (counts.get(l.folder || 'here') || 0) + 1));
+    // This project first, then the others, general stock last.
+    const rank = (f) => (f === 'here' ? 0 : f === 'none' ? 2 : 1);
+    return [...counts].map(([f, count]) => ({ f, name: folderName(f), count }))
+      .sort((a, b) => rank(a.f) - rank(b.f));
+  }, [componentLines, otherProjects, projectName]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const linesTotal = useMemo(
     () => componentLines.reduce((s, l) => s + Number(l.quantity || 0) * Number(l.unitPrice || 0), 0),
@@ -567,6 +600,21 @@ const InvoiceUploadDialog = ({ open, onClose, components, onCreated, projectId, 
                             </Box>
                           );
                         })()}
+                        {projectId && isComponentRes(l.resolution) && (
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1.25 }}>
+                            <FolderInput size={16} color={colors.accent} style={{ flexShrink: 0 }} />
+                            <TextField select size="small" label="Goes into project folder" value={l.folder || 'here'}
+                              onChange={(e) => setLine(i, { folder: e.target.value })} sx={{ minWidth: 0, flexGrow: 1, maxWidth: 420 }}>
+                              <MenuItem value="here">{projectName || 'This project'} (scanned here)</MenuItem>
+                              {otherProjects.map((p) => (
+                                <MenuItem key={p.id} value={`p:${p.id}`}>
+                                  {p.projectName}{p.status && p.status !== 'ACTIVE' ? ` · ${p.status.replace('_', ' ').toLowerCase()}` : ''}
+                                </MenuItem>
+                              ))}
+                              <MenuItem value="none"><em>General stock — no project</em></MenuItem>
+                            </TextField>
+                          </Box>
+                        )}
                         <InventoryPathEditor line={l} categories={categories} components={components}
                           equipment={equipment} onChange={(patch) => setLine(i, patch)} />
                       </Box>
@@ -577,6 +625,16 @@ const InvoiceUploadDialog = ({ open, onClose, components, onCreated, projectId, 
                     <Typography sx={{ fontSize: '0.875rem', color: colors.textMuted, mb: 1.25 }}>
                       {componentLines.length} stock line(s){newCount ? ` · ${newCount} new` : ''}{equipCount ? ` · ${equipCount} equipment` : ''}{skipCount ? ` · ${skipCount} skipped` : ''}
                     </Typography>
+                    {projectId && folderSummary.length > 0 && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.75, mb: 1.25 }}>
+                        <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600, color: colors.textSecondary }}>Goes into:</Typography>
+                        {folderSummary.map((f) => (
+                          <Chip key={f.f} size="small" label={`${f.name} · ${f.count} line${f.count === 1 ? '' : 's'}`}
+                            sx={{ fontWeight: 600, bgcolor: f.f === 'none' ? '#F2F1EE' : colors.accentSoft,
+                              color: f.f === 'none' ? colors.textSecondary : colors.accent }} />
+                        ))}
+                      </Box>
+                    )}
 
                     {totals && (
                       <Box sx={{ p: 1.75, borderRadius: 2.5, bgcolor: colors.canvas, border: `1px solid ${colors.border}` }}>

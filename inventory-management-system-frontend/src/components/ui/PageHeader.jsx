@@ -57,7 +57,7 @@ const PageHeader = ({ title, subtitle, breadcrumbs = [], actions, icon: Icon }) 
         </Box>
       </Box>
     </Box>
-    {actions && <Box sx={{ display: 'flex', gap: 1.5, flexShrink: 0 }}>{actions}</Box>}
+    {actions && <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, flexShrink: 0, maxWidth: '100%' }}>{actions}</Box>}
   </Box>
 );
 

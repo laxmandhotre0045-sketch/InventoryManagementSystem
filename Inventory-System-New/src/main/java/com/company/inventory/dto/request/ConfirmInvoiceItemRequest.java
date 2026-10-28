@@ -61,4 +61,12 @@ public class ConfirmInvoiceItemRequest {
 
     @Schema(description = "Unit price", example = "27.12")
     private BigDecimal unitPrice;
+
+    // ---- which project folder a component line goes into ----
+    @Schema(description = "Project folder for this component line; when absent it follows the invoice's project",
+            example = "4")
+    private Long projectId;
+
+    @Schema(description = "true keeps this component line in general stock, outside any project folder")
+    private Boolean generalStock;
 }

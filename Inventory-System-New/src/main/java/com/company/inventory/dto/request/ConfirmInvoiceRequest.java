@@ -19,7 +19,8 @@ import lombok.Data;
 public class ConfirmInvoiceRequest {
 
     @io.swagger.v3.oas.annotations.media.Schema(description = "When set, the purchase is made for this project: "
-            + "every component line also goes into the project's folder at the price paid")
+            + "every component line also goes into the project's folder at the price paid, unless the line "
+            + "names another project folder (or general stock)")
     private Long projectId;
 
     @Schema(description = "Extraction record id from /extract-invoice")

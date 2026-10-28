@@ -275,6 +275,13 @@ Persistent data lives in Docker volumes: `mysql_data` (database) and `backend_up
   project — with a project-only search and the project's cost against its budget. The parts stay
   in the main inventory, marked with the project. New table `project_stock` and a nullable
   `purchases.project_id` column are created automatically; no data step needed.
+- **Moving components between project folders (28 Oct):** when an invoice is scanned inside a
+  project, each component line has a *Goes into project folder* choice — the project it was
+  scanned in (default), another project, or general stock only. After scanning, the ⇄ button on
+  a folder row moves units to another project's folder (only units not yet used there; stock is
+  unchanged, and the price and invoice link move with them). **No database change** — this uses
+  the existing `project_stock` table only (verified: schema and every table identical after
+  start-up on a copy of production).
 - **Optional one-time data step:** components in the *Modules* category are really equipment.
   For each one, open it (Components page → click the name) → **Move to Equipment**. It shows a
   preview first, creates one equipment record per unit and archives the component (it is

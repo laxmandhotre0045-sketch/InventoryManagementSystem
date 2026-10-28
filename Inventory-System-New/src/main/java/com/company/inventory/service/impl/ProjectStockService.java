@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.company.inventory.dto.request.AddProjectComponentRequest;
+import com.company.inventory.dto.request.TransferProjectComponentRequest;
 import com.company.inventory.dto.response.ComponentProjectTag;
 import com.company.inventory.dto.response.ComponentResponse;
 import com.company.inventory.dto.response.ProjectFolderResponse;
@@ -50,6 +51,9 @@ import com.company.inventory.repository.PurchaseRepository;
 @Service
 @Transactional
 public class ProjectStockService {
+
+    /** Length of the folder entry's notes column. */
+    private static final int NOTES_MAX = 500;
 
     private final ProjectStockRepository stockRepository;
     private final ProjectRepository projectRepository;
@@ -124,9 +128,17 @@ public class ProjectStockService {
         return folder(projectId, null);
     }
 
-    /** Called by the purchase flow for every component line of an invoice made for a project. */
+    /**
+     * Called by the purchase flow for every component line of an invoice that goes into a
+     * project folder. {@code scannedIn} is the project the invoice was scanned in (may be
+     * null); when the line was sent to a different folder, the note says where it came from.
+     */
     public void addFromInvoice(Project project, ComponentItem component, int quantity, BigDecimal unitPrice,
-                               Long purchaseId, String invoiceNumber, String username) {
+                               Long purchaseId, String invoiceNumber, Project scannedIn, String username) {
+        String notes = "Invoice " + invoiceNumber;
+        if (scannedIn != null && !scannedIn.getId().equals(project.getId())) {
+            notes += " · scanned in " + scannedIn.getProjectName();
+        }
         stockRepository.save(ProjectStock.builder()
                 .project(project)
                 .component(component)
@@ -134,9 +146,75 @@ public class ProjectStockService {
                 .unitPrice(unitPrice)
                 .source(ProjectStock.INVOICE)
                 .purchaseId(purchaseId)
-                .notes("Invoice " + invoiceNumber)
+                .notes(fit(notes, NOTES_MAX))
                 .createdBy(username)
                 .build());
+    }
+
+    /**
+     * Moves units of a component from this project's folder to another project's folder.
+     *
+     * <p>Only units still left in this project can move (in the folder and not yet used
+     * here). Stock is not touched: the units stay in the inventory and only change which
+     * project they belong to. They keep their price, origin and invoice link, so the cost
+     * moves with them; the newest entries move first, and an entry moved in full is
+     * replaced, one moved in part is reduced.</p>
+     */
+    public ProjectFolderResponse transfer(Long projectId, TransferProjectComponentRequest request, String username) {
+        Project from = requireProject(projectId);
+        if (projectId.equals(request.getToProjectId())) {
+            throw new IllegalArgumentException("Choose a different project to move the units to");
+        }
+        Project to = requireProject(request.getToProjectId());
+        Long componentId = request.getComponentId();
+        int qty = request.getQuantity();
+
+        List<ProjectStock> entries = new ArrayList<>(stockRepository.findForProject(projectId).stream()
+                .filter(e -> e.getComponent().getId().equals(componentId)).toList());
+        if (entries.isEmpty()) {
+            throw new ResourceNotFoundException("That component is not in " + from.getProjectName() + "'s folder");
+        }
+        String name = entries.get(0).getComponent().getComponentName();
+        int allocated = entries.stream().mapToInt(ProjectStock::getQuantity).sum();
+        int used = 0;
+        for (Object[] r : usageRepository.usedByComponentForProject(projectId)) {
+            if (componentId.equals(r[0])) {
+                used = ((Number) r[1]).intValue();
+            }
+        }
+        int left = Math.max(allocated - used, 0);
+        if (qty > left) {
+            throw new InsufficientStockException("Only " + left + " of " + name + " are left in "
+                    + from.getProjectName() + " to move (" + allocated + " in its folder, " + used
+                    + " already used there)");
+        }
+
+        String movedNote = "Moved from " + from.getProjectName()
+                + (request.getNotes() != null && !request.getNotes().isBlank() ? " · " + request.getNotes().trim() : "");
+        int toMove = qty;
+        // Newest first: what was added last (typically the invoice just scanned) moves first.
+        for (int i = entries.size() - 1; i >= 0 && toMove > 0; i--) {
+            ProjectStock e = entries.get(i);
+            int take = Math.min(e.getQuantity(), toMove);
+            stockRepository.save(ProjectStock.builder()
+                    .project(to)
+                    .component(e.getComponent())
+                    .quantity(take)
+                    .unitPrice(e.getUnitPrice())
+                    .source(e.getSource())
+                    .purchaseId(e.getPurchaseId())
+                    .notes(fit(e.getNotes() != null ? movedNote + " · " + e.getNotes() : movedNote, NOTES_MAX))
+                    .createdBy(username)
+                    .build());
+            if (take == e.getQuantity()) {
+                stockRepository.delete(e);
+            } else {
+                e.setQuantity(e.getQuantity() - take);
+                stockRepository.save(e);
+            }
+            toMove -= take;
+        }
+        return folder(projectId, null);
     }
 
     /**
@@ -398,6 +476,10 @@ public class ProjectStockService {
 
     private static String nn(String s) {
         return s == null ? "" : s;
+    }
+
+    private static String fit(String s, int max) {
+        return s.length() <= max ? s : s.substring(0, max - 1) + "…";
     }
 
     private static String blankToNull(String s) {

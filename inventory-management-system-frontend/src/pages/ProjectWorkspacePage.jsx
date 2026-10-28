@@ -2,16 +2,16 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Alert, Autocomplete, Box, Button, Card, Chip, CircularProgress, Dialog, DialogActions, DialogContent,
-  DialogTitle, IconButton, InputAdornment, LinearProgress, Link, Snackbar, Tab, Tabs, TextField,
+  DialogTitle, IconButton, InputAdornment, LinearProgress, Link, MenuItem, Snackbar, Tab, Tabs, TextField,
   ToggleButton, ToggleButtonGroup, Tooltip, Typography,
 } from '@mui/material';
 import {
-  ArrowLeft, Boxes, FolderKanban, FolderOpen, History, IndianRupee, PackageCheck, PackageMinus, PackagePlus,
-  Plus, Receipt, ScanLine, Search, ShoppingCart, Trash2, Wallet,
+  ArrowLeft, ArrowRightLeft, Boxes, FolderKanban, FolderOpen, History, IndianRupee, PackageCheck, PackageMinus,
+  PackagePlus, Plus, Receipt, ScanLine, Search, ShoppingCart, Trash2, Wallet,
 } from 'lucide-react';
 import {
-  addProjectComponent, getProjectById, getProjectFolder, getProjectPurchases, getProjectUsagesByProject,
-  recordProjectUsage, releaseProjectEntry,
+  addProjectComponent, getProjectById, getProjectFolder, getProjectPurchases, getProjects, getProjectUsagesByProject,
+  recordProjectUsage, releaseProjectEntry, transferProjectComponent,
 } from '../api/projectApi';
 import { getComponents } from '../api/componentApi';
 import { getComponentCategories } from '../api/componentCategoryApi';
@@ -30,7 +30,7 @@ import { colors } from '../theme/tokens';
 
 const SOURCE = {
   BOUGHT: { label: 'Bought', fg: colors.success, bg: colors.successSoft, hint: 'Bought for this project (stock was added)' },
-  INVOICE: { label: 'Invoice', fg: colors.info, bg: colors.infoSoft, hint: 'From an invoice scanned in this project' },
+  INVOICE: { label: 'Invoice', fg: colors.info, bg: colors.infoSoft, hint: 'From a scanned invoice' },
   RESERVED: { label: 'From stock', fg: colors.accent, bg: colors.accentSoft, hint: 'Set aside from existing stock' },
 };
 
@@ -293,6 +293,83 @@ const UsageDialog = ({ open, onClose, project, row, onDone }) => {
   );
 };
 
+// ================================================================== move to another project
+
+const TransferDialog = ({ open, onClose, project, row, onDone }) => {
+  const [projects, setProjects] = useState([]);
+  const [toId, setToId] = useState('');
+  const [qty, setQty] = useState('');
+  const [notes, setNotes] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!open) return;
+    setToId(''); setQty(row ? String(row.remaining) : ''); setNotes(''); setError('');
+    getProjects({ page: 0, size: 200, sortBy: 'projectName', sortDir: 'asc' })
+      .then((r) => setProjects((r.data?.content || []).filter((p) => p.id !== project.id)))
+      .catch(() => setProjects([]));
+  }, [open, row, project]);
+
+  const q = Number(qty);
+  const qtyOk = row && Number.isInteger(q) && q >= 1 && q <= row.remaining;
+  const target = projects.find((p) => p.id === toId);
+
+  const save = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      const res = await transferProjectComponent(project.id, {
+        componentId: row.componentId, toProjectId: toId, quantity: q, notes: notes.trim() || null,
+      });
+      onDone(res.data, `${q} × ${row.componentName} moved to ${target?.projectName || 'the other project'}`);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Could not move these units.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!row) return null;
+  return (
+    <Dialog open={open} onClose={busy ? undefined : onClose} maxWidth="xs" fullWidth>
+      <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <ArrowRightLeft size={20} color={colors.primary} /> Move to another project
+      </DialogTitle>
+      <DialogContent>
+        <Typography sx={{ fontWeight: 600, fontSize: '0.9rem', wordBreak: 'break-word' }}>{row.componentName}</Typography>
+        <Typography sx={{ fontSize: '0.8rem', color: colors.textSecondary, mb: 2 }}>
+          {row.remaining} left in {project.projectName} ({row.allocated} in its folder, {row.used} used).
+          Stock does not change — the units, their price and invoice move to the other project’s folder.
+        </Typography>
+        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+        <TextField select fullWidth required label="Move to project" value={toId}
+          onChange={(e) => setToId(e.target.value)}
+          helperText={projects.length ? ' ' : 'There is no other project to move to'}>
+          {projects.map((p) => (
+            <MenuItem key={p.id} value={p.id}>
+              {p.projectName}{p.status && p.status !== 'ACTIVE' ? ` · ${p.status.replace('_', ' ').toLowerCase()}` : ''}
+            </MenuItem>
+          ))}
+        </TextField>
+        <TextField label="Quantity to move" type="number" fullWidth required value={qty} sx={{ mt: 1 }}
+          onChange={(e) => setQty(e.target.value)} inputProps={{ min: 1, max: row.remaining }}
+          error={qty !== '' && !qtyOk}
+          helperText={qty !== '' && !qtyOk ? `Between 1 and ${row.remaining}` : `Up to ${row.remaining}`} />
+        <TextField label="Notes (optional)" fullWidth value={notes} onChange={(e) => setNotes(e.target.value)}
+          inputProps={{ maxLength: 200 }} sx={{ mt: 1 }} placeholder="e.g. invoice line belonged to TMS" />
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} disabled={busy}>Cancel</Button>
+        <Button variant="contained" onClick={save} disabled={!toId || !qtyOk || busy}
+          startIcon={busy ? <CircularProgress size={14} color="inherit" /> : <ArrowRightLeft size={15} />}>
+          Move
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
 // ================================================================== page
 
 const ProjectWorkspacePage = () => {
@@ -311,6 +388,7 @@ const ProjectWorkspacePage = () => {
   const [addOpen, setAddOpen] = useState(false);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   const [usageRow, setUsageRow] = useState(null);
+  const [transferRow, setTransferRow] = useState(null);
   const [entriesRow, setEntriesRow] = useState(null);
   const [releaseEntry, setReleaseEntry] = useState(null);
   const [purchases, setPurchases] = useState(null);
@@ -524,6 +602,15 @@ const ProjectWorkspacePage = () => {
                         </span>
                       </Tooltip>
                     )}
+                    {writeAccess && (
+                      <Tooltip title={r.remaining > 0 ? 'Move to another project' : 'Nothing left in this project to move'}>
+                        <span>
+                          <IconButton size="small" sx={{ color: colors.accent }} disabled={r.remaining < 1} onClick={() => setTransferRow(r)}>
+                            <ArrowRightLeft size={16} />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    )}
                     <Tooltip title="Where these units came from">
                       <span>
                         <IconButton size="small" disabled={!r.entries.length} onClick={() => setEntriesRow(r)}><History size={16} /></IconButton>
@@ -584,6 +671,8 @@ const ProjectWorkspacePage = () => {
             onAdded={(data, message) => { setAddOpen(false); setFolder(data); setKeyword(''); notify(message); }} />
           <UsageDialog open={!!usageRow} onClose={() => setUsageRow(null)} project={project} row={usageRow}
             onDone={(message) => { setUsageRow(null); notify(message); refreshAll(); }} />
+          <TransferDialog open={!!transferRow} onClose={() => setTransferRow(null)} project={project} row={transferRow}
+            onDone={(data, message) => { setTransferRow(null); setFolder(data); setKeyword(''); notify(message); }} />
           <InvoiceUploadDialog
             open={invoiceOpen} onClose={() => setInvoiceOpen(false)} components={allComponents}
             projectId={project.id} projectName={project.projectName}
