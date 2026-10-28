@@ -9,7 +9,14 @@ export const getPurchaseSummary = (id) => get(`/purchases/${id}/summary`);
 // Every component (with its specification) and equipment a purchase brought in.
 export const getPurchaseDetails = (id) => get(`/purchases/${id}/details`);
 export const createPurchase = (payload) => axiosClient.post('/purchases', payload).then((r) => r.data);
-export const deletePurchase = (id) => axiosClient.delete(`/purchases/${id}`).then((r) => r.data);
+// ---- Delete goes to a bin (restorable for 7 days) ----
+/** What deleting would do: stock to take out per component, folder entries. Changes nothing. */
+export const getDeletePreview = (id) => get(`/purchases/${id}/delete-preview`);
+/** Moves the purchase to the bin; removeComponents also takes the stock it added back out. */
+export const deletePurchase = (id, removeComponents = false) =>
+  axiosClient.delete(`/purchases/${id}`, { params: { removeComponents } }).then((r) => r.data);
+export const getPurchaseBin = () => get('/purchases/bin');
+export const restorePurchase = (binId) => axiosClient.post(`/purchases/bin/${binId}/restore`).then((r) => r.data);
 
 export const uploadInvoice = (id, file) => {
   const formData = new FormData();

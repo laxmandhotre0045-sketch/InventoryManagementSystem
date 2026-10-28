@@ -17,6 +17,8 @@ public interface ProjectStockRepository extends JpaRepository<ProjectStock, Long
 
     boolean existsByProjectId(Long projectId);
 
+    List<ProjectStock> findByPurchaseId(Long purchaseId);
+
     /** [componentId, projectId, projectName, sum(quantity)] for the given components. */
     @Query("select ps.component.id, ps.project.id, ps.project.projectName, sum(ps.quantity) from ProjectStock ps "
             + "where ps.component.id in :componentIds group by ps.component.id, ps.project.id, ps.project.projectName")

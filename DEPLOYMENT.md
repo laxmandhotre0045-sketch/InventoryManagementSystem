@@ -282,6 +282,12 @@ Persistent data lives in Docker volumes: `mysql_data` (database) and `backend_up
   unchanged, and the price and invoice link move with them). **No database change** — this uses
   the existing `project_stock` table only (verified: schema and every table identical after
   start-up on a copy of production).
+- **Purchases bin (28 Oct):** deleting a purchase moves it to the **Bin** (Purchases → Bin) for 7
+  days, restorable exactly as it was. The delete dialog can optionally *also remove the invoice's
+  components* — it shows per component how much stock comes out (never below zero); components
+  that only that invoice added are archived, not deleted, and a restore puts everything back.
+  **No database change** — the bin copy is kept in the existing, previously unused `audit_logs`
+  table (action `PURCHASE_BIN`), compressed.
 - **Optional one-time data step:** components in the *Modules* category are really equipment.
   For each one, open it (Components page → click the name) → **Move to Equipment**. It shows a
   preview first, creates one equipment record per unit and archives the component (it is

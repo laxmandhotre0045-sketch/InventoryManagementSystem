@@ -558,18 +558,6 @@ public class PurchaseServiceImpl implements PurchaseService {
     }
 
     @Override
-    public void deletePurchase(Long id) {
-        Purchase purchase = purchaseRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Purchase not found with id: " + id));
-        // The equipment itself stays — only its link to the deleted purchase is cleared.
-        for (com.company.inventory.entity.Equipment eq : equipmentRepository.findByPurchaseIdOrderByIdAsc(id)) {
-            eq.setPurchaseId(null);
-            equipmentRepository.save(eq);
-        }
-        purchaseRepository.delete(purchase);
-    }
-
-    @Override
     public PurchaseSummaryResponse getPurchaseSummary(Long id) {
         Purchase purchase = purchaseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Purchase not found with id: " + id));

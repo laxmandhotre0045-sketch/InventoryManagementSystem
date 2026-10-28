@@ -31,7 +31,6 @@ public interface PurchaseService {
 
     PagedResponse<PurchaseResponse> searchPurchases(String keyword, int page, int size, String sortBy, String sortDir);
 
-    void deletePurchase(Long id);
 
     PurchaseSummaryResponse getPurchaseSummary(Long id);
 

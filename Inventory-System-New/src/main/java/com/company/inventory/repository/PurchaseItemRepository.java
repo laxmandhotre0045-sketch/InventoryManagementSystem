@@ -11,6 +11,9 @@ import org.springframework.data.repository.query.Param;
 
 public interface PurchaseItemRepository extends JpaRepository<PurchaseItem, Long> {
 
+    /** Lines of other purchases that bought this component. */
+    long countByComponentIdAndPurchaseIdNot(Long componentId, Long purchaseId);
+
     Page<PurchaseItem> findByPurchaseId(Long purchaseId, Pageable pageable);
 
     boolean existsByComponentId(Long componentId);

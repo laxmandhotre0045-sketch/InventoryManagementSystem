@@ -36,13 +36,16 @@ public class PurchaseController {
     private final PurchaseService purchaseService;
     private final InvoiceExtractionService invoiceExtractionService;
     private final NotificationService notificationService;
+    private final com.company.inventory.service.impl.PurchaseBinService binService;
 
     public PurchaseController(PurchaseService purchaseService,
                              InvoiceExtractionService invoiceExtractionService,
-                             NotificationService notificationService) {
+                             NotificationService notificationService,
+                             com.company.inventory.service.impl.PurchaseBinService binService) {
         this.purchaseService = purchaseService;
         this.invoiceExtractionService = invoiceExtractionService;
         this.notificationService = notificationService;
+        this.binService = binService;
     }
 
     @Operation(summary = "Upload an invoice and get structured (mock) extracted data",
@@ -180,12 +183,37 @@ public class PurchaseController {
         return ResponseEntity.ok(ApiResponse.success("Purchase search completed successfully", response));
     }
 
-    @Operation(summary = "Delete a purchase")
-    @DeleteMapping("/{id}")
-    public ResponseEntity<ApiResponse<Void>> deletePurchase(
+    @Operation(summary = "What deleting a purchase would do (stock to remove, folder entries) — changes nothing")
+    @GetMapping("/{id}/delete-preview")
+    public ResponseEntity<ApiResponse<com.company.inventory.dto.response.PurchaseDeletePreview>> deletePreview(
             @Parameter(description = "Purchase identifier", required = true) @PathVariable Long id) {
-        purchaseService.deletePurchase(id);
-        return ResponseEntity.ok(ApiResponse.success("Purchase deleted successfully", null));
+        return ResponseEntity.ok(ApiResponse.success("Delete preview", binService.preview(id)));
+    }
+
+    @Operation(summary = "Delete a purchase into the bin (restorable for 7 days); removeComponents also takes "
+            + "the stock it added back out of the inventory")
+    @DeleteMapping("/{id}")
+    public ResponseEntity<ApiResponse<com.company.inventory.dto.response.PurchaseBinEntry>> deletePurchase(
+            @Parameter(description = "Purchase identifier", required = true) @PathVariable Long id,
+            @RequestParam(defaultValue = "false") boolean removeComponents,
+            Authentication authentication) {
+        String user = authentication != null ? authentication.getName() : "system";
+        return ResponseEntity.ok(ApiResponse.success("Moved to the bin — it can be restored for 7 days",
+                binService.moveToBin(id, removeComponents, user)));
+    }
+
+    @Operation(summary = "Purchases deleted in the last 7 days")
+    @GetMapping("/bin")
+    public ResponseEntity<ApiResponse<java.util.List<com.company.inventory.dto.response.PurchaseBinEntry>>> bin() {
+        return ResponseEntity.ok(ApiResponse.success("Bin retrieved", binService.list()));
+    }
+
+    @Operation(summary = "Restore a deleted purchase from the bin, exactly as it was")
+    @PostMapping("/bin/{binId}/restore")
+    public ResponseEntity<ApiResponse<com.company.inventory.dto.response.PurchaseBinEntry>> restore(
+            @PathVariable Long binId, Authentication authentication) {
+        String user = authentication != null ? authentication.getName() : "system";
+        return ResponseEntity.ok(ApiResponse.success("Purchase restored", binService.restore(binId, user)));
     }
 
     @Operation(summary = "Get purchase summary")

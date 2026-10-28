@@ -8,4 +8,6 @@ import com.company.inventory.entity.AuditLog;
 @Repository
 public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
 
+    java.util.List<AuditLog> findByActionOrderByTimestampDesc(String action);
+
 }

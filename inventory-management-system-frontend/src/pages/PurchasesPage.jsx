@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  Box, Button, Dialog, DialogActions, DialogContent, DialogTitle,
+  Badge, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle,
   IconButton, MenuItem, TextField, Typography, Snackbar, Alert, Grid, Divider, Tooltip,
 } from '@mui/material';
 import { Plus, Trash2, Upload, FileCheck2, ShoppingCart, Sparkles, Eye, Download, ClipboardList } from 'lucide-react';
 import {
-  getPurchases, searchPurchases, createPurchase, deletePurchase, uploadInvoice, downloadInvoice,
+  getPurchases, searchPurchases, createPurchase, getPurchaseBin, uploadInvoice, downloadInvoice,
 } from '../api/purchaseApi';
 import { getComponents } from '../api/componentApi';
 import DataTable from '../components/common/DataTable';
-import ConfirmDialog from '../components/common/ConfirmDialog';
+import DeletePurchaseDialog from '../components/purchases/DeletePurchaseDialog';
+import PurchaseBinDialog from '../components/purchases/PurchaseBinDialog';
 import InvoiceUploadDialog from '../components/purchases/InvoiceUploadDialog';
 import InvoiceViewerDialog from '../components/purchases/InvoiceViewerDialog';
 import PurchaseDetailsDrawer from '../components/purchases/PurchaseDetailsDrawer';
@@ -41,7 +42,9 @@ const PurchasesPage = () => {
   const [viewRow, setViewRow] = useState(null);
   const [detailRow, setDetailRow] = useState(null);
   const [form, setForm] = useState(emptyForm);
-  const [deleteId, setDeleteId] = useState(null);
+  const [deleteRow, setDeleteRow] = useState(null);
+  const [binOpen, setBinOpen] = useState(false);
+  const [binCount, setBinCount] = useState(0);
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' });
 
   const fetchData = useCallback(async () => {
@@ -61,6 +64,10 @@ const PurchasesPage = () => {
   }, [page, size, debouncedKeyword]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+  const loadBinCount = useCallback(() => {
+    getPurchaseBin().then((r) => setBinCount((r.data || []).length)).catch(() => {});
+  }, []);
+  useEffect(() => { loadBinCount(); }, [loadBinCount]);
   // A new search has to start from page 1 (see ProjectsPage).
   useEffect(() => { setPage(0); }, [debouncedKeyword]);
   useEffect(() => {
@@ -93,17 +100,6 @@ const PurchasesPage = () => {
       fetchData();
     } catch (err) {
       setSnack({ open: true, message: err.response?.data?.message || 'Create failed', severity: 'error' });
-    }
-  };
-
-  const handleDelete = async () => {
-    try {
-      await deletePurchase(deleteId);
-      setSnack({ open: true, message: 'Purchase deleted', severity: 'success' });
-      setDeleteId(null);
-      fetchData();
-    } catch (err) {
-      setSnack({ open: true, message: err.response?.data?.message || 'Delete failed', severity: 'error' });
     }
   };
 
@@ -190,6 +186,13 @@ const PurchasesPage = () => {
               width={220}
               sx={{ display: { xs: 'none', sm: 'flex' } }}
             />
+            <Tooltip title="Deleted purchases — restorable for 7 days">
+              <Badge badgeContent={binCount} color="error" overlap="rectangular">
+                <Button variant="outlined" startIcon={<Trash2 size={16} />} onClick={() => setBinOpen(true)}>
+                  Bin
+                </Button>
+              </Badge>
+            </Tooltip>
             <Button variant="outlined" startIcon={<Sparkles size={18} />} onClick={() => setOcrOpen(true)}>
               Upload Invoice
             </Button>
@@ -262,8 +265,8 @@ const PurchasesPage = () => {
                 <input type="file" hidden accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => handleUpload(row.id, e)} />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Delete">
-              <IconButton size="small" sx={{ color: colors.danger }} onClick={() => setDeleteId(row.id)}><Trash2 size={16} /></IconButton>
+            <Tooltip title="Delete (goes to the Bin for 7 days)">
+              <IconButton size="small" sx={{ color: colors.danger }} onClick={() => setDeleteRow(row)}><Trash2 size={16} /></IconButton>
             </Tooltip>
           </Box>
         )}
@@ -334,12 +337,26 @@ const PurchasesPage = () => {
         onClose={() => setViewRow(null)}
       />
 
-      <ConfirmDialog
-        open={!!deleteId}
-        title="Delete Purchase"
-        message="Are you sure you want to delete this purchase?"
-        onConfirm={handleDelete}
-        onCancel={() => setDeleteId(null)}
+      <DeletePurchaseDialog
+        open={!!deleteRow}
+        purchase={deleteRow}
+        onClose={() => setDeleteRow(null)}
+        onDeleted={(message) => {
+          setDeleteRow(null);
+          setSnack({ open: true, message, severity: 'success' });
+          fetchData();
+          loadBinCount();
+        }}
+      />
+
+      <PurchaseBinDialog
+        open={binOpen}
+        onClose={() => setBinOpen(false)}
+        onRestored={(message) => {
+          setSnack({ open: true, message, severity: 'success' });
+          fetchData();
+          loadBinCount();
+        }}
       />
 
       <Snackbar open={snack.open} autoHideDuration={4000} onClose={() => setSnack({ ...snack, open: false })} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}>
